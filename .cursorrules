@@ -1,0 +1,11 @@
+{
+  "rules": [
+    "This is a Next.js 15+ App Router application with React 19 and Tailwind CSS v4.",
+    "Read AGENTS.md before making any architectural or structural changes.",
+    "Do NOT add external database connections (e.g. Firebase, Supabase) unless explicitly requested; the app uses localStorage for zero-latency offline persistence.",
+    "Ensure all code blocks, tables, and terminal snippets remain LTR with 'font-mono', while Persian text retains RTL orientation.",
+    "When adding new Lucide icons, use named imports from 'lucide-react' directly.",
+    "When adding animations, import from 'motion/react'.",
+    "Keep API routes under app/api/ and never expose GEMINI_API_KEY to client components."
+  ]
+}

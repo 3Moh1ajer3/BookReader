@@ -1,0 +1,6 @@
+{
+  "name": "کتاب‌خوان هوشمند HTML",
+  "description": "مطالعه روان کتاب‌ها در قالب HTML تعاملی با ترجمه فوری لغات و جملات انگلیسی، هایلایت، یادداشت‌برداری، تبدیل هوشمند PDF به فصل‌ها و رنگ‌آمیزی کدهای برنامه‌نویسی",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
