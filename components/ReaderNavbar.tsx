@@ -14,6 +14,7 @@ import {
   Moon,
   Coffee,
   Languages,
+  Database,
 } from "lucide-react";
 
 interface ReaderNavbarProps {
@@ -25,6 +26,7 @@ interface ReaderNavbarProps {
   onOpenSettings: () => void;
   onOpenHighlights: () => void;
   onOpenVocabulary: () => void;
+  onOpenLibrary: () => void;
   highlightsCount: number;
   savedWordsCount: number;
   scrollProgress: number;
@@ -42,6 +44,7 @@ export const ReaderNavbar: React.FC<ReaderNavbarProps> = ({
   onOpenSettings,
   onOpenHighlights,
   onOpenVocabulary,
+  onOpenLibrary,
   highlightsCount,
   savedWordsCount,
   scrollProgress,
@@ -192,6 +195,16 @@ export const ReaderNavbar: React.FC<ReaderNavbarProps> = ({
               <span>{targetLanguageLabel || "نسخه دیگر"}</span>
             </button>
           )}
+
+          {/* Library Data (export / import) */}
+          <button
+            id="open-library-data-btn"
+            onClick={onOpenLibrary}
+            className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+            title="پشتیبان‌گیری و بازیابی داده‌ها (هایلایت، یادداشت، واژه‌ها)"
+          >
+            <Database className="w-4 h-4 text-indigo-500" />
+          </button>
 
           {/* Typography Settings */}
           <button

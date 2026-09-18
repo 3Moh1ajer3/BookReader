@@ -11,6 +11,8 @@ import { HighlightsDrawer } from "@/components/HighlightsDrawer";
 import { VocabularyDrawer } from "@/components/VocabularyDrawer";
 import { TranslationCard } from "@/components/TranslationCard";
 import { ChapterBottomBar } from "@/components/ChapterBottomBar";
+import { LibraryDataModal } from "@/components/LibraryDataModal";
+import { buildExportPayload, downloadJson, parseImportPayload, mergeById } from "@/lib/exportImport";
 import { Sparkles, Languages, CheckCircle2, X } from "lucide-react";
 
 export default function Home() {
@@ -74,6 +76,7 @@ export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHighlightsOpen, setIsHighlightsOpen] = useState(false);
   const [isVocabularyOpen, setIsVocabularyOpen] = useState(false);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
 
   // Scroll Progress
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -292,6 +295,31 @@ export default function Home() {
     ? savedWords.some((w) => w.word.toLowerCase() === activeTranslation.text.toLowerCase())
     : false;
 
+  // Library data export / import
+  const handleExportLibrary = () => {
+    const data = buildExportPayload(highlights, savedWords);
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    downloadJson(data, `reader-library-${stamp}.json`);
+    return { ok: true, message: "فایل پشتیبان با موفقیت ساخته و دانلود شد." };
+  };
+
+  const handleImportLibrary = (file: File) => {
+    return file
+      .text()
+      .then((text) => {
+        const { highlights: importedHighlights, savedWords: importedWords } = parseImportPayload(text);
+        const newHighlights = mergeById(highlights, importedHighlights);
+        const newWords = mergeById(savedWords, importedWords);
+        setHighlights(newHighlights);
+        setSavedWords(newWords);
+        return {
+          ok: true,
+          message: `${newHighlights.length - highlights.length} هایلایت و ${newWords.length - savedWords.length} واژه جدید بارگذاری شد.`,
+        };
+      })
+      .catch((e: Error) => ({ ok: false, message: e.message || "بارگذاری ناموفق بود." }));
+  };
+
   return (
     <div
       id="app-root"
@@ -311,6 +339,7 @@ export default function Home() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenHighlights={() => setIsHighlightsOpen(true)}
         onOpenVocabulary={() => setIsVocabularyOpen(true)}
+        onOpenLibrary={() => setIsLibraryOpen(true)}
         highlightsCount={highlights.filter((h) => h.bookId === activeBook.id).length}
         savedWordsCount={savedWords.length}
         scrollProgress={scrollProgress}
@@ -421,6 +450,16 @@ export default function Home() {
         onClose={() => setIsVocabularyOpen(false)}
         savedWords={savedWords}
         onDeleteWord={(id) => setSavedWords((prev) => prev.filter((w) => w.id !== id))}
+      />
+
+      {/* Library Data (export / import) Modal */}
+      <LibraryDataModal
+        isOpen={isLibraryOpen}
+        onClose={() => setIsLibraryOpen(false)}
+        highlightsCount={highlights.length}
+        savedWordsCount={savedWords.length}
+        onExport={handleExportLibrary}
+        onImport={handleImportLibrary}
       />
 
       {/* Day Zero Translation Picker Modal */}

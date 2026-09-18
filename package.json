@@ -7,7 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "clean": "next clean"
+    "clean": "next clean",
+    "book:extract": "node scripts/pipeline/extractPdf.js",
+    "book:build": "node scripts/pipeline/buildBook.js",
+    "book:validate": "node scripts/pipeline/validateBook.js",
+    "book:translate:prep": "node scripts/pipeline/translatePrep.js",
+    "book:translate:build": "node scripts/pipeline/translateBuild.js"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

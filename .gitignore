@@ -1,7 +1,18 @@
 node_modules/
 .next/
+out/
 coverage/
 .DS_Store
 *.log
 .env*
 !.env.example
+
+# pipeline intermediates
+tmp_books/
+tmp_chapters/
+tmp_fa/
+translations/*/chunks/
+translations/*/prompts/
+*.pdf
+tmp_*.json
+*.pdf.json

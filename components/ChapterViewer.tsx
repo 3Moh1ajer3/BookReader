@@ -294,46 +294,121 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
   };
 
   /**
-   * Convert plain text string into interactive word tokens or highlight spans
+   * Convert plain text string into interactive word tokens or highlight spans.
+   *
+   * Consecutive tokens of the same script (English vs Persian) are grouped into
+   * directional runs and each run is wrapped with `dir` + `unicode-bidi: isolate`.
+   * This keeps the Unicode bidi algorithm from visually reordering a multi-word
+   * English phrase ("the book is" -> "is book the") when it sits inside an RTL
+   * (Persian) paragraph, while individual words stay clickable for translation.
    */
-  const renderInteractiveTokens = (text: string, keyPrefix: string) => {
+  const renderInteractiveTokens = (text: string, keyPrefix: string): React.ReactNode => {
     const tokens = text.split(/([A-Za-z0-9_\-]+|[^\sA-Za-z0-9_\-]+|\s+)/).filter(Boolean);
 
-    return tokens.map((token, tIdx) => {
-      const isWord = /^[A-Za-z]{2,}$/.test(token);
-      const activeHighlight = chapterHighlights.find(
-        (h) => h.text.includes(token) && token.length > 2
+    // Group tokens into directional runs (en / fa / neutral follows its neighbors).
+    // Neutral punctuation (quotes, parens, etc.) is buffered and attached to the
+    // NEXT strong run, so `("why")` stays a single LTR-isolated unit instead of
+    // letting the leading `("` wander to the far end of the paragraph (bidi bug).
+    const runs: { dir: "en" | "fa"; tokens: string[] }[] = [];
+    const pending: string[] = [];
+    for (const token of tokens) {
+      const isEn = /^[A-Za-z0-9_\-]+$/.test(token);
+      const isFa = /[\u0600-\u06FF]/.test(token);
+      const kind: "en" | "fa" | "neutral" = isEn ? "en" : isFa ? "fa" : "neutral";
+
+      if (kind === "neutral") {
+        pending.push(token);
+        continue;
+      }
+
+      const last = runs[runs.length - 1];
+      if (last && last.dir === kind) {
+        last.tokens.push(...pending, token);
+        pending.length = 0;
+      } else {
+        runs.push({ dir: kind, tokens: [...pending, token] });
+        pending.length = 0;
+      }
+    }
+
+    // Trailing neutrals (e.g. closing quotes / period) follow the last strong run.
+    const lastRun = runs[runs.length - 1];
+    if (pending.length > 0 && lastRun) lastRun.tokens.push(...pending);
+
+    // A purely-punctuational fragment (no strong chars at all): render raw.
+    if (runs.length === 0 && pending.length > 0) return pending.join("");
+
+    let globalIdx = 0;
+
+    // Precompute the exact character ranges of each highlight phrase
+    // (case-insensitive) within this text. Highlights are matched by
+    // position only, so selecting "the book is" never highlights a lone
+    // "the" or "book" somewhere else in the chapter.
+    const textLower = text.toLowerCase();
+    const highlightRanges: { start: number; end: number; color: string }[] = [];
+    for (const h of chapterHighlights) {
+      const needle = h.text.trim().toLowerCase();
+      if (needle.length < 2) continue;
+      let idx = textLower.indexOf(needle);
+      while (idx !== -1) {
+        highlightRanges.push({ start: idx, end: idx + needle.length, color: h.color });
+        idx = textLower.indexOf(needle, idx + needle.length);
+      }
+    }
+
+    return runs.map((run, rIdx) => {
+      const isStrongRun = run.tokens.some((t) => /[\u0600-\u06FFA-Za-z]/.test(t));
+      const runDir = run.dir === "fa" ? "rtl" : "ltr";
+
+      let charOffset = 0;
+      const inner = run.tokens.map((token, tIdx) => {
+        const tokenStart = charOffset;
+        const tokenEnd = charOffset + token.length;
+        charOffset = tokenEnd;
+
+        const isWord = /^[A-Za-z]{2,}$/.test(token);
+        const activeHighlight = highlightRanges.find(
+          (r) => r.start <= tokenStart && tokenEnd <= r.end
+        );
+        const tokenKey = `${keyPrefix}-r${rIdx}-t${globalIdx++}`;
+
+        if (isWord && preferences.tapToTranslate) {
+          return (
+            <span
+              key={tokenKey}
+              id={`word-${token.toLowerCase()}-${globalIdx}`}
+              className={`interactive-word ${activeHighlight ? `hl-${activeHighlight.color}` : ""}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onWordClick(token, text);
+              }}
+              title="برای ترجمه و تلفظ ضربه بزنید"
+            >
+              {token}
+            </span>
+          );
+        }
+
+        if (activeHighlight && token.trim().length > 0) {
+          return (
+            <mark key={tokenKey} className={`hl-${activeHighlight.color} rounded px-0.5`}>
+              {token}
+            </mark>
+          );
+        }
+
+        return <React.Fragment key={tokenKey}>{token}</React.Fragment>;
+      });
+
+      // Spaces / pure punctuation: render raw so whitespace collapion is unaffected.
+      if (!isStrongRun) return <React.Fragment key={`${keyPrefix}-r${rIdx}`}>{inner}</React.Fragment>;
+
+      // Directional run: isolate so the bidi algorithm cannot reorder it (see above).
+      return (
+        <span key={`${keyPrefix}-r${rIdx}`} dir={runDir} style={{ unicodeBidi: "isolate" }}>
+          {inner}
+        </span>
       );
-
-      if (isWord && preferences.tapToTranslate) {
-        return (
-          <span
-            key={`${keyPrefix}-tok-${tIdx}`}
-            id={`word-${token.toLowerCase()}-${tIdx}`}
-            className={`interactive-word ${activeHighlight ? `hl-${activeHighlight.color}` : ""}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onWordClick(token, text);
-            }}
-            title="برای ترجمه و تلفظ ضربه بزنید"
-          >
-            {token}
-          </span>
-        );
-      }
-
-      if (activeHighlight && token.trim().length > 0) {
-        return (
-          <mark
-            key={`${keyPrefix}-hl-${tIdx}`}
-            className={`hl-${activeHighlight.color} rounded px-0.5`}
-          >
-            {token}
-          </mark>
-        );
-      }
-
-      return <React.Fragment key={`${keyPrefix}-txt-${tIdx}`}>{token}</React.Fragment>;
     });
   };
 

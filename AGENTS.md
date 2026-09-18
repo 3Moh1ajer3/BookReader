@@ -65,9 +65,18 @@ This document serves as the single source of truth for autonomous AI agents (e.g
 │   └── utils.ts                    # Classnames merger (`clsx` + `tailwind-merge`)
 ├── types/
 │   └── reader.ts                   # Core TypeScript interfaces: Book, Chapter, Highlight, SavedWord, etc.
+├── scripts/pipeline/               # REUSABLE, config-driven book tooling (extract/build/validate/translate)
+├── books.config.json               # Per-book pipeline configuration (PDF path, page ranges, metadata)
+├── docs/
+│   ├── ARCHITECTURE.md             # File map, dependency graph, content format spec
+│   ├── AGENT_GUIDE.md              # Context loading order, mandatory checklists, gotchas
+│   └── BOOK_PIPELINE.md            # Step-by-step guide for adding new books
 ├── metadata.json                   # App title, description, and AI Studio capabilities
 └── AGENTS.md                       # This instruction file
-\`\`\`
+```
+
+**Note:** `scripts/*.js` in the repo root are legacy one-off scripts from the first book.
+Do not extend them — all book tooling goes through `scripts/pipeline/` (`npm run book:*`).
 
 ---
 
@@ -95,11 +104,37 @@ When editing or extending this codebase, agents **MUST** follow these rules:
 - When importing from Lucide, use named imports: `import { BookOpen, Search } from "lucide-react";`.
 - For animations, import from `motion/react`, never legacy `framer-motion`.
 
+### 5. Documentation Discipline (MUST)
+Agents MUST consult the docs at the right moments and keep them true:
+
+**When to read `docs/` (before acting):**
+- **`docs/ARCHITECTURE.md`** — before any cross-file change, refactor, new feature, or new component. Gives the file map, dependency graph, content format, and extension points.
+- **`docs/AGENT_GUIDE.md`** — on EVERY task: context-loading order, mandatory verification loop, gotchas.
+- **`docs/BOOK_PIPELINE.md`** — for any book-related change (adding/extending/validating books).
+
+**When to UPDATE `docs/` (after major changes):**
+- Adding/removing/renaming a file or directory → update the map in `docs/ARCHITECTURE.md`.
+- Changing data shapes, content format, or persistence keys → update `docs/ARCHITECTURE.md`.
+- Changing the rendering/RTL pipeline, API routes, or build process → update `docs/ARCHITECTURE.md` and/or `docs/AGENT_GUIDE.md`.
+- Changing book tooling/config or npm `book:*` scripts → update `docs/BOOK_PIPELINE.md`.
+- Changing agent work rules → update `AGENTS.md` and the mirrors (`.cursorrules`, `.clinerules`, `.windsurfrules`, `.github/copilot-instructions.md`).
+- Introducing a brand-new concept/workflow → add a short section to the most relevant doc instead of inventing a new file.
+
+If a task introduces a change so large that the existing docs would mislead the next agent, **updating the docs is part of the task**, not a follow-up.
+
 ---
 
 ## 4. Common Agentic Workflows
 
-### Adding a New Book
+### Adding a New Book (config-driven pipeline)
+Follow `docs/BOOK_PIPELINE.md` end-to-end. Summary:
+1. Add the book entry (PDF path, page ranges, metadata) to `books.config.json`.
+2. `npm run book:extract -- --book <id>` → review/fix the generated markdown in `tmp_books/<id>/`.
+3. `npm run book:build -- --book <id> --register` → chapter/index .ts files + auto-registration in `data/sampleBooks.ts`.
+4. Persian edition: `npm run book:translate:prep` → translate chunks → `npm run book:translate:build --register`.
+5. Always finish with `npm run book:validate`, `npm run lint`, `npm run build`.
+
+### Manual (rare) book edits
 1. Create chapter files in `data/<book_folder>/`.
 2. Define the book export object conforming to the `Book` interface in `types/reader.ts`.
 3. Register the book in `data/sampleBooks.ts` array.

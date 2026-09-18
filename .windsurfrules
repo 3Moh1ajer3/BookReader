@@ -1,0 +1,9 @@
+# Rules for Windsurf/Cascade — see AGENTS.md, docs/AGENT_GUIDE.md and docs/ARCHITECTURE.md for full context.
+
+- Next.js 15 App Router + React 19 + Tailwind CSS v4 + TypeScript strict.
+- Offline-first: all user state in localStorage. Never add remote DBs/auth/telemetry.
+- Persian (RTL) vs English (LTR): code blocks, inline code, tables are ALWAYS LTR/left-aligned; Persian headings/paragraphs RTL/right-aligned.
+- AI calls (Gemini) are server-only via app/api routes; never expose GEMINI_API_KEY client-side; always provide offline fallback.
+- Icons: named imports from lucide-react. Animations: motion/react.
+- New books go through scripts/pipeline (npm run book:*) and MUST be registered in data/sampleBooks.ts.
+- After changes run: npm run lint && npm run build (and npm run book:validate if data/ changed).
