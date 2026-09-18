@@ -190,7 +190,9 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
         return (
           <code
             key={partKey}
+            dir="ltr"
             className="px-1.5 py-0.5 mx-0.5 rounded bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-mono text-sm border border-slate-200 dark:border-slate-700/60 inline-block align-baseline"
+            style={{ unicodeBidi: "isolate" }}
           >
             {renderInteractiveTokens(codeText, `${partKey}-c`)}
           </code>
@@ -296,54 +298,25 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
   /**
    * Convert plain text string into interactive word tokens or highlight spans.
    *
-   * Consecutive tokens of the same script (English vs Persian) are grouped into
-   * directional runs and each run is wrapped with `dir` + `unicode-bidi: isolate`.
-   * This keeps the Unicode bidi algorithm from visually reordering a multi-word
-   * English phrase ("the book is" -> "is book the") when it sits inside an RTL
-   * (Persian) paragraph, while individual words stay clickable for translation.
+   * Standards-compliant Bidirectional (bidi) handling:
+   * - In an RTL block (Persian chapter or Persian text):
+   *   Persian text and sentence punctuation (quotes, parentheses, brackets, commas, colons)
+   *   remain in the base RTL stream without artificial isolated spans.
+   *   Only embedded English/Latin phrases (e.g. "Day Zero", "why", "CVSS", "Black-box") are isolated
+   *   using `dir="ltr"` and `unicodeBidi: "isolate"`.
+   *   Sentence punctuation (like outer parentheses `( )`, quotes `" "`, etc.) is NEVER swallowed into
+   *   or split across isolate boundaries. This allows the browser's Unicode Bidi Brackets Algorithm (BBA)
+   *   to correctly match opening and closing brackets, preventing flipped brackets like `("(" why` or `) why`.
+   * - In an LTR block (English chapter):
+   *   Words flow in LTR naturally, with individual words clickable for tap-to-translate.
    */
   const renderInteractiveTokens = (text: string, keyPrefix: string): React.ReactNode => {
-    const tokens = text.split(/([A-Za-z0-9_\-]+|[^\sA-Za-z0-9_\-]+|\s+)/).filter(Boolean);
+    if (!text) return null;
 
-    // Group tokens into directional runs (en / fa / neutral follows its neighbors).
-    // Neutral punctuation (quotes, parens, etc.) is buffered and attached to the
-    // NEXT strong run, so `("why")` stays a single LTR-isolated unit instead of
-    // letting the leading `("` wander to the far end of the paragraph (bidi bug).
-    const runs: { dir: "en" | "fa"; tokens: string[] }[] = [];
-    const pending: string[] = [];
-    for (const token of tokens) {
-      const isEn = /^[A-Za-z0-9_\-]+$/.test(token);
-      const isFa = /[\u0600-\u06FF]/.test(token);
-      const kind: "en" | "fa" | "neutral" = isEn ? "en" : isFa ? "fa" : "neutral";
-
-      if (kind === "neutral") {
-        pending.push(token);
-        continue;
-      }
-
-      const last = runs[runs.length - 1];
-      if (last && last.dir === kind) {
-        last.tokens.push(...pending, token);
-        pending.length = 0;
-      } else {
-        runs.push({ dir: kind, tokens: [...pending, token] });
-        pending.length = 0;
-      }
-    }
-
-    // Trailing neutrals (e.g. closing quotes / period) follow the last strong run.
-    const lastRun = runs[runs.length - 1];
-    if (pending.length > 0 && lastRun) lastRun.tokens.push(...pending);
-
-    // A purely-punctuational fragment (no strong chars at all): render raw.
-    if (runs.length === 0 && pending.length > 0) return pending.join("");
-
-    let globalIdx = 0;
+    // Detect if this text operates in an RTL context
+    const isRtlBlock = /[\u0600-\u06FF]/.test(text) || /[\u0600-\u06FF]/.test(chapter.title);
 
     // Precompute the exact character ranges of each highlight phrase
-    // (case-insensitive) within this text. Highlights are matched by
-    // position only, so selecting "the book is" never highlights a lone
-    // "the" or "book" somewhere else in the chapter.
     const textLower = text.toLowerCase();
     const highlightRanges: { start: number; end: number; color: string }[] = [];
     for (const h of chapterHighlights) {
@@ -356,59 +329,188 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
       }
     }
 
-    return runs.map((run, rIdx) => {
-      const isStrongRun = run.tokens.some((t) => /[\u0600-\u06FFA-Za-z]/.test(t));
-      const runDir = run.dir === "fa" ? "rtl" : "ltr";
+    let globalTokenIdx = 0;
 
-      let charOffset = 0;
-      const inner = run.tokens.map((token, tIdx) => {
-        const tokenStart = charOffset;
-        const tokenEnd = charOffset + token.length;
-        charOffset = tokenEnd;
+    if (isRtlBlock) {
+      // In RTL blocks, identify runs of English/Latin terms and isolate them.
+      // Delimiters and sentence punctuation (parentheses, quotes, Persian commas, colons)
+      // remain in base text so the Unicode Bidi algorithm and Bidi Brackets Algorithm
+      // preserve natural typography and paired bracket directions.
+      const wordPattern = "[A-Za-z0-9](?:[A-Za-z0-9_\\-+./#]*[A-Za-z0-9])?";
+      const enRunRegex = new RegExp(`${wordPattern}(?:\\s+${wordPattern})*`, "g");
 
-        const isWord = /^[A-Za-z]{2,}$/.test(token);
-        const activeHighlight = highlightRanges.find(
-          (r) => r.start <= tokenStart && tokenEnd <= r.end
-        );
-        const tokenKey = `${keyPrefix}-r${rIdx}-t${globalIdx++}`;
+      interface Segment {
+        type: "en" | "base";
+        text: string;
+        start: number;
+      }
 
-        if (isWord && preferences.tapToTranslate) {
+      const segments: Segment[] = [];
+      let lastIdx = 0;
+      let match: RegExpExecArray | null;
+
+      while ((match = enRunRegex.exec(text)) !== null) {
+        const matchText = match[0];
+        if (/[A-Za-z]/.test(matchText)) {
+          if (match.index > lastIdx) {
+            segments.push({ type: "base", text: text.slice(lastIdx, match.index), start: lastIdx });
+          }
+          segments.push({ type: "en", text: matchText, start: match.index });
+          lastIdx = match.index + matchText.length;
+        }
+      }
+      if (lastIdx < text.length) {
+        segments.push({ type: "base", text: text.slice(lastIdx), start: lastIdx });
+      }
+
+      if (segments.length === 0) {
+        segments.push({ type: "base", text, start: 0 });
+      }
+
+      return segments.map((seg, sIdx) => {
+        const segKey = `${keyPrefix}-s${sIdx}`;
+
+        if (seg.type === "en") {
+          // English run: render inside isolated LTR span
+          const subTokens = seg.text.split(/([A-Za-z]{2,})/g).filter(Boolean);
+          let currentOffset = seg.start;
+
+          const inner = subTokens.map((subToken) => {
+            const tokenStart = currentOffset;
+            const tokenEnd = currentOffset + subToken.length;
+            currentOffset = tokenEnd;
+
+            const isWord = /^[A-Za-z]{2,}$/.test(subToken);
+            const activeHighlight = highlightRanges.find(
+              (r) => r.start <= tokenStart && tokenEnd <= r.end
+            );
+            const subKey = `${segKey}-t${globalTokenIdx++}`;
+
+            if (isWord && preferences.tapToTranslate) {
+              return (
+                <span
+                  key={subKey}
+                  id={`word-${subToken.toLowerCase()}-${globalTokenIdx}`}
+                  className={`interactive-word ${activeHighlight ? `hl-${activeHighlight.color}` : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onWordClick(subToken, text);
+                  }}
+                  title="برای ترجمه و تلفظ ضربه بزنید"
+                >
+                  {subToken}
+                </span>
+              );
+            }
+
+            if (activeHighlight && subToken.trim().length > 0) {
+              return (
+                <mark key={subKey} className={`hl-${activeHighlight.color} rounded px-0.5`}>
+                  {subToken}
+                </mark>
+              );
+            }
+
+            return <React.Fragment key={subKey}>{subToken}</React.Fragment>;
+          });
+
           return (
-            <span
-              key={tokenKey}
-              id={`word-${token.toLowerCase()}-${globalIdx}`}
-              className={`interactive-word ${activeHighlight ? `hl-${activeHighlight.color}` : ""}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onWordClick(token, text);
-              }}
-              title="برای ترجمه و تلفظ ضربه بزنید"
-            >
-              {token}
+            <span key={segKey} dir="ltr" style={{ unicodeBidi: "isolate" }}>
+              {inner}
             </span>
           );
         }
 
-        if (activeHighlight && token.trim().length > 0) {
-          return (
-            <mark key={tokenKey} className={`hl-${activeHighlight.color} rounded px-0.5`}>
-              {token}
-            </mark>
+        // Base text (Persian text, spaces, punctuation): check highlights
+        const segStart = seg.start;
+        const segEnd = segStart + seg.text.length;
+        const segHighlights = highlightRanges.filter((r) => r.end > segStart && r.start < segEnd);
+
+        if (segHighlights.length === 0) {
+          return <React.Fragment key={segKey}>{seg.text}</React.Fragment>;
+        }
+
+        // Segment contains highlighted ranges
+        let cur = segStart;
+        const parts: React.ReactNode[] = [];
+        let pIdx = 0;
+
+        for (const hl of segHighlights) {
+          const hStart = Math.max(cur, hl.start);
+          const hEnd = Math.min(segEnd, hl.end);
+
+          if (hStart > cur) {
+            parts.push(
+              <React.Fragment key={`${segKey}-p${pIdx++}`}>
+                {seg.text.slice(cur - segStart, hStart - segStart)}
+              </React.Fragment>
+            );
+          }
+
+          if (hEnd > hStart) {
+            parts.push(
+              <mark key={`${segKey}-p${pIdx++}`} className={`hl-${hl.color} rounded px-0.5`}>
+                {seg.text.slice(hStart - segStart, hEnd - segStart)}
+              </mark>
+            );
+            cur = hEnd;
+          }
+        }
+
+        if (cur < segEnd) {
+          parts.push(
+            <React.Fragment key={`${segKey}-p${pIdx++}`}>
+              {seg.text.slice(cur - segStart)}
+            </React.Fragment>
           );
         }
 
-        return <React.Fragment key={tokenKey}>{token}</React.Fragment>;
+        return <React.Fragment key={segKey}>{parts}</React.Fragment>;
       });
+    }
 
-      // Spaces / pure punctuation: render raw so whitespace collapion is unaffected.
-      if (!isStrongRun) return <React.Fragment key={`${keyPrefix}-r${rIdx}`}>{inner}</React.Fragment>;
+    // In LTR blocks (English chapters):
+    // Split into words (for tap-to-translate & highlights) and delimiters
+    const tokens = text.split(/([A-Za-z]{2,})/g).filter(Boolean);
+    let charOffset = 0;
 
-      // Directional run: isolate so the bidi algorithm cannot reorder it (see above).
-      return (
-        <span key={`${keyPrefix}-r${rIdx}`} dir={runDir} style={{ unicodeBidi: "isolate" }}>
-          {inner}
-        </span>
+    return tokens.map((token) => {
+      const tokenStart = charOffset;
+      const tokenEnd = charOffset + token.length;
+      charOffset = tokenEnd;
+
+      const isWord = /^[A-Za-z]{2,}$/.test(token);
+      const activeHighlight = highlightRanges.find(
+        (r) => r.start <= tokenStart && tokenEnd <= r.end
       );
+      const tokenKey = `${keyPrefix}-t${globalTokenIdx++}`;
+
+      if (isWord && preferences.tapToTranslate) {
+        return (
+          <span
+            key={tokenKey}
+            id={`word-${token.toLowerCase()}-${globalTokenIdx}`}
+            className={`interactive-word ${activeHighlight ? `hl-${activeHighlight.color}` : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onWordClick(token, text);
+            }}
+            title="برای ترجمه و تلفظ ضربه بزنید"
+          >
+            {token}
+          </span>
+        );
+      }
+
+      if (activeHighlight && token.trim().length > 0) {
+        return (
+          <mark key={tokenKey} className={`hl-${activeHighlight.color} rounded px-0.5`}>
+            {token}
+          </mark>
+        );
+      }
+
+      return <React.Fragment key={tokenKey}>{token}</React.Fragment>;
     });
   };
 
@@ -430,6 +532,7 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
       return (
         <h4
           key={`h4-${bIdx}`}
+          dir={blockDir}
           className={`text-lg sm:text-xl font-bold mt-6 mb-3 text-slate-900 dark:text-slate-100 font-sans ${
             isRtl ? "border-r-2 border-indigo-400 pr-2" : "border-l-2 border-indigo-400 pl-2"
           }`}
@@ -443,6 +546,7 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
       return (
         <h3
           key={`h3-${bIdx}`}
+          dir={blockDir}
           className={`text-xl sm:text-2xl font-bold mt-8 mb-4 text-slate-900 dark:text-slate-100 font-sans ${
             isRtl ? "border-r-4 border-blue-500 pr-3" : "border-l-4 border-blue-500 pl-3"
           }`}
@@ -456,6 +560,7 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
       return (
         <h2
           key={`h2-${bIdx}`}
+          dir={blockDir}
           className={`text-2xl sm:text-3xl font-extrabold mt-10 mb-5 text-slate-900 dark:text-slate-100 font-sans ${
             isRtl ? "border-r-4 border-indigo-500 pr-3" : "border-l-4 border-indigo-500 pl-3"
           }`}
@@ -469,6 +574,7 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
       return (
         <h1
           key={`h1-${bIdx}`}
+          dir={blockDir}
           className={`text-3xl sm:text-4xl font-black mt-12 mb-6 text-slate-900 dark:text-white font-sans ${
             isRtl ? "border-r-4 border-blue-600 pr-3" : "border-l-4 border-blue-600 pl-3"
           }`}
@@ -488,6 +594,7 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
       return (
         <blockquote
           key={`quote-${bIdx}`}
+          dir={blockDir}
           className={`${
             isRtl
               ? "border-r-4 border-blue-500 rounded-l-lg"
@@ -510,6 +617,7 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
       return (
         <ul
           key={`ul-${bIdx}`}
+          dir={blockDir}
           className={`list-disc list-inside space-y-2.5 my-5 ${isRtl ? "pr-3" : "pl-3"}`}
           style={{ direction: blockDir, textAlign: blockAlign }}
         >
@@ -532,6 +640,7 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
       return (
         <ol
           key={`ol-${bIdx}`}
+          dir={blockDir}
           className={`list-decimal list-inside space-y-2.5 my-5 ${isRtl ? "pr-3" : "pl-3"}`}
           style={{ direction: blockDir, textAlign: blockAlign }}
         >
@@ -646,6 +755,7 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
     return (
       <p
         key={`p-${bIdx}`}
+        dir={blockDir}
         className="mb-5 leading-relaxed tracking-normal text-slate-800 dark:text-slate-200"
         style={{ direction: blockDir, textAlign: blockAlign }}
       >

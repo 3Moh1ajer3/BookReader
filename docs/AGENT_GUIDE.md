@@ -72,7 +72,7 @@ chapters, missing images referenced by `/images/...`, and reading-time mismatche
 
 ## 6. Known Gotchas
 
-- **Bidi word-order bug:** `ChapterViewer` wraps each word in its own span for tap-to-translate. Inside an RTL paragraph this can visually scramble a multi-word English phrase ("the book is" → "is book the"). The fix already in place: consecutive same-script tokens are grouped into directional runs isolated with `dir` + `unicode-bidi: isolate` (`renderInteractiveTokens`). If you add a new renderer that splits text into word spans, replicate this run-grouping or the bug returns.
+- **Bidi mixed-script & punctuation handling:** `ChapterViewer` isolates embedded English phrases (`dir="ltr"` + `unicode-bidi: isolate`) within Persian RTL blocks so multi-word English phrases ("the book is") are never scrambled. Crucially, sentence punctuation (parentheses `()`, quotes `""`, brackets `[]`, colons, Persian commas) is kept in the base RTL context rather than swallowed into the LTR isolate; this allows the browser's Unicode Bidi Brackets Algorithm (BBA) to properly pair brackets and prevent inverted punctuation like `("(" why`. Never absorb boundary punctuation into directional isolates.
 - `pdfjs-dist` is used **both** client-side (BookImporterModal) and in pipeline scripts
   (legacy build via `pdfjs-dist/legacy/build/pdf.mjs`). Don't mix import styles.
 - Persian chapter files must escape backticks and `${` inside template literals — the
