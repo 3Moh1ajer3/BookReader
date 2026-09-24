@@ -547,7 +547,7 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
         <h3
           key={`h3-${bIdx}`}
           dir={blockDir}
-          className={`text-xl sm:text-2xl font-bold mt-8 mb-4 text-slate-900 dark:text-slate-100 font-sans ${
+          className={`text-lg sm:text-2xl font-bold mt-8 mb-3 text-slate-900 dark:text-slate-100 font-sans ${
             isRtl ? "border-r-4 border-blue-500 pr-3" : "border-l-4 border-blue-500 pl-3"
           }`}
           style={{ direction: blockDir, textAlign: blockAlign }}
@@ -561,7 +561,7 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
         <h2
           key={`h2-${bIdx}`}
           dir={blockDir}
-          className={`text-2xl sm:text-3xl font-extrabold mt-10 mb-5 text-slate-900 dark:text-slate-100 font-sans ${
+          className={`text-xl sm:text-2xl font-extrabold mt-10 mb-4 text-slate-900 dark:text-slate-100 font-sans ${
             isRtl ? "border-r-4 border-indigo-500 pr-3" : "border-l-4 border-indigo-500 pl-3"
           }`}
           style={{ direction: blockDir, textAlign: blockAlign }}
@@ -575,7 +575,7 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
         <h1
           key={`h1-${bIdx}`}
           dir={blockDir}
-          className={`text-3xl sm:text-4xl font-black mt-12 mb-6 text-slate-900 dark:text-white font-sans ${
+          className={`text-2xl sm:text-4xl font-black mt-12 mb-5 text-slate-900 dark:text-white font-sans ${
             isRtl ? "border-r-4 border-blue-600 pr-3" : "border-l-4 border-blue-600 pl-3"
           }`}
           style={{ direction: blockDir, textAlign: blockAlign }}
@@ -792,7 +792,7 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
     <div
       ref={containerRef}
       id="chapter-viewer-container"
-      className={`mx-auto px-4 sm:px-8 py-6 transition-all ${getContentWidthClass()}`}
+      className={`mx-auto px-3.5 sm:px-6 md:px-8 py-5 pb-24 md:pb-12 transition-all ${getContentWidthClass()}`}
     >
       {/* Chapter Meta Header */}
       <div className="mb-8 pb-4 border-b border-slate-200 dark:border-slate-800" style={{ direction: "rtl" }}>

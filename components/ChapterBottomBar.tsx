@@ -22,7 +22,7 @@ export const ChapterBottomBar: React.FC<ChapterBottomBarProps> = ({
   const nextChapter = currentIndex < chapters.length - 1 ? chapters[currentIndex + 1] : null;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-8 mt-12 mb-8 space-y-4">
+    <div className="max-w-4xl mx-auto px-4 sm:px-8 mt-12 mb-8 pb-20 md:pb-8 space-y-4">
       <nav
         id="chapter-bottom-nav"
         className="py-6 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4"

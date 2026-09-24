@@ -640,20 +640,20 @@ export default function Home() {
       {showWelcomeTip && (
         <div
           id="welcome-guide-banner"
-          className="max-w-3xl mx-auto mt-4 px-4 sm:px-6 py-3 rounded-2xl bg-blue-50/90 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900/60 text-blue-900 dark:text-blue-200 text-xs flex items-center justify-between gap-3 shadow-xs animate-in fade-in slide-in-from-top-2 duration-300"
+          className="max-w-3xl mx-3 sm:mx-auto mt-3 sm:mt-4 px-3 sm:px-5 py-2.5 rounded-2xl bg-blue-50/90 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900/60 text-blue-900 dark:text-blue-200 text-xs flex items-center justify-between gap-2 sm:gap-3 shadow-xs animate-in fade-in slide-in-from-top-2 duration-300"
           style={{ direction: "rtl" }}
         >
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-            <span>
-              <strong>راهنمای سریع مطالعه:</strong> روی هر کلمه انگلیسی کلیک یا لمس کنید تا بلافاصله ترجمه فارسی، تلفظ صوتی و توضیح مفهومی آن را مشاهده کنید. کدهای برنامه‌نویسی نیز دارای رنگ‌آمیزی اختصاصی (Syntax Highlighting) هستند. از دکمه «زبان» در نوار بالا می‌توانید کل کتاب را بین نسخه انگلیسی و دو ترجمه فارسی جابه‌جا کنید: «ترجمه استاد GLM» و «ترجمه استاد Gemini». توجه: در دو فصل اول، متن هر دو ترجمه یکسان است.
+            <span className="text-[11px] sm:text-xs leading-relaxed">
+              <strong>راهنمای سریع:</strong> با کلیک یا لمس هر کلمه، ترجمه و تلفظ آن را ببینید. برای تنظیم اندازه قلم و تم از نوار پایین صفحه استفاده کنید.
             </span>
           </div>
           <button
             onClick={() => setShowWelcomeTip(false)}
-            className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+            className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline shrink-0 px-2.5 py-1 rounded-lg bg-blue-100/80 dark:bg-blue-900/80 cursor-pointer"
           >
-            متوجه شدم
+            بستن
           </button>
         </div>
       )}
