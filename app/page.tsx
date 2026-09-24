@@ -89,6 +89,51 @@ export default function Home() {
     } catch {}
   }, [preferences]);
 
+  // Synchronize active theme with <html> element and override mobile browser Auto-Dark
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    const theme = preferences.theme;
+    const isDark = theme === "dark" || theme === "oled";
+
+    // Clean previous theme classes
+    root.classList.remove("theme-light", "theme-sepia", "theme-dark", "theme-oled", "dark");
+    root.classList.add(`theme-${theme}`);
+
+    // Toggle .dark class based strictly on the reader theme, immune to phone system mode
+    if (isDark) {
+      root.classList.add("dark");
+      root.style.colorScheme = "only dark";
+    } else {
+      root.classList.remove("dark");
+      root.style.colorScheme = "only light";
+    }
+
+    // Set meta color-scheme
+    let metaScheme = document.querySelector('meta[name="color-scheme"]');
+    if (!metaScheme) {
+      metaScheme = document.createElement("meta");
+      metaScheme.setAttribute("name", "color-scheme");
+      document.head.appendChild(metaScheme);
+    }
+    metaScheme.setAttribute("content", isDark ? "dark" : "light");
+
+    // Dynamic mobile address bar color matching reader background
+    let metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (!metaThemeColor) {
+      metaThemeColor = document.createElement("meta");
+      metaThemeColor.setAttribute("name", "theme-color");
+      document.head.appendChild(metaThemeColor);
+    }
+    const themeBgColors: Record<string, string> = {
+      light: "#f8fafc",
+      sepia: "#fbf0d9",
+      dark: "#0f172a",
+      oled: "#000000",
+    };
+    metaThemeColor.setAttribute("content", themeBgColors[theme] || "#f8fafc");
+  }, [preferences.theme]);
+
   useEffect(() => {
     try {
       localStorage.setItem("smart_reader_highlights", JSON.stringify(highlights));
@@ -125,33 +170,100 @@ export default function Home() {
     setPreferences((prev) => ({ ...prev, ...newPrefs }));
   };
 
-  // Translation request handler
+  // Translation request handler (PHP backend with direct Google Translate client fallback)
   const fetchTranslation = useCallback(async (textToTranslate: string, contextString: string) => {
     setTranslationLoading(true);
     setLastSelectedText(textToTranslate);
 
     try {
+      // اول تلاش برای دریافت از اندپوینت هاست PHP
       const res = await fetch(
         process.env.NEXT_PUBLIC_TRANSLATE_ENDPOINT || "api/translate.php",
         {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: textToTranslate,
-          context: contextString,
-        }),
-      });
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: textToTranslate,
+            context: contextString,
+          }),
+        }
+      );
 
-      if (!res.ok) throw new Error("Translation failed");
-      const data: TranslationResult = await res.json();
-      setActiveTranslation(data);
-    } catch (e: any) {
-      console.error(e);
-      // Fallback
+      if (res.ok) {
+        const data: TranslationResult = await res.json();
+        if (data && data.persianTranslation) {
+          setActiveTranslation(data);
+          return;
+        }
+      }
+      throw new Error("PHP endpoint unreachable or returned empty");
+    } catch {
+      // در صورت عدم پاسخ هاست یا حالت پیش‌نمایش لوکال، مستقیماً از Google Translate کلاینت دریافت می‌شود
+      try {
+        const gUrl = `https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=auto&tl=fa&dt=t&dt=bd&dt=rm&q=${encodeURIComponent(textToTranslate)}`;
+        const gRes = await fetch(gUrl);
+        if (gRes.ok) {
+          const json = await gRes.json();
+          if (Array.isArray(json) && Array.isArray(json[0])) {
+            let translated = "";
+            for (const part of json[0]) {
+              if (typeof part[0] === "string") translated += part[0];
+            }
+
+            let phonetic: string | undefined = undefined;
+            if (json[0].length > 0) {
+              const last = json[0][json[0].length - 1];
+              if (last && typeof last[3] === "string") phonetic = last[3];
+              else if (last && typeof last[2] === "string") phonetic = last[2];
+            }
+
+            const synonyms: string[] = [];
+            let partOfSpeech: string | undefined = undefined;
+            if (Array.isArray(json[1])) {
+              const posMap: Record<string, string> = {
+                noun: "اسم (Noun)",
+                verb: "فعل (Verb)",
+                adjective: "صفت (Adjective)",
+                adverb: "قید (Adverb)",
+                preposition: "حرف اضافه",
+                conjunction: "حرف ربط",
+                pronoun: "ضمیر",
+                phrase: "اصطلاح / عبارت",
+              };
+              const posList: string[] = [];
+              for (const item of json[1]) {
+                const enPos = (item[0] || "").toLowerCase();
+                if (posMap[enPos]) posList.push(posMap[enPos]);
+                if (Array.isArray(item[1])) {
+                  for (const s of item[1]) {
+                    if (typeof s === "string" && !synonyms.includes(s)) {
+                      synonyms.push(s);
+                    }
+                  }
+                }
+              }
+              if (posList.length > 0) partOfSpeech = posList.slice(0, 2).join("، ");
+            }
+
+            setActiveTranslation({
+              text: textToTranslate,
+              persianTranslation: translated || textToTranslate,
+              phonetic,
+              partOfSpeech,
+              explanation: synonyms.length > 0 ? `سایر معانی در دیکشنری: ${synonyms.slice(0, 5).join("، ")}` : "ترجمه Google Translate",
+              synonyms: synonyms.slice(0, 6),
+              examples: [],
+            });
+            return;
+          }
+        }
+      } catch {}
+
+      // فال‌بک نهایی
       setActiveTranslation({
         text: textToTranslate,
-        persianTranslation: "ترجمه در دسترس نیست",
-        explanation: "لطفاً مجدداً امتحان کنید یا ارتباط اینترنت را بررسی نمایید.",
+        persianTranslation: `ترجمه «${textToTranslate}»`,
+        explanation: "سرویس ترجمه در دسترس نیست. لطفاً اتصال اینترنت خود را بررسی نمایید.",
         examples: [],
       });
     } finally {

@@ -219,13 +219,135 @@ function dictionaryResponse(string $cleanText, array $m): array {
     return [
         'text' => $cleanText,
         'persianTranslation' => $m['persian'],
-        'phonetic' => $m['phonetic'],
-        'partOfSpeech' => $m['partOfSpeech'],
-        'explanation' => $m['explanation'],
+        'phonetic' => $m['phonetic'] ?? '',
+        'partOfSpeech' => $m['partOfSpeech'] ?? '',
+        'explanation' => $m['explanation'] ?? '',
         'examples' => isset($m['exampleEn']) ? [
             ['english' => $m['exampleEn'], 'persian' => $m['exampleFa'] ?? ''],
         ] : [],
         'synonyms' => [],
+        'engine' => 'technical_dictionary',
+    ];
+}
+
+/**
+ * استخراج ترجمه، تلفظ و معانی دیکشنری از Google Translate (سریع، بدون نیاز به کلید)
+ */
+function translateWithGoogle(string $text): ?array {
+    $encoded = urlencode($text);
+    $url = "https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=auto&tl=fa&dt=t&dt=bd&dt=rm&q={$encoded}";
+
+    $response = null;
+    $userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_TIMEOUT => 6,
+            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_USERAGENT => $userAgent,
+        ]);
+        $response = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($code < 200 || $code >= 300) {
+            $response = null;
+        }
+    }
+
+    if ($response === null || $response === false) {
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'header' => "User-Agent: {$userAgent}\r\n",
+                'timeout' => 6,
+            ],
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+            ],
+        ]);
+        $response = @file_get_contents($url, false, $context);
+    }
+
+    if (!$response) return null;
+    $data = json_decode($response, true);
+    if (!is_array($data)) return null;
+
+    // 1. Translated text
+    $translatedText = '';
+    if (isset($data[0]) && is_array($data[0])) {
+        foreach ($data[0] as $part) {
+            if (isset($part[0]) && is_string($part[0])) {
+                $translatedText .= $part[0];
+            }
+        }
+    }
+    if ($translatedText === '') return null;
+
+    // 2. Phonetic / Transliteration
+    $phonetic = '';
+    if (isset($data[0]) && is_array($data[0])) {
+        $last = end($data[0]);
+        if (isset($last[3]) && is_string($last[3])) {
+            $phonetic = $last[3];
+        } elseif (isset($last[2]) && is_string($last[2])) {
+            $phonetic = $last[2];
+        }
+    }
+
+    // 3. Dictionary: parts of speech and synonyms
+    $posMap = [
+        'noun' => 'اسم (Noun)',
+        'verb' => 'فعل (Verb)',
+        'adjective' => 'صفت (Adjective)',
+        'adverb' => 'قید (Adverb)',
+        'preposition' => 'حرف اضافه',
+        'conjunction' => 'حرف ربط',
+        'pronoun' => 'ضمیر',
+        'phrase' => 'اصطلاح / عبارت',
+        'interjection' => 'صوت',
+    ];
+
+    $posList = [];
+    $synonyms = [];
+    if (isset($data[1]) && is_array($data[1])) {
+        foreach ($data[1] as $entry) {
+            $enPos = strtolower($entry[0] ?? '');
+            if (isset($posMap[$enPos])) {
+                $posList[] = $posMap[$enPos];
+            } elseif ($enPos !== '') {
+                $posList[] = $enPos;
+            }
+            if (isset($entry[1]) && is_array($entry[1])) {
+                foreach ($entry[1] as $m) {
+                    if (is_string($m) && !in_array($m, $synonyms, true)) {
+                        $synonyms[] = $m;
+                    }
+                }
+            }
+        }
+    }
+
+    $partOfSpeech = !empty($posList) ? implode('، ', array_slice($posList, 0, 2)) : '';
+    $explanation = !empty($synonyms)
+        ? 'سایر معانی در دیکشنری: ' . implode('، ', array_slice($synonyms, 0, 5))
+        : 'ترجمه مستقیم Google Translate';
+
+    return [
+        'text' => $text,
+        'persianTranslation' => $translatedText,
+        'phonetic' => $phonetic,
+        'partOfSpeech' => $partOfSpeech,
+        'explanation' => $explanation,
+        'examples' => [],
+        'synonyms' => array_slice($synonyms, 0, 8),
+        'engine' => 'google_translate',
     ];
 }
 
@@ -275,47 +397,52 @@ try {
     $isSingleWord = count(preg_split('/\s+/u', $cleanText, -1, PREG_SPLIT_NO_EMPTY)) <= 2;
     $localMatch = $TECHNICAL_DICTIONARY[$normalizedKey] ?? null;
 
-    $systemInstruction = 'You are a professional bilingual reading assistant and translator specializing in English to Persian translations, especially for technical, software engineering, programming, and literary books. Provide clear, accurate, natural Persian translations. When explaining technical programming or computer terms (e.g., \'closure\', \'middleware\', \'refactoring\', \'concurrency\'), provide both the standard technical Persian translation and a brief, friendly, 1-2 sentence Persian explanation of what it means in context.';
+    // ۱. اگر کلمه یک اصطلاح تخصصی برنامه‌نویسی/امنیت باشد، از دیکشنری تخصصی با توضیح دقیق استفاده شود
+    if ($localMatch && $isSingleWord) {
+        $dictRes = dictionaryResponse($cleanText, $localMatch);
+        // غنی‌سازی با معانی دیگر و تلفظ از گوگل ترنسلیت در صورت امکان
+        $gRes = translateWithGoogle($cleanText);
+        if ($gRes) {
+            if (empty($dictRes['phonetic']) && !empty($gRes['phonetic'])) {
+                $dictRes['phonetic'] = $gRes['phonetic'];
+            }
+            if (!empty($gRes['synonyms'])) {
+                $dictRes['synonyms'] = array_slice($gRes['synonyms'], 0, 6);
+            }
+        }
+        respond($dictRes);
+    }
 
-    $prompt = "Translate and explain this English text to Persian.\n"
-        . "Target Text: \"{$cleanText}\"\n"
-        . 'Surrounding Context in Book: "' . ($context !== '' ? $context : 'No additional context') . "\"\n"
-        . 'Is Single Word / Short Term: ' . ($isSingleWord ? 'true' : 'false');
+    // ۲. ترجمه سریع و دقیق با Google Translate (بدون نیاز به کلید، فوق‌العاده سریع و طبیعی)
+    $googleRes = translateWithGoogle($cleanText);
+    if ($googleRes !== null && !empty($googleRes['persianTranslation'])) {
+        if ($localMatch) {
+            $googleRes['explanation'] = $localMatch['explanation'] . ($googleRes['explanation'] ? ' — ' . $googleRes['explanation'] : '');
+        }
+        respond($googleRes);
+    }
 
-    $schema = [
-        'type' => 'OBJECT',
-        'properties' => [
-            'text' => ['type' => 'STRING', 'description' => 'Original English word or phrase'],
-            'persianTranslation' => ['type' => 'STRING', 'description' => 'Direct natural Persian translation'],
-            'phonetic' => ['type' => 'STRING', 'description' => 'Phonetic pronunciation e.g. /ˈkloʊ.ʒɚ/ or simple phonetic guide'],
-            'partOfSpeech' => ['type' => 'STRING', 'description' => 'Part of speech e.g. اسم (Noun), فعل (Verb), اصطلاح تخصصی (Tech Term)'],
-            'explanation' => ['type' => 'STRING', 'description' => 'A simple, friendly 1-2 sentence explanation in Persian explaining the concept or context'],
-            'examples' => [
-                'type' => 'ARRAY',
-                'items' => [
-                    'type' => 'OBJECT',
-                    'properties' => [
-                        'english' => ['type' => 'STRING'],
-                        'persian' => ['type' => 'STRING'],
-                    ],
-                    'required' => ['english', 'persian'],
-                ],
-                'description' => '1 or 2 clear example sentences with Persian translation',
-            ],
-            'synonyms' => [
-                'type' => 'ARRAY',
-                'items' => ['type' => 'STRING'],
-                'description' => 'Related English terms or synonyms',
-            ],
-        ],
-        'required' => ['text', 'persianTranslation', 'explanation'],
-    ];
-
+    // ۳. پشتیبانی اختیاری از Gemini AI در صورت تنظیم کلید و در دسترس بودن
     $apiKey = getenv('GEMINI_API_KEY');
     if ($apiKey === false || $apiKey === '') $apiKey = GEMINI_API_KEY_FALLBACK;
 
     if ($apiKey !== '') {
-        $models = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+        $systemInstruction = 'You are a professional bilingual reading assistant and translator specializing in English to Persian translations. Provide clear, natural Persian translations.';
+        $prompt = "Translate this English text to Persian:\n\"{$cleanText}\"";
+        $schema = [
+            'type' => 'OBJECT',
+            'properties' => [
+                'text' => ['type' => 'STRING'],
+                'persianTranslation' => ['type' => 'STRING'],
+                'phonetic' => ['type' => 'STRING'],
+                'partOfSpeech' => ['type' => 'STRING'],
+                'explanation' => ['type' => 'STRING'],
+                'synonyms' => ['type' => 'ARRAY', 'items' => ['type' => 'STRING']],
+            ],
+            'required' => ['text', 'persianTranslation'],
+        ];
+
+        $models = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
         $payload = [
             'contents' => [['parts' => [['text' => $prompt]]]],
             'systemInstruction' => ['parts' => [['text' => $systemInstruction]]],
@@ -325,24 +452,16 @@ try {
             ],
         ];
 
-        $served = false;
         foreach ($models as $model) {
-            for ($attempt = 0; $attempt < 2; $attempt++) {
-                $result = callGemini($apiKey, $model, $payload);
-                if (is_array($result) && !isset($result['__http_error__'])) {
-                    respond($result);
-                }
-                // خطای موقت (503/429) → یک بار تلاش مجدد سریع
-                if (is_array($result) && in_array($result['__http_error__'], [429, 503], true) && $attempt === 0) {
-                    usleep(600000);
-                    continue;
-                }
-                break;
+            $result = callGemini($apiKey, $model, $payload);
+            if (is_array($result) && !isset($result['__http_error__'])) {
+                $result['engine'] = 'gemini';
+                respond($result);
             }
         }
     }
 
-    // ---------- fallback آفلاین ----------
+    // ۴. دیکشنری فنی یا فال‌بک نهایی
     if ($localMatch) {
         respond(dictionaryResponse($cleanText, $localMatch));
     }
@@ -350,9 +469,10 @@ try {
     respond([
         'text' => $cleanText,
         'persianTranslation' => "ترجمه «{$cleanText}»",
-        'explanation' => 'سرویس هوش مصنوعی به دلیل ترافیک موقتاً با تاخیر پاسخ می‌دهد. لطفاً مجدداً امتحان فرمایید.',
+        'explanation' => 'ارتباط با سرویس ترجمه برقرار نشد. لطفاً اینترنت سرور را بررسی فرمایید.',
         'examples' => [],
         'synonyms' => [],
+        'engine' => 'fallback',
     ]);
 } catch (Throwable $e) {
     respond([
