@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Book, Chapter } from "@/types/reader";
-import { X, BookOpen, Clock, CheckCircle2, ChevronLeft } from "lucide-react";
+import { X, BookOpen, Clock, CheckCircle2, ChevronLeft, Shield, ArrowLeft } from "lucide-react";
 
 interface TableOfContentsDrawerProps {
   isOpen: boolean;
@@ -12,6 +12,7 @@ interface TableOfContentsDrawerProps {
   activeChapter: Chapter;
   onSelectBook: (book: Book) => void;
   onSelectChapter: (chapter: Chapter) => void;
+  onBackToPortal?: () => void;
 }
 
 export const TableOfContentsDrawer: React.FC<TableOfContentsDrawerProps> = ({
@@ -22,6 +23,7 @@ export const TableOfContentsDrawer: React.FC<TableOfContentsDrawerProps> = ({
   activeChapter,
   onSelectBook,
   onSelectChapter,
+  onBackToPortal,
 }) => {
   if (!isOpen) return null;
 
@@ -53,6 +55,25 @@ export const TableOfContentsDrawer: React.FC<TableOfContentsDrawerProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Quick Link to Roham Main Portal */}
+        {onBackToPortal && (
+          <div className="p-3 bg-emerald-50/70 dark:bg-emerald-950/40 border-b border-emerald-200/60 dark:border-emerald-800/60">
+            <button
+              onClick={() => {
+                onClose();
+                onBackToPortal();
+              }}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all shadow-sm cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-emerald-200" />
+                <span>بازگشت به وب‌سایت اصلی رهام (Roham)</span>
+              </div>
+              <ArrowLeft className="w-4 h-4 text-emerald-200" />
+            </button>
+          </div>
+        )}
 
         {/* Book Selector Carousel / Tabs */}
         <div className="p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">

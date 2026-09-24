@@ -15,6 +15,8 @@ import {
   Coffee,
   Languages,
   Database,
+  Shield,
+  ArrowRight,
 } from "lucide-react";
 
 interface ReaderNavbarProps {
@@ -33,6 +35,7 @@ interface ReaderNavbarProps {
   onToggleBookLanguage?: () => void;
   isDayZeroBook?: boolean;
   targetLanguageLabel?: string;
+  onBackToPortal?: () => void;
 }
 
 export const ReaderNavbar: React.FC<ReaderNavbarProps> = ({
@@ -51,6 +54,7 @@ export const ReaderNavbar: React.FC<ReaderNavbarProps> = ({
   onToggleBookLanguage,
   isDayZeroBook,
   targetLanguageLabel,
+  onBackToPortal,
 }) => {
   const [isFullscreen, setIsFullscreen] = React.useState(false);
 
@@ -98,6 +102,18 @@ export const ReaderNavbar: React.FC<ReaderNavbarProps> = ({
       <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 flex items-center justify-between gap-2">
         {/* Right Section: TOC and Book Title */}
         <div className="flex items-center gap-2 sm:gap-3 overflow-hidden">
+          {onBackToPortal && (
+            <button
+              id="back-to-roham-portal-btn"
+              onClick={onBackToPortal}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-800 dark:text-emerald-300 border border-emerald-500/40 hover:border-emerald-500/70 transition-all shrink-0 text-xs font-bold cursor-pointer shadow-xs"
+              title="بازگشت به صفحه اصلی و پورتال امنیت رهام (Roham Security)"
+            >
+              <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span className="whitespace-nowrap font-bold">صفحه اصلی رهام</span>
+            </button>
+          )}
+
           <button
             id="open-toc-btn"
             onClick={onOpenToc}

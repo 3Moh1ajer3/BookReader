@@ -14,9 +14,29 @@ import { ChapterBottomBar } from "@/components/ChapterBottomBar";
 import { LibraryDataModal } from "@/components/LibraryDataModal";
 import { buildExportPayload, downloadJson, parseImportPayload, mergeById } from "@/lib/exportImport";
 import { Sparkles, Languages, CheckCircle2, X } from "lucide-react";
+import { RohamHeader } from "@/components/roham/RohamHeader";
+import { HeroSection } from "@/components/roham/HeroSection";
+import { AntiStealerSection } from "@/components/roham/AntiStealerSection";
+import { ServicesSection } from "@/components/roham/ServicesSection";
+import { CoursesSection, Course } from "@/components/roham/CoursesSection";
+import { BlogSection } from "@/components/roham/BlogSection";
+import { LibraryShowcaseSection } from "@/components/roham/LibraryShowcaseSection";
+import { ThreatRadarSection } from "@/components/roham/ThreatRadarSection";
+import { RiskAssessmentTool } from "@/components/roham/RiskAssessmentTool";
+import { RohamFooter } from "@/components/roham/RohamFooter";
+import { EarlyAccessModal } from "@/components/roham/EarlyAccessModal";
+import { ConsultationModal } from "@/components/roham/ConsultationModal";
+import { CourseEnrollModal } from "@/components/roham/CourseEnrollModal";
 
 export default function Home() {
   const [, startTransition] = useTransition();
+
+  // View state: Roham Enterprise Portal or Reader
+  const [activeView, setActiveView] = useState<"portal" | "reader">("portal");
+  const [isEarlyAccessOpen, setIsEarlyAccessOpen] = useState(false);
+  const [isConsultationOpen, setIsConsultationOpen] = useState(false);
+  const [isCourseEnrollOpen, setIsCourseEnrollOpen] = useState(false);
+  const [selectedCourseForEnroll, setSelectedCourseForEnroll] = useState<Course | null>(null);
 
   // Books State
   const [books] = useState<Book[]>(SAMPLE_BOOKS);
@@ -89,10 +109,18 @@ export default function Home() {
     } catch {}
   }, [preferences]);
 
-  // Synchronize active theme with <html> element and override mobile browser Auto-Dark
+  // Synchronize active theme with <html> element
   useEffect(() => {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
+
+    if (activeView === "portal") {
+      root.classList.remove("theme-light", "theme-sepia", "theme-oled");
+      root.classList.add("theme-dark", "dark");
+      root.style.colorScheme = "only dark";
+      return;
+    }
+
     const theme = preferences.theme;
     const isDark = theme === "dark" || theme === "oled";
 
@@ -100,7 +128,7 @@ export default function Home() {
     root.classList.remove("theme-light", "theme-sepia", "theme-dark", "theme-oled", "dark");
     root.classList.add(`theme-${theme}`);
 
-    // Toggle .dark class based strictly on the reader theme, immune to phone system mode
+    // Toggle .dark class based strictly on the reader theme
     if (isDark) {
       root.classList.add("dark");
       root.style.colorScheme = "only dark";
@@ -132,7 +160,23 @@ export default function Home() {
       oled: "#000000",
     };
     metaThemeColor.setAttribute("content", themeBgColors[theme] || "#f8fafc");
-  }, [preferences.theme]);
+  }, [preferences.theme, activeView]);
+
+  // URL Hash navigation listener (#reader vs #portal)
+  useEffect(() => {
+    const handleHash = () => {
+      if (typeof window !== "undefined") {
+        if (window.location.hash === "#reader") {
+          setActiveView("reader");
+        } else if (window.location.hash === "#portal") {
+          setActiveView("portal");
+        }
+      }
+    };
+    handleHash();
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
 
   useEffect(() => {
     try {
@@ -432,6 +476,110 @@ export default function Home() {
       .catch((e: Error) => ({ ok: false, message: e.message || "بارگذاری ناموفق بود." }));
   };
 
+  // Navigation between Roham Portal and Reader
+  const handleOpenReader = (bookId?: string) => {
+    if (bookId) {
+      const targetBook = books.find((b) => b.id === bookId);
+      if (targetBook) {
+        setActiveBookId(targetBook.id);
+        setActiveChapterId(targetBook.chapters[0].id);
+      }
+    }
+    setActiveView("reader");
+    if (typeof window !== "undefined") {
+      window.location.hash = "reader";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleBackToPortal = () => {
+    setActiveView("portal");
+    if (typeof window !== "undefined") {
+      window.location.hash = "portal";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  // Render Roham Security Enterprise Portal
+  if (activeView === "portal") {
+    return (
+      <div
+        id="roham-portal"
+        className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans"
+        style={{ direction: "rtl" }}
+      >
+        <RohamHeader
+          onOpenReader={() => handleOpenReader()}
+          onOpenConsultation={() => setIsConsultationOpen(true)}
+          onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)}
+        />
+
+        <main className="flex-1 w-full">
+          <HeroSection
+            onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)}
+            onOpenReader={() => handleOpenReader()}
+            onScrollToAntiStealer={() => {
+              const el = document.getElementById("anti-stealer");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+          />
+
+          <AntiStealerSection onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)} />
+
+          <ServicesSection onOpenConsultation={() => setIsConsultationOpen(true)} />
+
+          <CoursesSection
+            onOpenEnrollModal={(course) => {
+              setSelectedCourseForEnroll(course);
+              setIsCourseEnrollOpen(true);
+            }}
+            onOpenConsultation={() => setIsConsultationOpen(true)}
+            onOpenReader={() => handleOpenReader()}
+          />
+
+          <BlogSection
+            onOpenReader={() => handleOpenReader()}
+            onOpenConsultation={() => setIsConsultationOpen(true)}
+          />
+
+          <LibraryShowcaseSection onOpenReader={handleOpenReader} />
+
+          <ThreatRadarSection />
+
+          <RiskAssessmentTool
+            onOpenConsultation={() => setIsConsultationOpen(true)}
+            onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)}
+          />
+        </main>
+
+        <RohamFooter
+          onOpenReader={() => handleOpenReader()}
+          onOpenConsultation={() => setIsConsultationOpen(true)}
+          onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)}
+        />
+
+        {/* Global Modals for Roham Site */}
+        <EarlyAccessModal
+          isOpen={isEarlyAccessOpen}
+          onClose={() => setIsEarlyAccessOpen(false)}
+        />
+        <ConsultationModal
+          isOpen={isConsultationOpen}
+          onClose={() => setIsConsultationOpen(false)}
+        />
+        <CourseEnrollModal
+          isOpen={isCourseEnrollOpen}
+          onClose={() => {
+            setIsCourseEnrollOpen(false);
+            setSelectedCourseForEnroll(null);
+          }}
+          selectedCourse={selectedCourseForEnroll}
+        />
+      </div>
+    );
+  }
+
+  // Render Full Interactive Technical Reader
   return (
     <div
       id="app-root"
@@ -458,6 +606,7 @@ export default function Home() {
         isDayZeroBook={isDayZeroBook}
         targetLanguageLabel={targetLanguageLabel}
         onToggleBookLanguage={handleToggleDayZeroLanguage}
+        onBackToPortal={handleBackToPortal}
       />
 
       {/* Helpful Quick Tip Banner */}
@@ -501,6 +650,7 @@ export default function Home() {
               setActiveChapterId(ch.id);
             });
           }}
+          onBackToPortal={handleBackToPortal}
         />
       </main>
 
@@ -529,6 +679,7 @@ export default function Home() {
         onSelectChapter={(ch) => {
           setActiveChapterId(ch.id);
         }}
+        onBackToPortal={handleBackToPortal}
       />
 
       {/* Typography & Reading Settings Modal */}
