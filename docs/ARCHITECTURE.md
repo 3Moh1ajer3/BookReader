@@ -49,7 +49,7 @@ data/<bookFolder>_fa/chapterN.ts  +  data/<bookId>BookFa.ts  ──► sampleBoo
 | `data/fromDayZeroBookFa.ts`, `data/fromDayZeroBookFaGemini.ts` | `data/book_fa*/…` | `data/sampleBooks.ts` | Persian `Book` objects. |
 | `data/sampleBooks.ts` | all book indexes | `app/page.tsx` | **The registry.** Any new book MUST be appended here or it will not appear in the UI. |
 | `app/page.tsx` | `SAMPLE_BOOKS`, Roham components | all components | Root container. Coordinates dual-mode view: **Roham Security Enterprise Portal** (`activeView="portal"`) and **Technical Reader** (`activeView="reader"`), with URL hash sync (`#portal` / `#reader`). |
-| `components/roham/*` | Lucide icons, Next/Image | `page.tsx` | **Roham Security Enterprise Brand Portal components**: `RohamHeader`, `HeroSection`, `AntiStealerSection`, `ServicesSection`, `CoursesSection`, `BlogSection`, `LibraryShowcaseSection`, `ThreatRadarSection`, `RiskAssessmentTool`, `RohamFooter`, `EarlyAccessModal`, `ConsultationModal`, `CourseEnrollModal`. |
+| `components/roham/*` | Lucide icons, Next/Image | `page.tsx` | **Roham Security Enterprise Brand Portal components**: `RohamHeader`, `HomeOverview`, `AntiStealerSection`, `ServicesSection`, `CoursesSection`, `BlogSection`, `LibraryShowcaseSection`, `ThreatRadarSection`, `RiskAssessmentTool`, `RohamFooter`, `EarlyAccessModal`, `ConsultationModal`, `CourseEnrollModal`. |
 | `components/ChapterViewer.tsx` | — | `page.tsx` | Rendering engine. Parses `chapter.content` (markdown-ish) into blocks. Owns RTL/LTR detection, code blocks, tables, quotes, figures. |
 | `components/BookSelectorModal.tsx` | `Book` type | `page.tsx` | Library switcher. |
 | `components/BookImporterModal.tsx` | — | `page.tsx` | Client-side PDF/EPUB/TXT import (`pdfjs-dist`). |

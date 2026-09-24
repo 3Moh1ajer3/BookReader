@@ -2,21 +2,28 @@
 
 import React from "react";
 import { Shield, BookOpen, Lock, Terminal, Globe, Mail, Phone, ExternalLink } from "lucide-react";
+import { RohamTab } from "./RohamHeader";
 
 interface RohamFooterProps {
   onOpenReader: () => void;
   onOpenConsultation: () => void;
   onOpenEarlyAccess: () => void;
+  onNavigate?: (tab: RohamTab) => void;
 }
 
 export const RohamFooter: React.FC<RohamFooterProps> = ({
   onOpenReader,
   onOpenConsultation,
   onOpenEarlyAccess,
+  onNavigate,
 }) => {
-  const scrollTo = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: "smooth" });
+  const handleNav = (tab: RohamTab) => {
+    if (onNavigate) {
+      onNavigate(tab);
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }
   };
 
   return (
@@ -25,13 +32,16 @@ export const RohamFooter: React.FC<RohamFooterProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
           {/* Brand Info */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-2 text-white font-bold text-xl">
+            <button
+              onClick={() => handleNav("home")}
+              className="flex items-center gap-2 text-white font-bold text-xl cursor-pointer hover:text-emerald-400 transition-colors"
+            >
               <Shield className="w-5 h-5 text-emerald-400" />
               <span>ROHAM SECURITY</span>
               <span className="text-xs px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/40 font-mono">
                 رهام
               </span>
-            </div>
+            </button>
 
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-sm">
               گروه امنیتی رهام؛ فعال در حوزه تحقیق و توسعه ابزارهای نوین دفاع سایبری، محافظت پیشرفته در برابر بدافزارهای استیلر، هاردنینگ سازمانی و نشر پژوهش‌های آسیب‌پذیری روز صفر.
@@ -54,7 +64,7 @@ export const RohamFooter: React.FC<RohamFooterProps> = ({
             <ul className="space-y-2 text-xs">
               <li>
                 <button
-                  onClick={() => scrollTo("anti-stealer")}
+                  onClick={() => handleNav("anti-stealer")}
                   className="hover:text-emerald-400 transition-colors text-right cursor-pointer"
                 >
                   آنتی‌استیلر هوشمند رهام
@@ -70,15 +80,7 @@ export const RohamFooter: React.FC<RohamFooterProps> = ({
               </li>
               <li>
                 <button
-                  onClick={() => scrollTo("assessment")}
-                  className="hover:text-emerald-400 transition-colors text-right cursor-pointer"
-                >
-                  سنجش آنلاین سطح ریسک
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => scrollTo("radar")}
+                  onClick={() => handleNav("radar")}
                   className="hover:text-emerald-400 transition-colors text-right cursor-pointer"
                 >
                   رادار اخبار و هوش تهدیدات
@@ -95,7 +97,7 @@ export const RohamFooter: React.FC<RohamFooterProps> = ({
             <ul className="space-y-2 text-xs">
               <li>
                 <button
-                  onClick={() => scrollTo("courses")}
+                  onClick={() => handleNav("courses")}
                   className="hover:text-emerald-400 transition-colors text-right cursor-pointer"
                 >
                   دوره‌های تحلیل بدافزار و استیلر
@@ -103,7 +105,7 @@ export const RohamFooter: React.FC<RohamFooterProps> = ({
               </li>
               <li>
                 <button
-                  onClick={() => scrollTo("courses")}
+                  onClick={() => handleNav("courses")}
                   className="hover:text-emerald-400 transition-colors text-right cursor-pointer"
                 >
                   امن‌سازی سشن‌ها و احراز هویت
@@ -111,7 +113,7 @@ export const RohamFooter: React.FC<RohamFooterProps> = ({
               </li>
               <li>
                 <button
-                  onClick={() => scrollTo("courses")}
+                  onClick={() => handleNav("courses")}
                   className="hover:text-emerald-400 transition-colors text-right cursor-pointer"
                 >
                   بوت‌کمپ تحقیقات روز صفر (Zero-Day)
@@ -119,7 +121,7 @@ export const RohamFooter: React.FC<RohamFooterProps> = ({
               </li>
               <li>
                 <button
-                  onClick={() => scrollTo("blog")}
+                  onClick={() => handleNav("blog")}
                   className="hover:text-emerald-400 transition-colors text-right cursor-pointer"
                 >
                   وبلاگ و مقالات تخصصی
@@ -131,29 +133,21 @@ export const RohamFooter: React.FC<RohamFooterProps> = ({
           {/* Research & Library */}
           <div className="space-y-3">
             <h4 className="text-xs font-bold font-mono text-slate-200 uppercase tracking-wider">
-              کتابخانه و پژوهش
+              کتابخانه و خدمات
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
                 <button
                   onClick={onOpenReader}
-                  className="hover:text-emerald-400 transition-colors text-right flex items-center gap-1.5 cursor-pointer"
+                  className="hover:text-emerald-400 transition-colors text-right flex items-center gap-1.5 cursor-pointer font-semibold text-emerald-400"
                 >
-                  <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+                  <BookOpen className="w-3.5 h-3.5" />
                   <span>ورود مستقیم به کتابخوان</span>
                 </button>
               </li>
               <li>
                 <button
-                  onClick={() => scrollTo("library")}
-                  className="hover:text-emerald-400 transition-colors text-right cursor-pointer"
-                >
-                  کتاب از روز صفر تا روز صفر
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => scrollTo("services")}
+                  onClick={() => handleNav("services")}
                   className="hover:text-emerald-400 transition-colors text-right cursor-pointer"
                 >
                   خدمات و مشاوره سازمانی

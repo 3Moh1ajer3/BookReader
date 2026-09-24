@@ -229,12 +229,14 @@ interface CoursesSectionProps {
   onOpenEnrollModal: (course: Course) => void;
   onOpenConsultation?: () => void;
   onOpenReader?: () => void;
+  onBackToHome?: () => void;
 }
 
 export const CoursesSection: React.FC<CoursesSectionProps> = ({
   onOpenEnrollModal,
   onOpenConsultation,
   onOpenReader,
+  onBackToHome,
 }) => {
   const [expandedCourseId, setExpandedCourseId] = useState<string | null>(null);
 
@@ -243,8 +245,22 @@ export const CoursesSection: React.FC<CoursesSectionProps> = ({
   };
 
   return (
-    <section id="courses" className="py-20 bg-slate-950/90 border-b border-slate-900 text-slate-100 relative">
+    <section id="courses" className="py-12 sm:py-20 bg-slate-950/90 border-b border-slate-900 text-slate-100 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Optional Breadcrumb */}
+        {onBackToHome && (
+          <div className="mb-8 flex items-center gap-2 text-xs text-slate-400">
+            <button
+              onClick={onBackToHome}
+              className="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer flex items-center gap-1.5"
+            >
+              <span>صفحه اصلی رهام</span>
+            </button>
+            <span>/</span>
+            <span className="text-slate-300">دوره‌های آموزشی و آکادمی رهام</span>
+          </div>
+        )}
+
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono">

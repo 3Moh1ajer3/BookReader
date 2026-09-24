@@ -14,7 +14,11 @@ interface ThreatAdvisory {
   mitigation: string;
 }
 
-export const ThreatRadarSection: React.FC = () => {
+interface ThreatRadarSectionProps {
+  onBackToHome?: () => void;
+}
+
+export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({ onBackToHome }) => {
   const [filter, setFilter] = useState<"all" | "urgent" | "malware" | "zeroday">("all");
   const [activeAdvisory, setActiveAdvisory] = useState<ThreatAdvisory | null>(null);
 
@@ -72,8 +76,22 @@ export const ThreatRadarSection: React.FC = () => {
   const filtered = filter === "all" ? advisories : advisories.filter((a) => a.category === filter);
 
   return (
-    <section id="radar" className="py-16 sm:py-24 bg-slate-950 border-b border-slate-900">
+    <section id="radar" className="py-12 sm:py-20 bg-slate-950 border-b border-slate-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Optional Breadcrumb */}
+        {onBackToHome && (
+          <div className="mb-8 flex items-center gap-2 text-xs text-slate-400">
+            <button
+              onClick={onBackToHome}
+              className="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer flex items-center gap-1.5"
+            >
+              <span>صفحه اصلی رهام</span>
+            </button>
+            <span>/</span>
+            <span className="text-slate-300">رادار اخبار و هوش تهدیدات</span>
+          </div>
+        )}
+
         {/* Section Header with Live Radar Pulsar */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div className="max-w-3xl">

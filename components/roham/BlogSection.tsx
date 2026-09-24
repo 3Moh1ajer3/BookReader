@@ -223,9 +223,10 @@ export const BLOG_POSTS: BlogPost[] = [
 interface BlogSectionProps {
   onOpenReader?: () => void;
   onOpenConsultation?: () => void;
+  onBackToHome?: () => void;
 }
 
-export const BlogSection: React.FC<BlogSectionProps> = ({ onOpenReader }) => {
+export const BlogSection: React.FC<BlogSectionProps> = ({ onOpenReader, onBackToHome }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>("همه");
   const [activeArticle, setActiveArticle] = useState<BlogPost | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -261,8 +262,22 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onOpenReader }) => {
   };
 
   return (
-    <section id="blog" className="py-20 bg-slate-950 border-b border-slate-900 text-slate-100 relative">
+    <section id="blog" className="py-12 sm:py-20 bg-slate-950 border-b border-slate-900 text-slate-100 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Optional Breadcrumb */}
+        {onBackToHome && (
+          <div className="mb-8 flex items-center gap-2 text-xs text-slate-400">
+            <button
+              onClick={onBackToHome}
+              className="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer flex items-center gap-1.5"
+            >
+              <span>صفحه اصلی رهام</span>
+            </button>
+            <span>/</span>
+            <span className="text-slate-300">وبلاگ و مقالات تحلیلی دفاع سایبری</span>
+          </div>
+        )}
+
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div className="space-y-3">

@@ -18,9 +18,13 @@ import {
 
 interface AntiStealerSectionProps {
   onOpenEarlyAccess: () => void;
+  onBackToHome?: () => void;
 }
 
-export const AntiStealerSection: React.FC<AntiStealerSectionProps> = ({ onOpenEarlyAccess }) => {
+export const AntiStealerSection: React.FC<AntiStealerSectionProps> = ({
+  onOpenEarlyAccess,
+  onBackToHome,
+}) => {
   const [selectedScenario, setSelectedScenario] = useState<"cookies" | "keylogger" | "wallets">("cookies");
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationLog, setSimulationLog] = useState<string[]>([
@@ -68,8 +72,22 @@ export const AntiStealerSection: React.FC<AntiStealerSectionProps> = ({ onOpenEa
   };
 
   return (
-    <section id="anti-stealer" className="py-16 sm:py-24 bg-slate-950 border-b border-slate-900">
+    <section id="anti-stealer" className="py-12 sm:py-20 bg-slate-950 border-b border-slate-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Optional Breadcrumb */}
+        {onBackToHome && (
+          <div className="mb-8 flex items-center gap-2 text-xs text-slate-400">
+            <button
+              onClick={onBackToHome}
+              className="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer flex items-center gap-1.5"
+            >
+              <span>صفحه اصلی رهام</span>
+            </button>
+            <span>/</span>
+            <span className="text-slate-300">آنتی‌استیلر هوشمند رهام</span>
+          </div>
+        )}
+
         {/* Section Header */}
         <div className="max-w-3xl mb-12 sm:mb-16">
           <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-400 mb-3">

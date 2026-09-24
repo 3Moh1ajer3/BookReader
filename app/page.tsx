@@ -14,15 +14,13 @@ import { ChapterBottomBar } from "@/components/ChapterBottomBar";
 import { LibraryDataModal } from "@/components/LibraryDataModal";
 import { buildExportPayload, downloadJson, parseImportPayload, mergeById } from "@/lib/exportImport";
 import { Sparkles, Languages, CheckCircle2, X } from "lucide-react";
-import { RohamHeader } from "@/components/roham/RohamHeader";
-import { HeroSection } from "@/components/roham/HeroSection";
+import { RohamHeader, RohamTab } from "@/components/roham/RohamHeader";
+import { HomeOverview } from "@/components/roham/HomeOverview";
 import { AntiStealerSection } from "@/components/roham/AntiStealerSection";
 import { ServicesSection } from "@/components/roham/ServicesSection";
 import { CoursesSection, Course } from "@/components/roham/CoursesSection";
 import { BlogSection } from "@/components/roham/BlogSection";
-import { LibraryShowcaseSection } from "@/components/roham/LibraryShowcaseSection";
 import { ThreatRadarSection } from "@/components/roham/ThreatRadarSection";
-import { RiskAssessmentTool } from "@/components/roham/RiskAssessmentTool";
 import { RohamFooter } from "@/components/roham/RohamFooter";
 import { EarlyAccessModal } from "@/components/roham/EarlyAccessModal";
 import { ConsultationModal } from "@/components/roham/ConsultationModal";
@@ -33,6 +31,7 @@ export default function Home() {
 
   // View state: Roham Enterprise Portal or Reader
   const [activeView, setActiveView] = useState<"portal" | "reader">("portal");
+  const [activeTab, setActiveTab] = useState<RohamTab>("home");
   const [isEarlyAccessOpen, setIsEarlyAccessOpen] = useState(false);
   const [isConsultationOpen, setIsConsultationOpen] = useState(false);
   const [isCourseEnrollOpen, setIsCourseEnrollOpen] = useState(false);
@@ -162,14 +161,21 @@ export default function Home() {
     metaThemeColor.setAttribute("content", themeBgColors[theme] || "#f8fafc");
   }, [preferences.theme, activeView]);
 
-  // URL Hash navigation listener (#reader vs #portal)
+  // URL Hash navigation listener (#reader vs dedicated portal tabs)
   useEffect(() => {
     const handleHash = () => {
       if (typeof window !== "undefined") {
-        if (window.location.hash === "#reader") {
+        const hash = window.location.hash;
+        if (hash === "#reader") {
           setActiveView("reader");
-        } else if (window.location.hash === "#portal") {
+        } else {
           setActiveView("portal");
+          if (hash === "#anti-stealer") setActiveTab("anti-stealer");
+          else if (hash === "#courses") setActiveTab("courses");
+          else if (hash === "#blog") setActiveTab("blog");
+          else if (hash === "#radar") setActiveTab("radar");
+          else if (hash === "#services") setActiveTab("services");
+          else setActiveTab("home");
         }
       }
     };
@@ -492,12 +498,17 @@ export default function Home() {
     }
   };
 
-  const handleBackToPortal = () => {
+  const handleNavigate = (tab: RohamTab) => {
     setActiveView("portal");
+    setActiveTab(tab);
     if (typeof window !== "undefined") {
-      window.location.hash = "portal";
+      window.location.hash = tab === "home" ? "portal" : tab;
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
+  };
+
+  const handleBackToPortal = () => {
+    handleNavigate("home");
   };
 
   // Render Roham Security Enterprise Portal
@@ -509,53 +520,69 @@ export default function Home() {
         style={{ direction: "rtl" }}
       >
         <RohamHeader
+          activeTab={activeTab}
+          onSelectTab={handleNavigate}
           onOpenReader={() => handleOpenReader()}
           onOpenConsultation={() => setIsConsultationOpen(true)}
           onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)}
         />
 
-        <main className="flex-1 w-full">
-          <HeroSection
-            onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)}
-            onOpenReader={() => handleOpenReader()}
-            onScrollToAntiStealer={() => {
-              const el = document.getElementById("anti-stealer");
-              if (el) el.scrollIntoView({ behavior: "smooth" });
-            }}
-          />
+        <main className="flex-1 w-full animate-in fade-in duration-200">
+          {activeTab === "home" && (
+            <HomeOverview
+              onNavigate={handleNavigate}
+              onOpenReader={() => handleOpenReader()}
+              onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)}
+              onOpenConsultation={() => setIsConsultationOpen(true)}
+            />
+          )}
 
-          <AntiStealerSection onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)} />
+          {activeTab === "anti-stealer" && (
+            <AntiStealerSection
+              onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)}
+              onBackToHome={() => handleNavigate("home")}
+            />
+          )}
 
-          <ServicesSection onOpenConsultation={() => setIsConsultationOpen(true)} />
+          {activeTab === "courses" && (
+            <CoursesSection
+              onOpenEnrollModal={(course) => {
+                setSelectedCourseForEnroll(course);
+                setIsCourseEnrollOpen(true);
+              }}
+              onOpenConsultation={() => setIsConsultationOpen(true)}
+              onOpenReader={() => handleOpenReader()}
+              onBackToHome={() => handleNavigate("home")}
+            />
+          )}
 
-          <CoursesSection
-            onOpenEnrollModal={(course) => {
-              setSelectedCourseForEnroll(course);
-              setIsCourseEnrollOpen(true);
-            }}
-            onOpenConsultation={() => setIsConsultationOpen(true)}
-            onOpenReader={() => handleOpenReader()}
-          />
+          {activeTab === "blog" && (
+            <BlogSection
+              onOpenReader={() => handleOpenReader()}
+              onOpenConsultation={() => setIsConsultationOpen(true)}
+              onBackToHome={() => handleNavigate("home")}
+            />
+          )}
 
-          <BlogSection
-            onOpenReader={() => handleOpenReader()}
-            onOpenConsultation={() => setIsConsultationOpen(true)}
-          />
+          {activeTab === "radar" && (
+            <ThreatRadarSection
+              onBackToHome={() => handleNavigate("home")}
+            />
+          )}
 
-          <LibraryShowcaseSection onOpenReader={handleOpenReader} />
-
-          <ThreatRadarSection />
-
-          <RiskAssessmentTool
-            onOpenConsultation={() => setIsConsultationOpen(true)}
-            onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)}
-          />
+          {activeTab === "services" && (
+            <ServicesSection
+              onOpenConsultation={() => setIsConsultationOpen(true)}
+              onBackToHome={() => handleNavigate("home")}
+            />
+          )}
         </main>
 
         <RohamFooter
           onOpenReader={() => handleOpenReader()}
           onOpenConsultation={() => setIsConsultationOpen(true)}
           onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)}
+          onNavigate={handleNavigate}
         />
 
         {/* Global Modals for Roham Site */}
