@@ -38,6 +38,7 @@ interface ReaderNavbarProps {
   isDayZeroBook?: boolean;
   targetLanguageLabel?: string;
   onBackToPortal?: () => void;
+  onBackToLibrary?: () => void;
 }
 
 export const ReaderNavbar: React.FC<ReaderNavbarProps> = ({
@@ -57,6 +58,7 @@ export const ReaderNavbar: React.FC<ReaderNavbarProps> = ({
   isDayZeroBook,
   targetLanguageLabel,
   onBackToPortal,
+  onBackToLibrary,
 }) => {
   const [mobileQuickSheetOpen, setMobileQuickSheetOpen] = useState(false);
 
@@ -115,6 +117,18 @@ export const ReaderNavbar: React.FC<ReaderNavbarProps> = ({
                   <span className="text-[10px] text-slate-400">کتابخانه پژوهش و امنیت سایبری</span>
                 </div>
                 <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-400 group-hover:-translate-x-0.5 transition-all mr-0.5 shrink-0" />
+              </button>
+            )}
+
+            {onBackToLibrary && (
+              <button
+                id="back-to-reader-library-btn"
+                onClick={onBackToLibrary}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors border border-slate-200/80 dark:border-slate-800 shrink-0 cursor-pointer"
+                title="بازگشت به صفحه اصلی کتابخوان (لیست کتاب‌ها)"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-emerald-500" />
+                <span>کتابخانه</span>
               </button>
             )}
 

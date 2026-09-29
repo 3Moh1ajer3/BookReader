@@ -12,6 +12,7 @@ import { VocabularyDrawer } from "@/components/VocabularyDrawer";
 import { TranslationCard } from "@/components/TranslationCard";
 import { ChapterBottomBar } from "@/components/ChapterBottomBar";
 import { LibraryDataModal } from "@/components/LibraryDataModal";
+import { ReaderLibraryHome } from "@/components/ReaderLibraryHome";
 import { buildExportPayload, downloadJson, parseImportPayload, mergeById } from "@/lib/exportImport";
 import { Sparkles, Languages, CheckCircle2, X } from "lucide-react";
 import { RohamHeader, RohamTab } from "@/components/roham/RohamHeader";
@@ -29,8 +30,8 @@ import { CourseEnrollModal } from "@/components/roham/CourseEnrollModal";
 export default function Home() {
   const [, startTransition] = useTransition();
 
-  // View state: Roham Enterprise Portal or Reader
-  const [activeView, setActiveView] = useState<"portal" | "reader">("portal");
+  // View state: Roham Enterprise Portal, Reader Library Home, or Book Reader
+  const [activeView, setActiveView] = useState<"portal" | "reader-library" | "reader">("portal");
   const [activeTab, setActiveTab] = useState<RohamTab>("home");
   const [isEarlyAccessOpen, setIsEarlyAccessOpen] = useState(false);
   const [isConsultationOpen, setIsConsultationOpen] = useState(false);
@@ -40,7 +41,17 @@ export default function Home() {
   // Books State
   const [books] = useState<Book[]>(SAMPLE_BOOKS);
 
-  const [activeBookId, setActiveBookId] = useState<string>(() => SAMPLE_BOOKS[0].id);
+  const [activeBookId, setActiveBookId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("smart_reader_dayzero_translation");
+        if (saved && SAMPLE_BOOKS.some((b) => b.id === saved)) {
+          return saved;
+        }
+      } catch {}
+    }
+    return "from-day-zero-to-zero-day-fa";
+  });
   const [activeChapterId, setActiveChapterId] = useState<string>(() => SAMPLE_BOOKS[0].chapters[0].id);
 
   // Reader Preferences with lazy initializer
@@ -161,27 +172,38 @@ export default function Home() {
     metaThemeColor.setAttribute("content", themeBgColors[theme] || "#f8fafc");
   }, [preferences.theme, activeView]);
 
-  // URL Hash navigation listener (#reader vs dedicated portal tabs)
+  // Clean Path URL navigation listener (no # hashes in URL)
   useEffect(() => {
-    const handleHash = () => {
-      if (typeof window !== "undefined") {
-        const hash = window.location.hash;
-        if (hash === "#reader") {
-          setActiveView("reader");
-        } else {
-          setActiveView("portal");
-          if (hash === "#anti-stealer") setActiveTab("anti-stealer");
-          else if (hash === "#courses") setActiveTab("courses");
-          else if (hash === "#blog") setActiveTab("blog");
-          else if (hash === "#radar") setActiveTab("radar");
-          else if (hash === "#services") setActiveTab("services");
-          else setActiveTab("home");
-        }
+    const syncFromUrl = () => {
+      if (typeof window === "undefined") return;
+      const hash = window.location.hash.replace(/^#/, "");
+      let pathname = window.location.pathname.replace(/\/+$/, "") || "/";
+
+      // Automatically clean any legacy # hash into a clean path
+      if (hash) {
+        const cleanPath = hash === "portal" || hash === "home" ? "/" : `/${hash}`;
+        window.history.replaceState(null, "", cleanPath);
+        pathname = cleanPath;
+      }
+
+      if (pathname === "/reader" || pathname === "/library") {
+        setActiveView("reader-library");
+      } else if (pathname === "/book") {
+        setActiveView("reader");
+      } else {
+        setActiveView("portal");
+        if (pathname === "/anti-stealer") setActiveTab("anti-stealer");
+        else if (pathname === "/courses") setActiveTab("courses");
+        else if (pathname === "/blog") setActiveTab("blog");
+        else if (pathname === "/radar") setActiveTab("radar");
+        else if (pathname === "/services") setActiveTab("services");
+        else setActiveTab("home");
       }
     };
-    handleHash();
-    window.addEventListener("hashchange", handleHash);
-    return () => window.removeEventListener("hashchange", handleHash);
+
+    syncFromUrl();
+    window.addEventListener("popstate", syncFromUrl);
+    return () => window.removeEventListener("popstate", syncFromUrl);
   }, []);
 
   useEffect(() => {
@@ -482,7 +504,7 @@ export default function Home() {
       .catch((e: Error) => ({ ok: false, message: e.message || "بارگذاری ناموفق بود." }));
   };
 
-  // Navigation between Roham Portal and Reader
+  // Navigation between Roham Portal, Reader Library Home, and Book Reader (clean paths without #)
   const handleOpenReader = (bookId?: string) => {
     if (bookId) {
       const targetBook = books.find((b) => b.id === bookId);
@@ -491,9 +513,17 @@ export default function Home() {
         setActiveChapterId(targetBook.chapters[0].id);
       }
     }
+    setActiveView("reader-library");
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, "", "/reader");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleEnterBook = () => {
     setActiveView("reader");
     if (typeof window !== "undefined") {
-      window.location.hash = "reader";
+      window.history.pushState(null, "", "/book");
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
@@ -502,7 +532,8 @@ export default function Home() {
     setActiveView("portal");
     setActiveTab(tab);
     if (typeof window !== "undefined") {
-      window.location.hash = tab === "home" ? "portal" : tab;
+      const nextPath = tab === "home" ? "/" : `/${tab}`;
+      window.history.pushState(null, "", nextPath);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
@@ -606,6 +637,68 @@ export default function Home() {
     );
   }
 
+  // Render Reader Library Home Page (with the Reader's own format & theme)
+  if (activeView === "reader-library") {
+    return (
+      <div className={`theme-${preferences.theme}`}>
+        <ReaderLibraryHome
+          book={activeBook}
+          preferences={preferences}
+          onUpdatePreferences={handleUpdatePreferences}
+          onSelectBook={handleEnterBook}
+          onBackToPortal={handleBackToPortal}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenHighlights={() => setIsHighlightsOpen(true)}
+          onOpenVocabulary={() => setIsVocabularyOpen(true)}
+          onOpenLibraryData={() => setIsLibraryOpen(true)}
+          highlightsCount={highlights.filter((h) => h.bookId === activeBook.id).length}
+          savedWordsCount={savedWords.length}
+        />
+
+        <ReaderSettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          preferences={preferences}
+          onUpdatePreferences={handleUpdatePreferences}
+        />
+
+        <HighlightsDrawer
+          isOpen={isHighlightsOpen}
+          onClose={() => setIsHighlightsOpen(false)}
+          highlights={highlights.filter((h) => h.bookId === activeBook.id)}
+          chapters={activeBook.chapters}
+          onDeleteHighlight={(id) => setHighlights((prev) => prev.filter((h) => h.id !== id))}
+          onUpdateNote={(id, note) => {
+            setHighlights((prev) =>
+              prev.map((h) => (h.id === id ? { ...h, note } : h))
+            );
+          }}
+          onNavigateToChapter={(chapterId) => {
+            setActiveChapterId(chapterId);
+            setIsHighlightsOpen(false);
+            handleEnterBook();
+          }}
+        />
+
+        <VocabularyDrawer
+          isOpen={isVocabularyOpen}
+          onClose={() => setIsVocabularyOpen(false)}
+          savedWords={savedWords}
+          onDeleteWord={(id) => setSavedWords((prev) => prev.filter((w) => w.id !== id))}
+        />
+
+        <LibraryDataModal
+          isOpen={isLibraryOpen}
+          onClose={() => setIsLibraryOpen(false)}
+          highlightsCount={highlights.length}
+          savedWordsCount={savedWords.length}
+          onExport={handleExportLibrary}
+          onImport={handleImportLibrary}
+        />
+      </div>
+    );
+  }
+
   // Render Full Interactive Technical Reader
   return (
     <div
@@ -634,6 +727,7 @@ export default function Home() {
         targetLanguageLabel={targetLanguageLabel}
         onToggleBookLanguage={handleToggleDayZeroLanguage}
         onBackToPortal={handleBackToPortal}
+        onBackToLibrary={() => handleOpenReader()}
       />
 
       {/* Helpful Quick Tip Banner */}
@@ -692,21 +786,17 @@ export default function Home() {
         isSaved={isWordSaved}
       />
 
-      {/* Table of Contents & Book Switcher Drawer */}
+      {/* Table of Contents Drawer */}
       <TableOfContentsDrawer
         isOpen={isTocOpen}
         onClose={() => setIsTocOpen(false)}
-        books={books}
         activeBook={activeBook}
         activeChapter={activeChapter}
-        onSelectBook={(b) => {
-          setActiveBookId(b.id);
-          setActiveChapterId(b.chapters[0].id);
-        }}
         onSelectChapter={(ch) => {
           setActiveChapterId(ch.id);
         }}
         onBackToPortal={handleBackToPortal}
+        onBackToLibrary={() => handleOpenReader()}
       />
 
       {/* Typography & Reading Settings Modal */}

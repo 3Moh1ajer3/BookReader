@@ -11,7 +11,6 @@ import {
   Briefcase,
   Lock,
   ChevronLeft,
-  Sparkles,
   Terminal,
 } from "lucide-react";
 
@@ -26,34 +25,28 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
   onNavigate,
   onOpenReader,
   onOpenEarlyAccess,
-  onOpenConsultation,
 }) => {
   return (
     <div className="space-y-16 sm:space-y-24 pb-16">
-      {/* 1. Hero Section: Clean, Breathable, Editorial */}
-      <section className="relative pt-12 sm:pt-20 pb-12 overflow-hidden">
-        {/* Subtle grid background */}
+      {/* 1. Hero Section */}
+      <section className="relative pt-12 sm:pt-20 pb-10 overflow-hidden">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b12_1px,transparent_1px),linear-gradient(to_bottom,#1e293b12_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none" />
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 space-y-6">
-          {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900 border border-emerald-500/30 text-emerald-400 text-xs font-mono">
             <Shield className="w-3.5 h-3.5" />
             <span>گروه امنیتی رهام · ROHAM SECURITY</span>
           </div>
 
-          {/* Main Headline */}
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.2]">
             پلتفرم پیشرفته دفاع سایبری و هوش تهدیدات رهام
           </h1>
 
-          {/* Subtitle */}
           <p className="text-slate-300 text-base sm:text-xl max-w-3xl mx-auto leading-relaxed">
             سپر تخصصی در برابر بدافزارهای استیلر، محافظت بلادرنگ از سشن‌ها و اطلاعات هویتی، آموزش‌های پیشرفته سازمانی و مرکز تحقیقات آسیب‌پذیری‌های روز صفر.
           </p>
 
-          {/* Primary Action Buttons */}
           <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
             <button
               onClick={() => onNavigate("anti-stealer")}
@@ -68,11 +61,10 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
               className="px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 font-bold text-sm transition-all flex items-center gap-2 cursor-pointer"
             >
               <BookOpen className="w-4 h-4 text-emerald-400" />
-              <span>ورود به کتابخوان تخصصی</span>
+              <span>ورود به کتابخوان و کتابخانه</span>
             </button>
           </div>
 
-          {/* Domains */}
           <div className="pt-6 flex items-center justify-center gap-3 text-xs font-mono text-slate-500">
             <span>roham.org</span>
             <span>·</span>
@@ -87,7 +79,6 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
       <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="rounded-3xl bg-gradient-to-br from-slate-900/90 via-slate-900/60 to-emerald-950/20 border border-emerald-500/30 p-8 sm:p-12 relative overflow-hidden shadow-2xl">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            {/* Left/Content Column */}
             <div className="lg:col-span-7 space-y-5">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-emerald-950/80 border border-emerald-800/50 text-emerald-400 font-mono text-xs">
                 <Lock className="w-3.5 h-3.5" />
@@ -138,7 +129,6 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
               </div>
             </div>
 
-            {/* Right/Visual Column */}
             <div className="lg:col-span-5">
               <div className="rounded-2xl bg-slate-950 border border-slate-800 p-5 space-y-4 font-mono text-xs">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-3 text-slate-400">
@@ -180,7 +170,6 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Card 1: Courses */}
           <div
             onClick={() => onNavigate("courses")}
             className="group p-7 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-900 transition-all duration-200 cursor-pointer flex flex-col justify-between"
@@ -202,7 +191,6 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
             </div>
           </div>
 
-          {/* Card 2: Blog */}
           <div
             onClick={() => onNavigate("blog")}
             className="group p-7 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-900 transition-all duration-200 cursor-pointer flex flex-col justify-between"
@@ -224,7 +212,6 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
             </div>
           </div>
 
-          {/* Card 3: Threat Radar */}
           <div
             onClick={() => onNavigate("radar")}
             className="group p-7 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-900 transition-all duration-200 cursor-pointer flex flex-col justify-between"
@@ -246,7 +233,6 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
             </div>
           </div>
 
-          {/* Card 4: Services */}
           <div
             onClick={() => onNavigate("services")}
             className="group p-7 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-900 transition-all duration-200 cursor-pointer flex flex-col justify-between"
@@ -279,10 +265,10 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
               <span>کتابخانه مرجع تحقیقات امنیت سایبری</span>
             </div>
             <h3 className="text-2xl font-bold text-white">
-              کتاب مرجع «از روز صفر تا روز صفر» (From Day Zero to Zero Day)
+              کتابخوان تعاملی و کتابخانه تخصصی رهام
             </h3>
             <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
-              کتابخانه تعاملی رهام شامل ۱۱ فصل جامع، دو ترجمه فارسی هماهنگ‌شده با نسخه اصلی انگلیسی، کدهای هایلایت‌شده، دیکشنری توکار و بدون نیاز به اینترنت.
+              محیط اختصاصی مطالعه کتاب‌های امنیتی با پشتیبانی از ترجمه فوری واژگان، هایلایت‌گذاری، تم‌های متنوع مطالعه (روشن، کاغذی، تیره و مشکی) و بدون نیاز به اینترنت.
             </p>
           </div>
 
@@ -290,7 +276,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
             onClick={onOpenReader}
             className="px-6 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm transition-all shadow-md shadow-emerald-950 flex items-center gap-2 whitespace-nowrap cursor-pointer shrink-0"
           >
-            <span>ورود مستقیم به کتابخوان</span>
+            <span>ورود به صفحه اصلی کتابخوان</span>
             <ArrowLeft className="w-4 h-4" />
           </button>
         </div>
