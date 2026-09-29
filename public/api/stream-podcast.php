@@ -1,15 +1,18 @@
 <?php
 // HTTP 206 Partial Content (Byte-Range Streaming) for large .m4a podcast files
-// Allows instant online playback & seeking without downloading the entire file.
+// Supports per-book subfolders: /api/stream-podcast.php?book=from-day-zero-to-zero-day&file=ch-0.m4a
 
+$bookParam = isset($_GET['book']) ? preg_replace('/[^a-zA-Z0-9_-]/', '', $_GET['book']) : '';
 $fileParam = isset($_GET['file']) ? basename($_GET['file']) : '';
+
 if (!$fileParam || !preg_match('/^[a-zA-Z0-9_-]+\.m4a$/', $fileParam)) {
     http_response_code(404);
     exit;
 }
 
-$filePath = realpath(__DIR__ . '/../podcasts/' . $fileParam);
 $podcastsDir = realpath(__DIR__ . '/../podcasts');
+$relativePath = $bookParam ? ($bookParam . '/' . $fileParam) : $fileParam;
+$filePath = realpath(__DIR__ . '/../podcasts/' . $relativePath);
 
 if (!$filePath || !$podcastsDir || strpos($filePath, $podcastsDir) !== 0 || !is_file($filePath)) {
     http_response_code(404);

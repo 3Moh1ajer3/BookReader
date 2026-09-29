@@ -15,7 +15,13 @@ import {
 
 interface ChapterPodcastPlayerProps {
   chapter: Chapter;
+  bookId?: string;
 }
+
+const getCanonicalBookSlug = (bookId?: string): string => {
+  if (!bookId) return "from-day-zero-to-zero-day";
+  return bookId.replace(/-fa(-gemini)?$/, "");
+};
 
 const toPersianDigits = (num: number | string): string => {
   const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
@@ -38,8 +44,9 @@ const formatTime = (seconds: number): string => {
 
 const PLAYBACK_RATES = [1, 1.25, 1.5, 1.75, 2];
 
-export const ChapterPodcastPlayer: React.FC<ChapterPodcastPlayerProps> = ({ chapter }) => {
+export const ChapterPodcastPlayer: React.FC<ChapterPodcastPlayerProps> = ({ chapter, bookId }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const bookSlug = getCanonicalBookSlug(bookId);
 
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [checkingFile, setCheckingFile] = useState<boolean>(true);
@@ -62,13 +69,20 @@ export const ChapterPodcastPlayer: React.FC<ChapterPodcastPlayerProps> = ({ chap
 
     let cancelled = false;
 
-    // Candidate paths in public/podcasts/ supporting both ch-0.m4a and chapter0.m4a
+    // Candidate paths in public/podcasts/<book-slug>/ (with fallback to flat public/podcasts/)
     const altName = chapter.id.replace(/^ch-/, "chapter");
-    const candidates = [
-      chapter.podcastUrl,
-      `/podcasts/${chapter.id}.m4a`,
-      `/podcasts/${altName}.m4a`,
-    ].filter((u): u is string => Boolean(u));
+    const candidates = Array.from(
+      new Set(
+        [
+          chapter.podcastUrl,
+          `/podcasts/${bookSlug}/${chapter.id}.m4a`,
+          `/podcasts/${bookSlug}/${altName}.m4a`,
+          bookId ? `/podcasts/${bookId}/${chapter.id}.m4a` : undefined,
+          `/podcasts/${chapter.id}.m4a`,
+          `/podcasts/${altName}.m4a`,
+        ].filter((u): u is string => Boolean(u))
+      )
+    );
 
     const checkAvailablePodcast = async () => {
       for (const url of candidates) {
@@ -98,7 +112,7 @@ export const ChapterPodcastPlayer: React.FC<ChapterPodcastPlayerProps> = ({ chap
     return () => {
       cancelled = true;
     };
-  }, [chapter.id, chapter.podcastUrl, isFrontMatter]);
+  }, [chapter.id, chapter.podcastUrl, isFrontMatter, bookId, bookSlug]);
 
   if (isFrontMatter || checkingFile || !audioUrl) {
     return null;
@@ -259,25 +273,25 @@ export const ChapterPodcastPlayer: React.FC<ChapterPodcastPlayerProps> = ({ chap
             )}
           </button>
 
-          {/* Skip -15s / +15s */}
+          {/* Skip +15s (Right) / -15s (Left) */}
           <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={() => skipBy(-15)}
-              className="p-1.5 rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer flex items-center gap-0.5 text-[10px] font-bold"
-              title="۱۵ ثانیه به عقب"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">۱۵-</span>
-            </button>
             <button
               type="button"
               onClick={() => skipBy(15)}
               className="p-1.5 rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer flex items-center gap-0.5 text-[10px] font-bold"
               title="۱۵ ثانیه به جلو"
             >
-              <span className="hidden sm:inline">۱۵+</span>
               <RotateCw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">۱۵+</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => skipBy(-15)}
+              className="p-1.5 rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer flex items-center gap-0.5 text-[10px] font-bold"
+              title="۱۵ ثانیه به عقب"
+            >
+              <span className="hidden sm:inline">۱۵-</span>
+              <RotateCcw className="w-3.5 h-3.5" />
             </button>
           </div>
 

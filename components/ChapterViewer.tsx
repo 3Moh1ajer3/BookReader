@@ -8,6 +8,7 @@ import { Sparkles, Highlighter, MessageSquare, BookOpen, Clock, Maximize2, X } f
 
 interface ChapterViewerProps {
   chapter: Chapter;
+  bookId?: string;
   preferences: ReaderPreferences;
   highlights: Highlight[];
   onWordClick: (word: string, surroundingSentence: string) => void;
@@ -84,6 +85,7 @@ const splitMarkdownBlocks = (block: string): string[] => {
 
 export const ChapterViewer: React.FC<ChapterViewerProps> = ({
   chapter,
+  bookId,
   preferences,
   highlights,
   onWordClick,
@@ -819,8 +821,8 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
         </h1>
       </div>
 
-      {/* Chapter Audio Podcast Player (auto-detected if .m4a file exists in public/podcasts/) */}
-      <ChapterPodcastPlayer key={chapter.id} chapter={chapter} />
+      {/* Chapter Audio Podcast Player (auto-detected if .m4a file exists in public/podcasts/<book-slug>/) */}
+      <ChapterPodcastPlayer key={`${bookId || "default"}-${chapter.id}`} chapter={chapter} bookId={bookId} />
 
       {/* Chapter Body */}
       <article

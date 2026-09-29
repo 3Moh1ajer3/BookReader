@@ -759,6 +759,7 @@ export default function Home() {
       <main className="flex-1 w-full">
         <ChapterViewer
           chapter={activeChapter}
+          bookId={activeBook.id}
           preferences={preferences}
           highlights={highlights}
           onWordClick={handleWordClick}
