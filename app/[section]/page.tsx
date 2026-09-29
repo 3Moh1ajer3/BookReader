@@ -3,6 +3,7 @@ import Home from "../page";
 export function generateStaticParams() {
   return [
     { section: "reader" },
+    { section: "from-day-zero-to-zero-day" },
     { section: "book" },
     { section: "anti-stealer" },
     { section: "courses" },

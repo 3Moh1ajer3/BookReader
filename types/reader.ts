@@ -7,6 +7,7 @@ export interface Chapter {
   title: string;
   readingTimeMinutes: number;
   content: string; // Markdown / structured HTML with code blocks
+  podcastUrl?: string;
 }
 
 export interface Book {

@@ -188,7 +188,10 @@ export default function Home() {
 
       if (pathname === "/reader" || pathname === "/library") {
         setActiveView("reader-library");
-      } else if (pathname === "/book") {
+      } else if (
+        pathname === "/from-day-zero-to-zero-day" ||
+        pathname === "/book"
+      ) {
         setActiveView("reader");
       } else {
         setActiveView("portal");
@@ -523,7 +526,7 @@ export default function Home() {
   const handleEnterBook = () => {
     setActiveView("reader");
     if (typeof window !== "undefined") {
-      window.history.pushState(null, "", "/book");
+      window.history.pushState(null, "", "/from-day-zero-to-zero-day");
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };

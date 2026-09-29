@@ -1,0 +1,5 @@
+# Enable HTTP Byte-Range Streaming (206 Partial Content) for .m4a podcast files
+AddType audio/mp4 .m4a
+<IfModule mod_headers.c>
+  Header set Accept-Ranges "bytes"
+</IfModule>

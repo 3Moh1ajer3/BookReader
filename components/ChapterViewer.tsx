@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Chapter, Highlight, ReaderPreferences } from "@/types/reader";
 import { CodeBlock } from "./CodeBlock";
+import { ChapterPodcastPlayer } from "./ChapterPodcastPlayer";
 import { Sparkles, Highlighter, MessageSquare, BookOpen, Clock, Maximize2, X } from "lucide-react";
 
 interface ChapterViewerProps {
@@ -817,6 +818,9 @@ export const ChapterViewer: React.FC<ChapterViewerProps> = ({
           {chapter.title}
         </h1>
       </div>
+
+      {/* Chapter Audio Podcast Player (auto-detected if .m4a file exists in public/podcasts/) */}
+      <ChapterPodcastPlayer key={chapter.id} chapter={chapter} />
 
       {/* Chapter Body */}
       <article
