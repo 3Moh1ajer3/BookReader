@@ -13,8 +13,17 @@ import { TranslationCard } from "@/components/TranslationCard";
 import { ChapterBottomBar } from "@/components/ChapterBottomBar";
 import { LibraryDataModal } from "@/components/LibraryDataModal";
 import { ReaderLibraryHome } from "@/components/ReaderLibraryHome";
+import { AuthAccountModal } from "@/components/AuthAccountModal";
+import { AdminPanel } from "@/components/AdminPanel";
+import {
+  RohamUser,
+  SiteSettings,
+  fetchCurrentUser,
+  fetchPublicSiteConfig,
+  pushCloudSync,
+} from "@/lib/authSync";
 import { buildExportPayload, downloadJson, parseImportPayload, mergeById } from "@/lib/exportImport";
-import { Sparkles, Languages, CheckCircle2, X } from "lucide-react";
+import { Sparkles, Languages, CheckCircle2, X, Megaphone } from "lucide-react";
 import { RohamHeader, RohamTab } from "@/components/roham/RohamHeader";
 import { HomeOverview } from "@/components/roham/HomeOverview";
 import { AntiStealerSection } from "@/components/roham/AntiStealerSection";
@@ -30,13 +39,20 @@ import { CourseEnrollModal } from "@/components/roham/CourseEnrollModal";
 export default function Home() {
   const [, startTransition] = useTransition();
 
-  // View state: Roham Enterprise Portal, Reader Library Home, or Book Reader
-  const [activeView, setActiveView] = useState<"portal" | "reader-library" | "reader">("portal");
+  // View state: Roham Enterprise Portal, Reader Library Home, Book Reader, or Admin Panel
+  const [activeView, setActiveView] = useState<"portal" | "reader-library" | "reader" | "admin">("portal");
   const [activeTab, setActiveTab] = useState<RohamTab>("home");
   const [isEarlyAccessOpen, setIsEarlyAccessOpen] = useState(false);
   const [isConsultationOpen, setIsConsultationOpen] = useState(false);
   const [isCourseEnrollOpen, setIsCourseEnrollOpen] = useState(false);
   const [selectedCourseForEnroll, setSelectedCourseForEnroll] = useState<Course | null>(null);
+
+  // User Auth & Cloud Sync State
+  const [currentUser, setCurrentUser] = useState<RohamUser | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
 
   // Books State
   const [books] = useState<Book[]>(SAMPLE_BOOKS);
@@ -124,7 +140,7 @@ export default function Home() {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
 
-    if (activeView === "portal") {
+    if (activeView === "portal" || activeView === "admin") {
       root.classList.remove("theme-light", "theme-sepia", "theme-oled");
       root.classList.add("theme-dark", "dark");
       root.style.colorScheme = "only dark";
@@ -193,6 +209,8 @@ export default function Home() {
         pathname === "/book"
       ) {
         setActiveView("reader");
+      } else if (pathname === "/admin") {
+        setActiveView("admin");
       } else {
         setActiveView("portal");
         if (pathname === "/anti-stealer") setActiveTab("anti-stealer");
@@ -238,7 +256,109 @@ export default function Home() {
 
   // Active Book and Chapter
   const activeBook = books.find((b) => b.id === activeBookId) || books[0];
-  const activeChapter = activeBook.chapters.find((c) => c.id === activeChapterId) || activeBook.chapters[0];
+  const rawActiveChapter = activeBook.chapters.find((c) => c.id === activeChapterId) || activeBook.chapters[0];
+  const canonicalSlug = activeBook.id.replace(/-fa(-gemini)?$/, "");
+  const podcastOverrideUrl =
+    siteSettings?.podcastOverrides?.[`${canonicalSlug}:${rawActiveChapter.id}`] ||
+    rawActiveChapter.podcastUrl;
+  const activeChapter: Chapter = podcastOverrideUrl
+    ? { ...rawActiveChapter, podcastUrl: podcastOverrideUrl }
+    : rawActiveChapter;
+
+  // Apply cloud sync data from a logged-in user (merging highlights & vocabulary safely)
+  const applyUserSyncData = useCallback((user: RohamUser) => {
+    setCurrentUser(user);
+    const sync = user.syncData;
+    if (!sync) return;
+
+    if (sync.preferences) {
+      setPreferences((prev) => ({ ...prev, ...sync.preferences }));
+    }
+    if (Array.isArray(sync.highlights) && sync.highlights.length > 0) {
+      setHighlights((prev) => mergeById(prev, sync.highlights));
+    }
+    if (Array.isArray(sync.savedWords) && sync.savedWords.length > 0) {
+      setSavedWords((prev) => mergeById(prev, sync.savedWords));
+    }
+    if (sync.updatedAt) {
+      setLastSyncedAt(sync.updatedAt);
+    }
+  }, []);
+
+  // Load initial public site config & current logged-in user session
+  useEffect(() => {
+    fetchPublicSiteConfig()
+      .then((cfg) => {
+        setSiteSettings(cfg);
+      })
+      .catch(() => {});
+
+    fetchCurrentUser()
+      .then((user) => {
+        if (user) {
+          applyUserSyncData(user);
+        }
+      })
+      .catch(() => {});
+  }, [applyUserSyncData]);
+
+  // Manual & Automatic Cloud Sync handler
+  const triggerCloudSync = useCallback(
+    async (mode: "merge" | "overwrite" = "overwrite") => {
+      if (!currentUser) return;
+      setIsSyncing(true);
+      try {
+        const res = await pushCloudSync({
+          mode,
+          preferences,
+          highlights,
+          savedWords,
+          readingProgress: [
+            {
+              bookId: activeBook.id,
+              chapterId: activeChapter.id,
+              scrollProgress,
+              updatedAt: new Date().toISOString(),
+            },
+          ],
+        });
+        if (res.ok && res.syncData) {
+          setLastSyncedAt(res.syncData.updatedAt);
+        }
+      } finally {
+        setIsSyncing(false);
+      }
+    },
+    [currentUser, preferences, highlights, savedWords, activeBook.id, activeChapter.id, scrollProgress]
+  );
+
+  // Automatically sync to server when user changes chapter, highlights, vocabulary, or preferences
+  useEffect(() => {
+    if (!currentUser) return;
+    const timer = setTimeout(() => {
+      pushCloudSync({
+        mode: "overwrite",
+        preferences,
+        highlights,
+        savedWords,
+        readingProgress: [
+          {
+            bookId: activeBook.id,
+            chapterId: activeChapter.id,
+            scrollProgress,
+            updatedAt: new Date().toISOString(),
+          },
+        ],
+      })
+        .then((res) => {
+          if (res.ok && res.syncData) {
+            setLastSyncedAt(res.syncData.updatedAt);
+          }
+        })
+        .catch(() => {});
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [currentUser, preferences, highlights, savedWords, activeBook.id, activeChapter.id, scrollProgress]);
 
   // Update preferences helper
   const handleUpdatePreferences = (newPrefs: Partial<ReaderPreferences>) => {
@@ -545,6 +665,61 @@ export default function Home() {
     handleNavigate("home");
   };
 
+  const handleOpenAdmin = () => {
+    setActiveView("admin");
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, "", "/admin");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleJumpToChapter = (bookId: string, chapterId: string) => {
+    setActiveBookId(bookId);
+    setActiveChapterId(chapterId);
+    handleEnterBook();
+  };
+
+  const globalAuthModal = (
+    <AuthAccountModal
+      isOpen={isAuthModalOpen}
+      onClose={() => setIsAuthModalOpen(false)}
+      currentUser={currentUser}
+      onAuthSuccess={(user) => {
+        applyUserSyncData(user);
+      }}
+      onLogout={() => {
+        setCurrentUser(null);
+        setLastSyncedAt(null);
+      }}
+      onTriggerManualSync={() => triggerCloudSync("merge")}
+      isSyncing={isSyncing}
+      lastSyncedAt={lastSyncedAt}
+      highlights={highlights}
+      savedWords={savedWords}
+      preferences={preferences}
+      books={books}
+      onJumpToChapter={handleJumpToChapter}
+      onOpenAdminPanel={handleOpenAdmin}
+    />
+  );
+
+  // Render Admin Panel View (/admin)
+  if (activeView === "admin") {
+    return (
+      <>
+        <AdminPanel
+          currentUser={currentUser}
+          books={books}
+          onBackToPortal={handleBackToPortal}
+          onOpenReader={() => handleOpenReader()}
+          onOpenAuthModal={() => setIsAuthModalOpen(true)}
+          onSettingsUpdated={(newSettings) => setSiteSettings(newSettings)}
+        />
+        {globalAuthModal}
+      </>
+    );
+  }
+
   // Render Roham Security Enterprise Portal
   if (activeView === "portal") {
     return (
@@ -553,12 +728,29 @@ export default function Home() {
         className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans"
         style={{ direction: "rtl" }}
       >
+        {siteSettings?.announcementEnabled && siteSettings.announcementText && (
+          <div className="w-full bg-gradient-to-l from-emerald-950 via-slate-900 to-emerald-950 border-b border-emerald-500/30 px-4 py-2 text-xs text-slate-200">
+            <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 text-center">
+              <Megaphone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              {siteSettings.announcementBadge && (
+                <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">
+                  {siteSettings.announcementBadge}
+                </span>
+              )}
+              <span>{siteSettings.announcementText}</span>
+            </div>
+          </div>
+        )}
+
         <RohamHeader
           activeTab={activeTab}
           onSelectTab={handleNavigate}
           onOpenReader={() => handleOpenReader()}
           onOpenConsultation={() => setIsConsultationOpen(true)}
           onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)}
+          currentUser={currentUser}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
+          onOpenAdmin={handleOpenAdmin}
         />
 
         <main className="flex-1 w-full animate-in fade-in duration-200">
@@ -636,6 +828,7 @@ export default function Home() {
           }}
           selectedCourse={selectedCourseForEnroll}
         />
+        {globalAuthModal}
       </div>
     );
   }
@@ -656,6 +849,9 @@ export default function Home() {
           onOpenLibraryData={() => setIsLibraryOpen(true)}
           highlightsCount={highlights.filter((h) => h.bookId === activeBook.id).length}
           savedWordsCount={savedWords.length}
+          currentUser={currentUser}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
+          onOpenAdmin={handleOpenAdmin}
         />
 
         <ReaderSettingsModal
@@ -698,6 +894,7 @@ export default function Home() {
           onExport={handleExportLibrary}
           onImport={handleImportLibrary}
         />
+        {globalAuthModal}
       </div>
     );
   }
@@ -731,6 +928,9 @@ export default function Home() {
         onToggleBookLanguage={handleToggleDayZeroLanguage}
         onBackToPortal={handleBackToPortal}
         onBackToLibrary={() => handleOpenReader()}
+        currentUser={currentUser}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenAdmin={handleOpenAdmin}
       />
 
       {/* Helpful Quick Tip Banner */}
@@ -907,6 +1107,7 @@ export default function Home() {
           </div>
         </div>
       )}
+      {globalAuthModal}
     </div>
   );
 }

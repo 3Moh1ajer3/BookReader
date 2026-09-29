@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Building2, X, CheckCircle2, ArrowLeft, Shield } from "lucide-react";
+import { submitPortalLead } from "@/lib/authSync";
 
 interface ConsultationModalProps {
   isOpen: boolean;
@@ -40,6 +41,16 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({ isOpen, on
       });
       localStorage.setItem("roham_consultation_requests", JSON.stringify(requests));
     } catch {}
+
+    submitPortalLead({
+      type: "consultation",
+      name,
+      contact,
+      organization,
+      subject: `مشاوره سازمانی (${service})`,
+      details,
+      trackingCode: id,
+    }).catch(() => {});
   };
 
   const handleReset = () => {

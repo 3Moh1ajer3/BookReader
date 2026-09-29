@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Course, ROHAM_COURSES } from "./CoursesSection";
 import { X, CheckCircle, GraduationCap, Clock, Award, Shield, ArrowLeft } from "lucide-react";
+import { submitPortalLead } from "@/lib/authSync";
 
 interface CourseEnrollModalProps {
   isOpen: boolean;
@@ -53,6 +54,18 @@ export const CourseEnrollModal: React.FC<CourseEnrollModalProps> = ({
       });
       localStorage.setItem("roham_course_enrollments", JSON.stringify(records));
     } catch {}
+
+    submitPortalLead({
+      type: "course_enroll",
+      name: fullName,
+      contact: email || phone,
+      email,
+      phone,
+      organization,
+      subject: currentCourse?.title || effectiveCourseId,
+      details: `${notes ? notes + " | " : ""}نوع ثبت‌نام: ${enrollType === "corporate" ? "سازمانی" : "فردی"}`,
+      trackingCode: generatedCode,
+    }).catch(() => {});
 
     setSubmitted(true);
   };

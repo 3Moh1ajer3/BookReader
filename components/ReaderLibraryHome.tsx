@@ -16,7 +16,11 @@ import {
   Settings,
   Languages,
   Clock,
+  User,
+  Cloud,
+  ShieldCheck,
 } from "lucide-react";
+import { RohamUser } from "@/lib/authSync";
 
 interface ReaderLibraryHomeProps {
   book: Book;
@@ -30,6 +34,9 @@ interface ReaderLibraryHomeProps {
   onOpenLibraryData: () => void;
   highlightsCount: number;
   savedWordsCount: number;
+  currentUser?: RohamUser | null;
+  onOpenAuth?: () => void;
+  onOpenAdmin?: () => void;
 }
 
 const toPersianDigits = (num: number | string): string => {
@@ -49,6 +56,9 @@ export const ReaderLibraryHome: React.FC<ReaderLibraryHomeProps> = ({
   onOpenLibraryData,
   highlightsCount,
   savedWordsCount,
+  currentUser,
+  onOpenAuth,
+  onOpenAdmin,
 }) => {
   const cycleTheme = () => {
     const order: Array<ReaderPreferences["theme"]> = ["light", "sepia", "dark", "oled"];
@@ -160,6 +170,27 @@ export const ReaderLibraryHome: React.FC<ReaderLibraryHomeProps> = ({
               <Settings className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <span className="hidden sm:inline">تنظیمات</span>
             </button>
+
+            {onOpenAuth && (
+              <button
+                onClick={onOpenAuth}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer"
+                title={currentUser ? "حساب کاربری و همگام‌سازی ابری" : "ورود / ثبت‌نام کاربران"}
+              >
+                {currentUser ? <Cloud className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
+                <span>{currentUser ? currentUser.name : "ورود / همگام‌سازی"}</span>
+              </button>
+            )}
+
+            {currentUser?.role === "admin" && onOpenAdmin && (
+              <button
+                onClick={onOpenAdmin}
+                className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-600 dark:text-amber-300 hover:bg-amber-500/25 transition-colors cursor-pointer"
+                title="پنل مدیریت سایت"
+              >
+                <ShieldCheck className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </header>

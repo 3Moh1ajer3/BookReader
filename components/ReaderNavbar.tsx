@@ -19,7 +19,11 @@ import {
   ChevronLeft,
   X,
   Sliders,
+  User,
+  Cloud,
+  ShieldCheck,
 } from "lucide-react";
+import { RohamUser } from "@/lib/authSync";
 
 interface ReaderNavbarProps {
   book: Book;
@@ -39,6 +43,9 @@ interface ReaderNavbarProps {
   targetLanguageLabel?: string;
   onBackToPortal?: () => void;
   onBackToLibrary?: () => void;
+  currentUser?: RohamUser | null;
+  onOpenAuth?: () => void;
+  onOpenAdmin?: () => void;
 }
 
 export const ReaderNavbar: React.FC<ReaderNavbarProps> = ({
@@ -59,6 +66,9 @@ export const ReaderNavbar: React.FC<ReaderNavbarProps> = ({
   targetLanguageLabel,
   onBackToPortal,
   onBackToLibrary,
+  currentUser,
+  onOpenAuth,
+  onOpenAdmin,
 }) => {
   const [mobileQuickSheetOpen, setMobileQuickSheetOpen] = useState(false);
 
@@ -228,6 +238,42 @@ export const ReaderNavbar: React.FC<ReaderNavbarProps> = ({
               <Settings className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <span>تنظیمات</span>
             </button>
+
+            {/* User Cloud Sync / Account Button */}
+            {onOpenAuth && (
+              <button
+                id="open-reader-auth-btn"
+                onClick={onOpenAuth}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                  currentUser
+                    ? "bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300/70 dark:border-emerald-800/70 text-emerald-700 dark:text-emerald-300"
+                    : "bg-slate-900 dark:bg-emerald-600 border-slate-800 dark:border-emerald-500 text-white"
+                }`}
+                title={currentUser ? "حساب کاربری و همگام‌سازی ابری فعال" : "ورود به حساب برای همگام‌سازی مطالعه در تمام دستگاه‌ها"}
+              >
+                {currentUser ? (
+                  <>
+                    <Cloud className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span className="max-w-[90px] truncate">{currentUser.name}</span>
+                  </>
+                ) : (
+                  <>
+                    <User className="w-3.5 h-3.5 shrink-0" />
+                    <span>ورود / همگام‌سازی</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {currentUser?.role === "admin" && onOpenAdmin && (
+              <button
+                onClick={onOpenAdmin}
+                className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-600 dark:text-amber-300 hover:bg-amber-500/25 transition-colors cursor-pointer"
+                title="پنل مدیریت سایت"
+              >
+                <ShieldCheck className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -287,6 +333,15 @@ export const ReaderNavbar: React.FC<ReaderNavbarProps> = ({
             </button>
 
             {/* Open Mobile Reading Control Sheet */}
+            {onOpenAuth && (
+              <button
+                onClick={onOpenAuth}
+                className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300/70 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 cursor-pointer"
+                title={currentUser ? currentUser.name : "ورود و همگام‌سازی ابری"}
+              >
+                {currentUser ? <Cloud className="w-4 h-4" /> : <User className="w-4 h-4" />}
+              </button>
+            )}
             <button
               onClick={() => setMobileQuickSheetOpen(true)}
               className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer"

@@ -422,9 +422,14 @@ try {
         respond($googleRes);
     }
 
-    // ۳. پشتیبانی اختیاری از Gemini AI در صورت تنظیم کلید و در دسترس بودن
+    // ۳. پشتیبانی اختیاری از Gemini AI در صورت تنظیم کلید (از پنل مدیریت یا متغیر محیطی) و در دسترس بودن
     $apiKey = getenv('GEMINI_API_KEY');
     if ($apiKey === false || $apiKey === '') $apiKey = GEMINI_API_KEY_FALLBACK;
+    if ($apiKey === '' && file_exists(__DIR__ . '/db.php')) {
+        require_once __DIR__ . '/db.php';
+        $rohamDb = roham_load_db();
+        $apiKey = trim((string)($rohamDb['settings']['geminiApiKey'] ?? ''));
+    }
 
     if ($apiKey !== '') {
         $systemInstruction = 'You are a professional bilingual reading assistant and translator specializing in English to Persian translations. Provide clear, natural Persian translations.';

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { ShieldCheck, X, CheckCircle2, ArrowLeft, Lock } from "lucide-react";
+import { submitPortalLead } from "@/lib/authSync";
 
 interface EarlyAccessModalProps {
   isOpen: boolean;
@@ -31,6 +32,17 @@ export const EarlyAccessModal: React.FC<EarlyAccessModalProps> = ({ isOpen, onCl
       waitlist.push({ name, email, organization, os, code, date: new Date().toISOString() });
       localStorage.setItem("roham_beta_waitlist", JSON.stringify(waitlist));
     } catch {}
+
+    submitPortalLead({
+      type: "early_access",
+      name,
+      contact: email,
+      email,
+      organization,
+      subject: `بتای آنتی‌استیلر (${os})`,
+      details: `سیستم‌عامل انتخابی: ${os}`,
+      trackingCode: code,
+    }).catch(() => {});
   };
 
   const handleReset = () => {

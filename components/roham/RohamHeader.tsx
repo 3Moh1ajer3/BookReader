@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Shield, BookOpen, Menu, X, ArrowLeft } from "lucide-react";
+import { Shield, BookOpen, Menu, X, ArrowLeft, User, ShieldCheck } from "lucide-react";
+import { RohamUser } from "@/lib/authSync";
 
 export type RohamTab = "home" | "anti-stealer" | "courses" | "blog" | "radar" | "services";
 
@@ -11,6 +12,9 @@ interface RohamHeaderProps {
   onOpenReader: () => void;
   onOpenConsultation: () => void;
   onOpenEarlyAccess: () => void;
+  currentUser?: RohamUser | null;
+  onOpenAuth?: () => void;
+  onOpenAdmin?: () => void;
 }
 
 export const RohamHeader: React.FC<RohamHeaderProps> = ({
@@ -19,6 +23,9 @@ export const RohamHeader: React.FC<RohamHeaderProps> = ({
   onOpenReader,
   onOpenConsultation,
   onOpenEarlyAccess,
+  currentUser,
+  onOpenAuth,
+  onOpenAdmin,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -111,8 +118,30 @@ export const RohamHeader: React.FC<RohamHeaderProps> = ({
           </button>
         </nav>
 
-        {/* Zone 3: 1-2 primary actions */}
-        <div className="hidden sm:flex items-center gap-3 shrink-0">
+        {/* Zone 3: Primary actions + User/Admin */}
+        <div className="hidden sm:flex items-center gap-2.5 shrink-0">
+          {currentUser?.role === "admin" && onOpenAdmin && (
+            <button
+              onClick={onOpenAdmin}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-amber-300 bg-amber-500/15 border border-amber-500/40 rounded-lg hover:bg-amber-500/25 transition-all whitespace-nowrap cursor-pointer"
+              title="ورود به پنل مدیریت سایت"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+              <span>پنل مدیریت</span>
+            </button>
+          )}
+
+          {onOpenAuth && (
+            <button
+              onClick={onOpenAuth}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-200 bg-slate-900 border border-slate-700/80 rounded-lg hover:border-emerald-500/50 hover:bg-slate-800 transition-all whitespace-nowrap cursor-pointer"
+              title={currentUser ? "حساب کاربری و همگام‌سازی ابری" : "ورود / ثبت‌نام کاربران"}
+            >
+              <User className="w-3.5 h-3.5 text-emerald-400" />
+              <span>{currentUser ? currentUser.name : "ورود / عضویت"}</span>
+            </button>
+          )}
+
           <button
             onClick={onOpenReader}
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-200 bg-slate-900 border border-slate-700/80 rounded-lg hover:border-emerald-500/50 hover:bg-slate-800 transition-all whitespace-nowrap cursor-pointer shadow-xs"
@@ -131,7 +160,16 @@ export const RohamHeader: React.FC<RohamHeaderProps> = ({
         </div>
 
         {/* Mobile Hamburger */}
-        <div className="flex sm:hidden items-center gap-2">
+        <div className="flex sm:hidden items-center gap-1.5">
+          {onOpenAuth && (
+            <button
+              onClick={onOpenAuth}
+              className="p-2 text-slate-300 bg-slate-900 border border-slate-800 rounded-lg"
+              title="حساب کاربری"
+            >
+              <User className="w-4 h-4 text-emerald-400" />
+            </button>
+          )}
           <button
             onClick={onOpenReader}
             className="px-2.5 py-1.5 text-[11px] font-semibold text-emerald-400 bg-slate-900 border border-slate-800 rounded-lg"
@@ -151,6 +189,38 @@ export const RohamHeader: React.FC<RohamHeaderProps> = ({
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
         <div className="sm:hidden border-b border-slate-800 bg-slate-950 px-4 py-4 space-y-2 animate-in fade-in duration-150">
+          {currentUser?.role === "admin" && onOpenAdmin && (
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onOpenAdmin();
+              }}
+              className="w-full flex items-center justify-between py-2.5 px-3 rounded-lg text-xs font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300"
+            >
+              <span className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4" />
+                <span>ورود به پنل مدیریت سایت</span>
+              </span>
+              <ArrowLeft className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {onOpenAuth && (
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onOpenAuth();
+              }}
+              className="w-full flex items-center justify-between py-2.5 px-3 rounded-lg text-xs font-bold bg-slate-900 border border-slate-800 text-emerald-400"
+            >
+              <span className="flex items-center gap-2">
+                <User className="w-4 h-4" />
+                <span>
+                  {currentUser ? `حساب کاربری (${currentUser.name})` : "ورود / ثبت‌نام و همگام‌سازی ابری"}
+                </span>
+              </span>
+              <ArrowLeft className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button
             onClick={() => handleNav("home")}
             className={`block w-full text-right py-2 px-3 rounded-lg text-sm ${

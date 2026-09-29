@@ -5,6 +5,7 @@ export function generateStaticParams() {
     { section: "reader" },
     { section: "from-day-zero-to-zero-day" },
     { section: "book" },
+    { section: "admin" },
     { section: "anti-stealer" },
     { section: "courses" },
     { section: "blog" },
