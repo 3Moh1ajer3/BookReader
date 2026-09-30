@@ -617,13 +617,18 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                 </figure>
               )}
 
-              {/* Lead Introduction Paragraph */}
-              <div
-                className={`leading-[1.95] font-medium border-r-4 border-emerald-500 pr-4 sm:pr-5 ${tc.body}`}
-                style={{ fontSize: `${fontSize + 1}px` }}
-              >
-                {activeArticle.content.intro}
-              </div>
+              {/* Lead Introduction Paragraph (only if non-empty and distinct from first section) */}
+              {activeArticle.content.intro &&
+                activeArticle.content.intro.trim().length > 0 &&
+                activeArticle.content.intro.trim() !==
+                  activeArticle.content.sections[0]?.paragraphs?.[0]?.trim() && (
+                  <div
+                    className={`leading-[1.95] font-medium border-r-4 border-emerald-500 pr-4 sm:pr-5 whitespace-pre-line ${tc.body}`}
+                    style={{ fontSize: `${fontSize + 1}px` }}
+                  >
+                    {activeArticle.content.intro}
+                  </div>
+                )}
 
               {/* Technical Article Sections */}
               <div className="space-y-12">
@@ -636,22 +641,115 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                       id={sectionAnchor}
                       className="space-y-5 scroll-mt-32"
                     >
-                      <h2
-                        className={`text-xl sm:text-2xl font-extrabold tracking-tight leading-snug pt-2 ${tc.heading}`}
-                      >
-                        {sec.heading}
-                      </h2>
+                      {sec.heading && sec.heading.trim().length > 0 && (
+                        <h2
+                          className={`text-xl sm:text-2xl font-extrabold tracking-tight leading-snug pt-2 ${tc.heading}`}
+                        >
+                          {sec.heading}
+                        </h2>
+                      )}
 
                       <div className="space-y-4">
-                        {sec.paragraphs.map((p, pIdx) => (
-                          <p
-                            key={pIdx}
-                            className={`leading-[1.95] ${tc.body}`}
-                            style={{ fontSize: `${fontSize}px` }}
-                          >
-                            {p}
-                          </p>
-                        ))}
+                        {sec.paragraphs.map((p, pIdx) => {
+                          const trimmed = p.trim();
+                          if (!trimmed) return null;
+
+                          // 1. Embedded Code Block inside paragraphs (```lang\ncode```)
+                          if (trimmed.startsWith("```")) {
+                            const fenceMatch = /^```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```$/.exec(trimmed);
+                            const lang = fenceMatch?.[1] || "code";
+                            const codeContent = (fenceMatch?.[2] || trimmed.replace(/^```|```$/g, "")).trim();
+                            const inlineCodeKey = `${activeArticle.id}-sec-${idx}-pcode-${pIdx}`;
+                            return (
+                              <div
+                                key={pIdx}
+                                className="rounded-2xl overflow-hidden border border-slate-800 bg-[#090D16] text-slate-100 font-mono text-xs sm:text-[13px] my-5 shadow-xl"
+                                style={{ direction: "ltr", textAlign: "left" }}
+                              >
+                                <div className="bg-slate-900/95 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between">
+                                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                                    <Terminal className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span className="uppercase font-semibold text-emerald-400">
+                                      {lang}
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() => copyCodeBlock(inlineCodeKey, codeContent)}
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] transition-colors cursor-pointer"
+                                  >
+                                    {copiedCodeKey === inlineCodeKey ? (
+                                      <>
+                                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                        <span className="text-emerald-400">Copied</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3.5 h-3.5" />
+                                        <span>Copy Code</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                                <pre className="p-4 sm:p-5 text-emerald-300/95 overflow-x-auto leading-relaxed">
+                                  <code>{codeContent}</code>
+                                </pre>
+                              </div>
+                            );
+                          }
+
+                          // 2. Embedded Markdown Image inside paragraphs (![alt](url))
+                          const imgMatch = /^!\[([^\]]*)\]\(([^)]+)\)$/.exec(trimmed);
+                          if (imgMatch) {
+                            const imgAlt = imgMatch[1] || sec.heading || activeArticle.title;
+                            const imgSrc = imgMatch[2].trim();
+                            // Avoid rendering duplicate if already set as sec.imageUrl
+                            if (imgSrc === sec.imageUrl) return null;
+                            return (
+                              <figure
+                                key={pIdx}
+                                className={`rounded-2xl overflow-hidden border my-5 ${tc.border} ${tc.surface}`}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={imgSrc}
+                                  alt={imgAlt}
+                                  referrerPolicy="no-referrer"
+                                  className="w-full max-h-[440px] object-contain bg-slate-950/40"
+                                />
+                                {imgAlt && (
+                                  <figcaption className={`px-4 py-2.5 text-xs border-t ${tc.border} ${tc.muted}`}>
+                                    {imgAlt}
+                                  </figcaption>
+                                )}
+                              </figure>
+                            );
+                          }
+
+                          // 3. Blockquote (> ...)
+                          if (trimmed.startsWith(">")) {
+                            const quoteText = trimmed.replace(/^>\s?/gm, "");
+                            return (
+                              <blockquote
+                                key={pIdx}
+                                className={`p-4 sm:p-5 rounded-2xl border-r-4 border-emerald-500 ${tc.surface} ${tc.body} italic leading-[1.95] whitespace-pre-line`}
+                                style={{ fontSize: `${fontSize}px` }}
+                              >
+                                {quoteText}
+                              </blockquote>
+                            );
+                          }
+
+                          // 4. Standard or Multi-line Paragraph
+                          return (
+                            <p
+                              key={pIdx}
+                              className={`leading-[1.95] whitespace-pre-line ${tc.body}`}
+                              style={{ fontSize: `${fontSize}px` }}
+                            >
+                              {p}
+                            </p>
+                          );
+                        })}
                       </div>
 
                       {/* Section Downloaded Image / Technical Figure */}
@@ -662,7 +760,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                             src={sec.imageUrl}
                             alt={sec.imageAlt || sec.heading}
                             referrerPolicy="no-referrer"
-                            className="w-full max-h-[400px] object-cover"
+                            className="w-full max-h-[440px] object-contain bg-slate-950/40"
                           />
                           {sec.imageAlt && (
                             <figcaption className={`px-4 py-2.5 text-xs border-t ${tc.border} ${tc.muted}`}>
@@ -685,7 +783,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                                 {sec.codeLanguage || "code"}
                               </span>
                               <span>·</span>
-                              <span>Roham Technical Snippet</span>
+                              <span>Technical Code Block</span>
                             </div>
                             <button
                               onClick={() => copyCodeBlock(codeKey, sec.codeSnippet!)}
@@ -760,77 +858,121 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                 })}
               </div>
 
-              {/* Analytical Conclusion */}
-              <section className={`pt-8 border-t ${tc.border} space-y-3`}>
-                <h3 className={`text-xl font-extrabold ${tc.heading}`}>جمع‌بندی و نتیجه‌گیری فنی</h3>
-                <p
-                  className={`leading-[1.95] ${tc.body}`}
-                  style={{ fontSize: `${fontSize}px` }}
-                >
-                  {activeArticle.content.conclusion}
-                </p>
-              </section>
+              {/* Analytical Conclusion (ONLY if present) */}
+              {activeArticle.content.conclusion && activeArticle.content.conclusion.trim().length > 0 && (
+                <section className={`pt-8 border-t ${tc.border} space-y-3`}>
+                  <h3 className={`text-xl font-extrabold ${tc.heading}`}>جمع‌بندی و نتیجه‌گیری فنی</h3>
+                  <p
+                    className={`leading-[1.95] whitespace-pre-line ${tc.body}`}
+                    style={{ fontSize: `${fontSize}px` }}
+                  >
+                    {activeArticle.content.conclusion}
+                  </p>
+                </section>
+              )}
 
-              {/* Interactive Actionable Takeaways Checklist */}
-              <section className={`p-6 sm:p-8 rounded-2xl border ${tc.surface} ${tc.border} space-y-4`}>
-                <div className="flex items-center justify-between gap-2">
-                  <h4 className={`text-sm sm:text-base font-extrabold flex items-center gap-2 ${tc.accent}`}>
-                    <CheckCircle className="w-5 h-5 shrink-0" />
-                    <span>چک‌لیست عملیاتی دفاعی (قابل تیک زدن جهت ممیزی امنیت شما)</span>
-                  </h4>
-                  <span className={`text-[11px] font-mono ${tc.muted}`}>
-                    Interactive Audit Checklist
-                  </span>
-                </div>
-                <div className="space-y-2.5">
-                  {activeArticle.content.actionableTakeaways.map((item, i) => {
-                    const key = `${activeArticle.id}-takeaway-${i}`;
-                    const isChecked = !!checkedTakeaways[key];
-                    return (
-                      <label
-                        key={key}
-                        onClick={() =>
-                          setCheckedTakeaways((prev) => ({ ...prev, [key]: !prev[key] }))
-                        }
-                        className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
-                          isChecked
-                            ? "bg-emerald-500/10 border-emerald-500/40"
-                            : `${tc.border} hover:border-emerald-500/40`
-                        }`}
+              {/* Interactive Actionable Takeaways Checklist (ONLY if present) */}
+              {activeArticle.content.actionableTakeaways &&
+                activeArticle.content.actionableTakeaways.length > 0 && (
+                  <section className={`p-6 sm:p-8 rounded-2xl border ${tc.surface} ${tc.border} space-y-4`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className={`text-sm sm:text-base font-extrabold flex items-center gap-2 ${tc.accent}`}>
+                        <CheckCircle className="w-5 h-5 shrink-0" />
+                        <span>چک‌لیست عملیاتی دفاعی (قابل تیک زدن جهت ممیزی امنیت شما)</span>
+                      </h4>
+                      <span className={`text-[11px] font-mono ${tc.muted}`}>
+                        Interactive Audit Checklist
+                      </span>
+                    </div>
+                    <div className="space-y-2.5">
+                      {activeArticle.content.actionableTakeaways.map((item, i) => {
+                        const key = `${activeArticle.id}-takeaway-${i}`;
+                        const isChecked = !!checkedTakeaways[key];
+                        return (
+                          <label
+                            key={key}
+                            onClick={() =>
+                              setCheckedTakeaways((prev) => ({ ...prev, [key]: !prev[key] }))
+                            }
+                            className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
+                              isChecked
+                                ? "bg-emerald-500/10 border-emerald-500/40"
+                                : `${tc.border} hover:border-emerald-500/40`
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {}}
+                              className="mt-1 w-4 h-4 accent-emerald-600 rounded shrink-0"
+                            />
+                            <span
+                              className={`text-xs sm:text-sm leading-relaxed ${
+                                isChecked ? "line-through opacity-70" : tc.body
+                              }`}
+                            >
+                              {item}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+
+              {/* Source Attribution & References Box at the end of the article */}
+              {(activeArticle.sourceUrl ||
+                activeArticle.source ||
+                (activeArticle.content.references && activeArticle.content.references.length > 0)) && (
+                <section className={`p-5 sm:p-6 rounded-2xl border ${tc.surface} ${tc.border} space-y-3`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className={`text-xs sm:text-sm font-extrabold flex items-center gap-2 ${tc.heading}`}>
+                      <ExternalLink className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span>منبع و مرجع اصلی مطلب (Source Reference)</span>
+                    </h4>
+                    {activeArticle.source && (
+                      <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono">
+                        {activeArticle.source}
+                      </span>
+                    )}
+                  </div>
+
+                  {activeArticle.sourceUrl && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs font-mono" style={{ direction: "ltr", textAlign: "left" }}>
+                      <a
+                        href={activeArticle.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-400 hover:text-emerald-300 underline underline-offset-4 break-all flex items-center gap-1.5"
                       >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {}}
-                          className="mt-1 w-4 h-4 accent-emerald-600 rounded shrink-0"
-                        />
-                        <span
-                          className={`text-xs sm:text-sm leading-relaxed ${
-                            isChecked ? "line-through opacity-70" : tc.body
-                          }`}
-                        >
-                          {item}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </section>
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                        <span>{activeArticle.sourceUrl}</span>
+                      </a>
+                    </div>
+                  )}
 
-              {/* References if available */}
-              {activeArticle.content.references && activeArticle.content.references.length > 0 && (
-                <section className={`pt-6 border-t ${tc.border} space-y-3`}>
-                  <h4 className={`text-xs font-bold uppercase tracking-wider ${tc.muted}`}>
-                    منابع، مستندات و ارجاعات استاندارد
-                  </h4>
-                  <ul className="space-y-2 text-xs font-mono" style={{ direction: "ltr", textAlign: "left" }}>
-                    {activeArticle.content.references.map((ref, idx) => (
-                      <li key={idx} className="flex items-center gap-2">
-                        <span className="text-emerald-500">[{idx + 1}]</span>
-                        <span className={tc.body}>{ref.title}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  {activeArticle.content.references && activeArticle.content.references.length > 0 && (
+                    <ul className="space-y-2 text-xs font-mono pt-1" style={{ direction: "ltr", textAlign: "left" }}>
+                      {activeArticle.content.references.map((ref, idx) => (
+                        <li key={idx} className="flex items-center gap-2 flex-wrap">
+                          <span className="text-emerald-500">[{idx + 1}]</span>
+                          {ref.url && ref.url.startsWith("http") ? (
+                            <a
+                              href={ref.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-emerald-400 hover:underline break-all flex items-center gap-1"
+                            >
+                              <span>{ref.title || ref.url}</span>
+                              <ExternalLink className="w-3 h-3 shrink-0" />
+                            </a>
+                          ) : (
+                            <span className={tc.body}>{ref.title}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </section>
               )}
 

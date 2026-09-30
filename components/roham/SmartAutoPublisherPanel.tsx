@@ -1080,6 +1080,84 @@ export const SmartAutoPublisherPanel: React.FC<SmartAutoPublisherPanelProps> = (
             </div>
           </div>
 
+          {/* Full-Text Sections & Source Reference Preview (100% Verbatim, Zero Synthetic Sections) */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+              <div className="text-xs font-extrabold text-emerald-400 flex items-center gap-2">
+                <FileCode className="w-4 h-4" />
+                <span>
+                  پیش‌نمایش متن کامل ترجمه‌شده (بدون خلاصه‌سازی و بدون بخش‌های ساختگی اضافه)
+                </span>
+              </div>
+              <span className="text-[11px] font-mono text-slate-400">
+                {(result.generatedNews?.sections.length ||
+                  result.generatedBlog?.content.sections.length ||
+                  0)}{" "}
+                بخش کامل
+              </span>
+            </div>
+
+            <div className="space-y-5 max-h-[420px] overflow-y-auto pr-1">
+              {(result.generatedNews?.sections || result.generatedBlog?.content.sections || []).map(
+                (sec, sIdx) => (
+                  <div
+                    key={sIdx}
+                    className="p-4 rounded-xl bg-slate-900/80 border border-slate-800/90 space-y-3"
+                  >
+                    {sec.heading && (
+                      <h4 className="text-sm font-extrabold text-white flex items-center gap-2">
+                        <span className="w-1.5 h-4 rounded-full bg-emerald-500 shrink-0" />
+                        <span>{sec.heading}</span>
+                      </h4>
+                    )}
+                    <div className="space-y-2.5 text-xs sm:text-sm text-slate-200 leading-relaxed">
+                      {sec.paragraphs.map((p, pIdx) => (
+                        <p key={pIdx} className="whitespace-pre-line">
+                          {p}
+                        </p>
+                      ))}
+                    </div>
+                    {sec.codeSnippet && (
+                      <pre
+                        className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono text-emerald-300 overflow-x-auto"
+                        dir="ltr"
+                      >
+                        <code>{sec.codeSnippet}</code>
+                      </pre>
+                    )}
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* Source Attribution Preview at the end of the post */}
+            {(result.sourceUrl || result.sourceDomain) && (
+              <div className="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs font-bold text-emerald-300 flex items-center gap-2">
+                  <Link2 className="w-4 h-4 shrink-0" />
+                  <span>منبع ثبت‌شده در انتهای مطلب:</span>
+                  {result.sourceDomain && (
+                    <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-200 font-mono text-[11px]">
+                      {result.sourceDomain}
+                    </span>
+                  )}
+                </div>
+                {result.sourceUrl && (
+                  <a
+                    href={result.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-mono text-emerald-400 hover:underline flex items-center gap-1 break-all"
+                    dir="ltr"
+                  >
+                    <span>{result.sourceUrl}</span>
+                    <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Pipeline Execution Logs */}
           <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
             <div className="text-xs font-bold text-slate-300 flex items-center gap-1.5">

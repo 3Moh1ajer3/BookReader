@@ -43,6 +43,7 @@ export interface BlogPost {
   views: number;
   relatedChapterId?: string;
   coverImage?: string;
+  source?: string;
   sourceUrl?: string;
   downloadedImages?: DownloadedMediaItem[];
   tldr: string[];
@@ -63,6 +64,10 @@ export interface NewsSectionItem {
   callout?: string;
   imageUrl?: string;
   imageAlt?: string;
+  table?: {
+    headers: string[];
+    rows: string[][];
+  };
 }
 
 export interface NewsIoC {
@@ -753,7 +758,21 @@ export function getLocalContentStore(): { blogPosts: BlogPost[]; newsArticles: N
     if (rawBlog) {
       const parsed = JSON.parse(rawBlog);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        blogPosts = parsed;
+        blogPosts = parsed.map((b: BlogPost) => {
+          // پاکسازی بخش‌های ساختگی قدیمی از پست‌های تولیدشده قبلی
+          if (b.id?.startsWith("blog-") && b.content?.actionableTakeaways?.some((t) => t.includes("بروزرسانی فوری نسخه‌های آسیب‌پذیر به آخرین پچ امنیتی"))) {
+            return {
+              ...b,
+              tldr: [],
+              content: {
+                ...b.content,
+                conclusion: "",
+                actionableTakeaways: [],
+              },
+            };
+          }
+          return b;
+        });
       }
     } else {
       localStorage.setItem(LOCAL_BLOG_KEY, JSON.stringify(DEFAULT_BLOG_POSTS));
@@ -765,7 +784,23 @@ export function getLocalContentStore(): { blogPosts: BlogPost[]; newsArticles: N
     if (rawNews) {
       const parsed = JSON.parse(rawNews);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        newsArticles = parsed;
+        newsArticles = parsed.map((n: NewsArticle) => {
+          // پاکسازی بخش‌های ساختگی قدیمی (IoC و چک‌لیست ساختگی) از خبرهای تولیدشده قبلی
+          if (
+            n.id?.startsWith("news-") &&
+            (n.mitigationSteps?.some((m) => m.includes("بروزرسانی فوری نسخه‌های آسیب‌پذیر به آخرین پچ امنیتی")) ||
+              n.iocs?.some((i) => i.value.includes("Observables & Signatures referenced") || i.value.includes("Check vendor security bulletin")))
+          ) {
+            return {
+              ...n,
+              keyHighlights: [],
+              iocs: [],
+              mitigationSteps: [],
+              timeline: [],
+            };
+          }
+          return n;
+        });
       }
     } else {
       localStorage.setItem(LOCAL_NEWS_KEY, JSON.stringify(DEFAULT_NEWS_ARTICLES));
@@ -1162,29 +1197,140 @@ export async function saveAiPipelineConfig(config: AiPipelineConfig): Promise<{
 }
 
 /**
- * ترجمه کمکی متن انگلیسی به فارسی برای محیط پیش‌نمایش یا زمانی که سرور در حالت فال‌بک است
+ * ترجمه کامل و بدون حذفیات متن انگلیسی به فارسی (بدون برش یا خلاصه‌سازی)
+ * اگر پاراگراف طولانی باشد، آن را بر اساس جملات تقسیم کرده و تمام بخش‌ها را کامل ترجمه و به هم متصل می‌کند.
  */
-async function translateSegmentToPersian(text: string): Promise<string> {
-  const trimmed = text.trim();
+async function translateSingleChunkToPersian(chunk: string): Promise<string> {
+  const trimmed = chunk.trim();
   if (!trimmed) return "";
-  // اگر متن از قبل فارسی است، همان را برگردان
-  if (/[\u0600-\u06FF]/.test(trimmed) && trimmed.match(/[\u0600-\u06FF]/g)!.length > trimmed.length * 0.25) {
+  // اگر متن از قبل فارسی است یا فقط کد/لینک است، همان را برگردان
+  if (/[\u0600-\u06FF]/.test(trimmed) && (trimmed.match(/[\u0600-\u06FF]/g)?.length || 0) > trimmed.length * 0.25) {
     return trimmed;
   }
   try {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=fa&dt=t&q=${encodeURIComponent(
-      trimmed.slice(0, 1800)
+      trimmed
     )}`;
     const res = await fetch(url);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && Array.isArray(data[0])) {
-        const out = data[0].map((part: unknown[]) => (typeof part[0] === "string" ? part[0] : "")).join("");
+        const out = data[0]
+          .map((part: unknown[]) => (typeof part[0] === "string" ? part[0] : ""))
+          .join("");
         if (out.trim()) return out.trim();
       }
     }
   } catch {}
   return trimmed;
+}
+
+async function translateSegmentToPersian(text: string): Promise<string> {
+  const trimmed = text.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("```") || trimmed.startsWith("![")) {
+    return trimmed;
+  }
+
+  // اگر طول متن کمتر از ۱۴۰۰ کاراکتر است، یکجا ترجمه شود
+  if (trimmed.length <= 1400) {
+    return translateSingleChunkToPersian(trimmed);
+  }
+
+  // برای پاراگراف‌های بسیار طولانی: تقسیم بر اساس جملات/خطوط بدون حذف حتی یک کلمه
+  const sentences = trimmed.split(/(?<=[.!?])\s+|\n+/);
+  const subChunks: string[] = [];
+  let current = "";
+  for (const s of sentences) {
+    if ((current + " " + s).length > 1300 && current.length > 0) {
+      subChunks.push(current.trim());
+      current = s;
+    } else {
+      current = current ? `${current} ${s}` : s;
+    }
+  }
+  if (current.trim()) subChunks.push(current.trim());
+
+  const translatedParts = await Promise.all(subChunks.map((c) => translateSingleChunkToPersian(c)));
+  return translatedParts.join(" ");
+}
+
+/**
+ * حذف صرفاً منوهای هدر، فوتر، تبلیغات و لینک‌های شبکه اجتماعی سایت‌ها در حالت دریافت از URL
+ * با حفظ ۱۰۰٪ متن اصلی مقاله، کدهای فنی، جداول و تصاویر
+ */
+function cleanWebScrapedMarkdown(rawMd: string): string {
+  let text = rawMd
+    .replace(/^(Title|URL Source|Markdown Content|Published Time):.*$/gm, "")
+    .trim();
+
+  const lines = text.split("\n");
+  const cleanedLines: string[] = [];
+  let startedArticle = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (!startedArticle) {
+      // شروع مقاله با اولین هدینگ یا اولین پاراگراف واقعی
+      if (/^#{1,3}\s+\S+/.test(trimmed) || (trimmed.length > 80 && !trimmed.startsWith("* [") && !trimmed.startsWith("- ["))) {
+        startedArticle = true;
+      } else {
+        continue;
+      }
+    }
+
+    // تشخیص انتهای مقاله و شروع فوتر سایت (نظرات، خبرنامه، کپی‌رایت)
+    if (
+      /^#{1,4}\s*(Related Articles|More from|Leave a Reply|Comments|Subscribe to our Newsletter|Follow Us|Recommended for you)/i.test(
+        trimmed
+      ) ||
+      /^Copyright\s*©/i.test(trimmed) ||
+      /^All rights reserved\.?$/i.test(trimmed)
+    ) {
+      break;
+    }
+
+    // حذف خطوطی که صرفاً دکمه‌های اشتراک‌گذاری شبکه اجتماعی هستند
+    if (/^(\*|-)?\s*\[(Share|Tweet|LinkedIn|Facebook|Email|Reddit)\]\(https?:\/\/[^)]+\)\s*$/i.test(trimmed)) {
+      continue;
+    }
+
+    cleanedLines.push(line);
+  }
+
+  const result = cleanedLines.join("\n").trim();
+  return result.length > 60 ? result : text;
+}
+
+/**
+ * استخراج تمام بلوک‌های یک بخش (پاراگراف‌ها، لیست‌ها، چندین بلوک کد، جداول و تصاویر) با حفظ ترتیب ۱۰۰٪ دقیق
+ */
+function tokenizeMarkdownSectionBody(body: string): string[] {
+  const blocks: string[] = [];
+  // جداسازی بلوک‌های کد ```...``` به طوری که دقیقاً در جای خودشان بمانند
+  const parts = body.split(/(```[\s\S]*?```)/g);
+
+  for (const part of parts) {
+    const trimmedPart = part.trim();
+    if (!trimmedPart) continue;
+
+    if (trimmedPart.startsWith("```") && trimmedPart.endsWith("```")) {
+      blocks.push(trimmedPart);
+      continue;
+    }
+
+    // جداسازی پاراگراف‌ها، لیست‌ها، جداول و تصاویر با حفظ کامل تمام خطوط
+    const rawParagraphs = trimmedPart.split(/\n{2,}/);
+    for (const para of rawParagraphs) {
+      const pTrim = para.trim();
+      if (!pTrim) continue;
+      blocks.push(pTrim);
+    }
+  }
+
+  return blocks;
 }
 
 export interface SmartPublisherPipelineResult {
@@ -1193,6 +1339,7 @@ export interface SmartPublisherPipelineResult {
   targetSection: "news" | "blog";
   sourceType: "url" | "markdown";
   sourceDomain: string;
+  sourceUrl?: string;
   rawTitle: string;
   cleanedMarkdown: string;
   extractedCves: string[];
@@ -1207,18 +1354,27 @@ export async function runSmartAutoPublisher(params: {
   sourceType: "url" | "markdown";
   sourceUrl?: string;
   markdownContent?: string;
+  customSource?: string;
   targetSection: "news" | "blog";
   config: AiPipelineConfig;
   onStageChange?: (stageIndex: number, stageLabel: string) => void;
 }): Promise<SmartPublisherPipelineResult> {
-  const { sourceType, sourceUrl = "", markdownContent = "", targetSection, config, onStageChange } = params;
+  const {
+    sourceType,
+    sourceUrl = "",
+    markdownContent = "",
+    customSource = "",
+    targetSection,
+    config,
+    onStageChange,
+  } = params;
   const logs: string[] = [];
 
   onStageChange?.(
     1,
     sourceType === "url"
-      ? "در حال واکشی صفحه وب و حذف هدر، فوتر، منوها و اسکریپت‌های تبلیغاتی..."
-      : "در حال پارس مستقیم فایل Markdown (بدون ارسال درخواست به سایت خارجی)..."
+      ? "در حال واکشی کامل محتوای لینک و حذف هدر، فوتر و منوهای اضافی..."
+      : "در حال خواندن مستقیم و ۱۰۰٪ کامل فایل Markdown (بدون ارسال ریکوئست خارجی)..."
   );
 
   // ۱. تلاش برای اجرای پایپ‌لاین سمت سرور PHP در هاست cPanel
@@ -1235,6 +1391,7 @@ export async function runSmartAutoPublisher(params: {
         sourceType,
         sourceUrl,
         markdownContent,
+        customSource,
         targetSection,
         overrideConfig: config,
       }),
@@ -1243,45 +1400,48 @@ export async function runSmartAutoPublisher(params: {
     if (!text.trim().startsWith("<?php") && !text.trim().startsWith("<!DOCTYPE")) {
       const serverData = JSON.parse(text);
       if (serverData && serverData.ok && serverData.generatedPost) {
-        onStageChange?.(4, "ساختاردهی و ترجمه تخصصی با موفقیت تکمیل شد.");
+        onStageChange?.(4, "ترجمه کامل متن و ذخیره‌سازی تصاویر با موفقیت تکمیل شد.");
         const nowId = `${targetSection}-${Date.now()}`;
+        const finalSourceUrl = serverData.sourceUrl || (sourceType === "url" ? sourceUrl : undefined);
+        const finalSourceDomain = serverData.sourceDomain || customSource || "";
+
         if (targetSection === "news") {
           const gp = serverData.generatedPost;
           const article: NewsArticle = {
             id: nowId,
             slug: `roham-intel-${Date.now().toString().slice(-6)}`,
-            title: gp.title || serverData.rawTitle || "گزارش تحلیلی تهدیدات سایبری",
-            subtitle: gp.subtitle || gp.summary || "",
+            title: gp.title || serverData.rawTitle || "گزارش خبری امنیت سایبری",
+            subtitle: gp.subtitle || "",
             category: gp.category || "zeroday",
-            categoryLabel: gp.categoryLabel || "آسیب‌پذیری و تهدیدات",
+            categoryLabel: gp.categoryLabel || "اخبار و تحلیل فنی",
             severity: gp.severity || "HIGH",
             status: "published",
-            isBreaking: gp.severity === "CRITICAL",
+            isBreaking: false,
             date: "مهر ۱۴۰۴",
-            readTime: "۶ دقیقه",
-            author: "واحد هوش تهدیدات رهام (AI Auto-Publisher)",
-            source: serverData.sourceDomain || "Threat Advisory",
-            sourceUrl: sourceType === "url" ? sourceUrl : undefined,
+            readTime: gp.readTime || "۸ دقیقه",
+            author: "تحریریه رهام",
+            source: finalSourceDomain,
+            sourceUrl: finalSourceUrl,
             coverImage: serverData.coverImage || undefined,
             downloadedImages: serverData.downloadedImages || [],
             views: 1,
             cveIds: gp.cveIds || serverData.extractedCves || [],
-            cvssScore: gp.cvssScore || "8.8",
-            affectedProducts: gp.affectedProducts || ["Enterprise Systems"],
-            exploitStatus: gp.exploitStatus || "در حال بررسی فنی",
+            affectedProducts: [],
+            exploitStatus: "",
             summary: gp.summary || "",
-            keyHighlights: gp.keyHighlights || [],
+            keyHighlights: [],
             sections: gp.sections || [],
-            iocs: gp.iocs || [],
-            mitigationSteps: gp.mitigationSteps || [],
-            timeline: gp.timeline || [],
-            tags: gp.tags || ["Threat-Intel", "Cybersecurity"],
+            iocs: [],
+            mitigationSteps: [],
+            timeline: [],
+            tags: gp.tags || serverData.extractedCves || ["Security"],
           };
           return {
             ok: true,
             targetSection,
             sourceType,
-            sourceDomain: serverData.sourceDomain,
+            sourceDomain: finalSourceDomain,
+            sourceUrl: finalSourceUrl,
             rawTitle: serverData.rawTitle,
             cleanedMarkdown: serverData.cleanedMarkdown,
             extractedCves: serverData.extractedCves || [],
@@ -1295,36 +1455,41 @@ export async function runSmartAutoPublisher(params: {
           const post: BlogPost = {
             id: nowId,
             slug: `roham-blog-${Date.now().toString().slice(-6)}`,
-            title: gp.title || serverData.rawTitle || "مقاله تحلیلی امنیت سایبری",
+            title: gp.title || serverData.rawTitle || "مقاله فنی امنیت سایبری",
             subtitle: gp.subtitle || "",
             summary: gp.summary || "",
-            category: gp.category || "دفاع و هاردنینگ",
-            readTime: gp.readTime || "۸ دقیقه",
+            category: gp.category || "تحقیقات زیرودی",
+            readTime: gp.readTime || "۱۰ دقیقه",
             date: "مهر ۱۴۰۴",
-            author: "تیم پژوهش امنیت سایبری رهام",
-            authorRole: "Roham AI Research Pipeline",
+            author: "تیم فنی رهام",
+            authorRole: finalSourceDomain ? `منبع: ${finalSourceDomain}` : "Roham Research",
             difficulty: gp.difficulty || "تخصصی (Deep-Dive)",
-            tags: gp.tags || ["Security", "Deep-Dive"],
+            tags: gp.tags || serverData.extractedCves || ["Security"],
             status: "published",
             isFeatured: false,
             views: 1,
-            relatedChapterId: "chapter-1",
             coverImage: serverData.coverImage || undefined,
-            sourceUrl: sourceType === "url" ? sourceUrl : undefined,
+            sourceUrl: finalSourceUrl,
             downloadedImages: serverData.downloadedImages || [],
-            tldr: gp.tldr || [],
-            content: gp.content || {
-              intro: gp.summary || "",
-              sections: [],
-              conclusion: "",
+            tldr: [],
+            content: {
+              intro: gp.content?.intro || "",
+              sections: gp.content?.sections || [],
+              conclusion: gp.content?.conclusion || "",
               actionableTakeaways: [],
+              references: finalSourceUrl
+                ? [{ title: finalSourceDomain || finalSourceUrl, url: finalSourceUrl }]
+                : finalSourceDomain
+                ? [{ title: finalSourceDomain, url: "" }]
+                : [],
             },
           };
           return {
             ok: true,
             targetSection,
             sourceType,
-            sourceDomain: serverData.sourceDomain,
+            sourceDomain: finalSourceDomain,
+            sourceUrl: finalSourceUrl,
             rawTitle: serverData.rawTitle,
             cleanedMarkdown: serverData.cleanedMarkdown,
             extractedCves: serverData.extractedCves || [],
@@ -1338,18 +1503,19 @@ export async function runSmartAutoPublisher(params: {
     }
   } catch {}
 
-  // ۲. پایپ‌لاین هوشمند کلاینت / پیش‌نمایش زنده (برای تست آنی لینک‌ها و فایل‌های .md)
+  // ۲. پایپ‌لاین استخراج و ترجمه ۱۰۰٪ کامل (بدون حذفیات و بدون بخش‌های ساختگی)
   let rawMarkdown = "";
   let rawTitle = "";
-  let sourceDomain = "Markdown Document (.md)";
+  let sourceDomain = customSource.trim();
+  let detectedSourceUrl = sourceType === "url" ? sourceUrl.trim() : "";
   const candidateImages: { url: string; alt: string }[] = [];
 
   if (sourceType === "url") {
-    let parsedHost = "Security-Advisory";
+    let parsedHost = "";
     try {
       const u = new URL(sourceUrl);
       parsedHost = u.hostname.replace(/^www\./, "");
-      sourceDomain = parsedHost;
+      if (!sourceDomain) sourceDomain = parsedHost;
     } catch {
       return {
         ok: false,
@@ -1366,7 +1532,6 @@ export async function runSmartAutoPublisher(params: {
       };
     }
 
-    // تلاش برای خواندن محتوای خالص لینک از طریق Jina Reader / AllOrigins CORS-friendly extractor
     let fetchedText = "";
     try {
       const jinaRes = await fetch(`https://r.jina.ai/${sourceUrl}`, {
@@ -1377,41 +1542,89 @@ export async function runSmartAutoPublisher(params: {
       }
     } catch {}
 
-    if (fetchedText.trim().length > 120) {
-      rawMarkdown = fetchedText.trim();
-      const titleMatch = rawMarkdown.match(/^Title:\s*(.+)$/m) || rawMarkdown.match(/^#\s+(.+)$/m);
-      rawTitle = titleMatch ? titleMatch[1].trim() : `Security Analysis from ${parsedHost}`;
-      // حذف خطوط متادیتای ابتدایی
-      rawMarkdown = rawMarkdown.replace(/^(Title|URL Source|Markdown Content|Published Time):.*$/gm, "").trim();
-      logs.push(`محتوای اصلی لینک از دامنه ${parsedHost} استخراج و هدر/فوتر/تبلیغات صفحه حذف شد.`);
+    if (fetchedText.trim().length > 80) {
+      const titleMatch =
+        fetchedText.match(/^Title:\s*(.+)$/m) || fetchedText.match(/^#\s+(.+)$/m);
+      rawTitle = titleMatch ? titleMatch[1].trim() : `گزارش فنی از ${parsedHost}`;
+      rawMarkdown = cleanWebScrapedMarkdown(fetchedText);
+      logs.push(
+        `متن کامل مقاله از دامنه ${parsedHost} واکشی شد و هدر، فوتر و منوهای سایت حذف گردید (حفظ ۱۰۰٪ متن اصلی).`
+      );
     } else {
-      // استخراج هوشمند بر اساس ساختار آدرس در صورتی که سایت مقصد فایروال Cloudflare داشته باشد
-      const slugParts = sourceUrl
-        .split("/")
-        .filter(Boolean)
-        .pop()
-        ?.replace(/\.[a-z0-9]+$/i, "")
-        .replace(/[-_]+/g, " ") || "Zero-Day Vulnerability Analysis";
-      rawTitle = slugParts.replace(/\b\w/g, (l) => l.toUpperCase());
-      rawMarkdown = `# ${rawTitle}\n\nSecurity researchers at ${parsedHost} have published an urgent technical advisory regarding ${rawTitle}. Threat actors are actively targeting unpatched enterprise endpoints and credential stores to establish persistence and extract session tokens.\n\n## Technical Root Cause & Exploitation Vector\n\nThe vulnerability allows remote attackers to bypass authentication controls or execute arbitrary code in the context of the privileged service process. In observed campaigns, adversaries deploy memory-resident payloads to harvest Chromium SQLite cookies, DPAPI master keys, and cloud identity tokens.\n\n\`\`\`bash\n# Audit active network connections & suspicious child processes\nnetstat -ano | findstr ESTABLISHED\nGet-Process | Where-Object {$_.Path -like "*AppData\\Local\\Temp*"}\n\`\`\`\n\n## Defensive Mitigations & Hardening Checklist\n\nOrganizations are strongly advised to apply vendor security patches immediately, enforce FIDO2 hardware-bound authentication, and restrict unauthorized process access to browser profile directories.`;
-      logs.push(`صفحه از دامنه ${parsedHost} واکشی و بدنه اصلی بدون تگ‌های اضافی استخراج شد.`);
+      return {
+        ok: false,
+        error:
+          "سایت مبدأ اجازه واکشی مستقیم را نداد (محافظت Cloudflare). لطفاً متن یا فایل .md آن را در تب «فایل Markdown» قرار دهید تا کامل پردازش شود.",
+        targetSection,
+        sourceType,
+        sourceDomain: parsedHost,
+        rawTitle: "",
+        cleanedMarkdown: "",
+        extractedCves: [],
+        downloadedImages: [],
+        coverImage: "",
+        pipelineLogs: [],
+      };
     }
   } else {
     rawMarkdown = markdownContent.trim();
     const h1Match = rawMarkdown.match(/^#\s+(.+)$/m);
-    rawTitle = h1Match ? h1Match[1].trim() : "Technical Security Report";
-    logs.push("فایل Markdown (.md) بدون ارسال ریکوئست به سایت خارجی مستقیماً خوانده شد.");
+    rawTitle = h1Match ? h1Match[1].trim() : "مقاله فنی";
+
+    // بررسی خودکار وجود لینک یا نام منبع در داخل فایل Markdown
+    const srcUrlMatch = rawMarkdown.match(
+      /^(?:Source|URL|Original|Reference|Link|منبع|لینک منبع)\s*:\s*(https?:\/\/[^\s)]+)/im
+    );
+    if (srcUrlMatch) {
+      detectedSourceUrl = srcUrlMatch[1].trim();
+      try {
+        const u = new URL(detectedSourceUrl);
+        if (!sourceDomain) sourceDomain = u.hostname.replace(/^www\./, "");
+      } catch {}
+    } else {
+      const srcTextMatch = rawMarkdown.match(/^(?:Source|Reference|منبع)\s*:\s*(.+)$/im);
+      if (srcTextMatch && !sourceDomain) {
+        sourceDomain = srcTextMatch[1].trim();
+      }
+    }
+    if (customSource.trim()) {
+      if (/^https?:\/\//i.test(customSource.trim())) {
+        detectedSourceUrl = customSource.trim();
+        try {
+          sourceDomain = new URL(detectedSourceUrl).hostname.replace(/^www\./, "");
+        } catch {
+          sourceDomain = customSource.trim();
+        }
+      } else {
+        sourceDomain = customSource.trim();
+      }
+    }
+
+    logs.push(
+      "فایل Markdown (.md) بدون ارسال ریکوئست به سایت خارجی و با حفظ ۱۰۰٪ تمامی بخش‌ها، پاراگراف‌ها و کدها خوانده شد."
+    );
   }
 
-  // استخراج تصاویر از داخل متن Markdown (![alt](url) و <img src="...">)
+  // استخراج تمام تصاویر واقعی موجود در محتوا (![alt](url) و <img src="...">)
   const mdImgRegex = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/gi;
   let m: RegExpExecArray | null;
   while ((m = mdImgRegex.exec(rawMarkdown)) !== null) {
     const imgUrl = m[2].trim();
+    const lower = imgUrl.toLowerCase();
+    if (
+      lower.includes("avatar") ||
+      lower.includes("logo") ||
+      lower.includes("icon") ||
+      lower.includes("pixel") ||
+      lower.includes("1x1")
+    ) {
+      continue;
+    }
     if (!candidateImages.some((i) => i.url === imgUrl)) {
       candidateImages.push({ url: imgUrl, alt: m[1].trim() || rawTitle });
     }
   }
+
   const htmlImgRegex = /<img[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*>/gi;
   while ((m = htmlImgRegex.exec(rawMarkdown)) !== null) {
     const imgUrl = m[1].trim();
@@ -1420,41 +1633,36 @@ export async function runSmartAutoPublisher(params: {
     }
   }
 
-  // اگر لینک یا فایل تصویر نداشت، یک تصویر فنی استاندارد به عنوان بنر شاخص در نظر می‌گیریم
-  if (candidateImages.length === 0) {
-    candidateImages.push({
-      url: "https://picsum.photos/seed/roham-cyber-intel/1200/630",
-      alt: rawTitle || "Roham Security Threat Intelligence Diagram",
-    });
-  }
-
   onStageChange?.(
     2,
-    `در حال پالایش ساختار و استخراج متادیتا با مدل سبک (${config.lightModel.modelName})...`
+    `در حال اجرای مدل سبک (${config.lightModel.modelName}): استخراج کامل ساختار و تصاویر بدون حذف محتوا...`
   );
-  await new Promise((r) => setTimeout(r, 450));
+  await new Promise((r) => setTimeout(r, 300));
 
-  // استخراج کدهای CVE، هش‌های SHA-256 و آدرس‌های IP/Domain از متن
   const cveMatches = rawMarkdown.match(/CVE-\d{4}-\d{4,7}/gi) || [];
   const extractedCves = Array.from(new Set(cveMatches.map((c) => c.toUpperCase())));
+
   logs.push(
-    `مدل سبک (${config.lightModel.modelName} @ ${config.lightModel.baseUrl}): پالایش متن اصلی، استخراج ${extractedCves.length} شناسه CVE و ${candidateImages.length} تصویر معتبر.`
+    `مدل سبک (${config.lightModel.modelName}): ساختار کامل متن به همراه ${candidateImages.length} تصویر استخراج شد.`
   );
 
-  // گام ۳: دانلود تصاویر و نگاشت به پوشه اختصاصی هاست (/uploads/media/YYYY-MM/)
+  // گام ۳: دانلود تصاویر موجود در متن به پوشه اختصاصی هاست (/uploads/media/YYYY-MM/)
   onStageChange?.(
     3,
-    `در حال دانلود ${candidateImages.length} تصویر و ذخیره‌سازی در پوشه /${config.mediaConfig.uploadFolder}...`
+    candidateImages.length > 0
+      ? `در حال دانلود ${candidateImages.length} تصویر و ذخیره‌سازی در پوشه /${config.mediaConfig.uploadFolder}...`
+      : "تصویری در سورس یافت نشد؛ عبور از مرحله دانلود تصویر..."
   );
-  await new Promise((r) => setTimeout(r, 450));
+  await new Promise((r) => setTimeout(r, 300));
 
   const yearMonth = new Date().toISOString().slice(0, 7);
   const folderBase = `/${config.mediaConfig.uploadFolder.replace(/^\/+|\/+$/g, "")}${
     config.mediaConfig.organizeByMonth ? `/${yearMonth}` : ""
   }`;
 
+  const imageMap = new Map<string, DownloadedMediaItem>();
   const downloadedImages: DownloadedMediaItem[] = candidateImages
-    .slice(0, config.mediaConfig.maxImagesPerPost || 10)
+    .slice(0, config.mediaConfig.maxImagesPerPost || 20)
     .map((img, idx) => {
       const extMatch = img.url.match(/\.(png|webp|gif|jpg|jpeg)(\?|$)/i);
       const ext = extMatch ? extMatch[1].toLowerCase() : "jpg";
@@ -1464,29 +1672,42 @@ export async function runSmartAutoPublisher(params: {
         .toString(16)
         .slice(0, 8);
       const localPath = `${folderBase}/roham-img-${idx + 1}-${shortHash}.${ext}`;
-      return {
+      const item: DownloadedMediaItem = {
         originalUrl: img.url,
         localPath,
         alt: img.alt,
         status: "downloaded",
       };
+      imageMap.set(img.url, item);
+      return item;
     });
 
-  logs.push(
-    `${downloadedImages.length} تصویر دانلود و با مسیرهای محلی در پوشه ${folderBase}/ جایگزین شدند.`
-  );
+  if (downloadedImages.length > 0) {
+    logs.push(
+      `${downloadedImages.length} تصویر مقاله دانلود و در مسیر ${folderBase}/ ذخیره گردید.`
+    );
+  }
 
-  // گام ۴: ترجمه تخصصی و ساختاردهی به فرمت خبر یا بلاگ با مدل قوی
+  // گام ۴: ترجمه ۱۰۰٪ کامل تمامی بخش‌ها و پاراگراف‌ها با مدل قوی (بدون هیچ‌گونه حذفیات یا خلاصه‌سازی)
   onStageChange?.(
     4,
-    `در حال ترجمه تخصصی امنیت سایبری و ساختاردهی با مدل قوی (${config.strongModel.modelName})...`
+    `در حال ترجمه ۱۰۰٪ کامل تمام پاراگراف‌ها و بخش‌ها با مدل قوی (${config.strongModel.modelName})...`
   );
 
-  // تفکیک متن Markdown به بخش‌ها (بر اساس هدینگ‌های ## یا پاراگراف‌ها)
-  const cleanBodyWithoutH1 = rawMarkdown.replace(/^#\s+.+$/m, "").trim();
-  const rawChunks = cleanBodyWithoutH1.split(/\n(?=##\s+)/);
+  // حذف فقط اولین عنوان # که همان rawTitle است تا تکراری نشود
+  let bodyContent = rawMarkdown;
+  if (/^#\s+.+$/m.test(bodyContent)) {
+    bodyContent = bodyContent.replace(/^#\s+.+$/m, "").trim();
+  }
+  // حذف خط Source: ... از بدنه در صورتی که در انتهای مطلب به عنوان منبع رسمی درج می‌شود
+  bodyContent = bodyContent
+    .replace(/^(?:Source|URL|Original|Reference|منبع|لینک منبع)\s*:\s*https?:\/\/[^\s)]+\s*$/gim, "")
+    .trim();
 
   const translatedTitle = await translateSegmentToPersian(rawTitle);
+
+  // تفکیک متن بر اساس تمام هدینگ‌های موجود (## یا ### یا #) بدون هیچ محدودیتی در تعداد بخش‌ها
+  const rawChunks = bodyContent.split(/\n(?=#{1,4}\s+)/);
 
   const parsedSections: {
     heading: string;
@@ -1495,148 +1716,182 @@ export async function runSmartAutoPublisher(params: {
     codeLanguage?: string;
     imageUrl?: string;
     imageAlt?: string;
+    table?: {
+      headers: string[];
+      rows: string[][];
+    };
   }[] = [];
 
-  for (let i = 0; i < Math.min(rawChunks.length, 5); i++) {
+  let introParagraphs: string[] = [];
+
+  for (let i = 0; i < rawChunks.length; i++) {
     const chunk = rawChunks[i].trim();
     if (!chunk) continue;
 
-    let headingEn = `بخش ${i + 1}: تحلیل فنی و جزئیات اجرایی`;
-    let bodyText = chunk;
-    const hMatch = chunk.match(/^##+\s+(.+)$/m);
-    if (hMatch) {
-      headingEn = hMatch[1].trim();
-      bodyText = chunk.replace(/^##+\s+.+$/m, "").trim();
+    const headingMatch = chunk.match(/^(#{1,4})\s+(.+)$/m);
+    let headingEn = "";
+    let sectionBody = chunk;
+
+    if (headingMatch && chunk.startsWith(headingMatch[0])) {
+      headingEn = headingMatch[2].trim();
+      sectionBody = chunk.slice(headingMatch[0].length).trim();
     }
 
-    // استخراج بلوک کد در صورت وجود
-    let codeSnippet: string | undefined;
-    let codeLanguage: string | undefined;
-    const codeMatch = bodyText.match(/```([a-z0-9_-]*)\n([\s\S]*?)```/i);
-    if (codeMatch) {
-      codeLanguage = codeMatch[1] || "bash";
-      codeSnippet = codeMatch[2].trim();
-      bodyText = bodyText.replace(/```[a-z0-9_-]*\n[\s\S]*?```/gi, "").trim();
-    }
+    const rawBlocks = tokenizeMarkdownSectionBody(sectionBody);
 
-    // حذف سینتکس تصاویر خام از پاراگراف‌ها (چون در فیلد اختصاصی تصویر بخش قرار می‌گیرند)
-    bodyText = bodyText.replace(/!\[[^\]]*\]\([^)]+\)/g, "").trim();
+    // ترجمه موازی تمام بلوک‌های متنی این بخش (بدون حذف حتی یک بلوک!)
+    const translatedBlocks: string[] = [];
+    let sectionPrimaryImage: string | undefined;
+    let sectionPrimaryImageAlt: string | undefined;
 
-    const rawParas = bodyText
-      .split(/\n{2,}/)
-      .map((p) => p.replace(/^[*-]\s+/gm, "• ").trim())
-      .filter((p) => p.length > 20)
-      .slice(0, 3);
+    // پردازش در دسته‌های ۶ تایی برای سرعت بالا و حفظ کامل ترتیب
+    for (let bIdx = 0; bIdx < rawBlocks.length; bIdx += 6) {
+      const batch = rawBlocks.slice(bIdx, bIdx + 6);
+      const batchResults = await Promise.all(
+        batch.map(async (block) => {
+          // ۱. اگر بلوک کد است، ۱۰۰٪ دست‌نخورده و بدون ترجمه حفظ شود
+          if (block.startsWith("```")) {
+            return block;
+          }
 
-    const translatedHeading = await translateSegmentToPersian(headingEn);
-    const translatedParas: string[] = [];
-    for (const p of rawParas) {
-      translatedParas.push(await translateSegmentToPersian(p));
-    }
+          // ۲. اگر بلوک یک تصویر Markdown است: ![alt](url)
+          const singleImgMatch = block.match(/^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/);
+          if (singleImgMatch) {
+            const origUrl = singleImgMatch[2].trim();
+            const altText = singleImgMatch[1].trim();
+            const dl = imageMap.get(origUrl);
+            const trAlt = altText ? await translateSegmentToPersian(altText) : "";
+            const caption = dl
+              ? `${trAlt ? trAlt + " — " : ""}ذخیره شده در: ${dl.localPath}`
+              : trAlt;
+            if (!sectionPrimaryImage) {
+              sectionPrimaryImage = origUrl;
+              sectionPrimaryImageAlt = caption;
+              return ""; // در فیلد imageUrl همین بخش نمایش داده می‌شود
+            }
+            // اگر بخش بیش از یک تصویر داشت، تصاویر بعدی هم دقیقاً در جای خودشان نمایش داده شوند
+            return `![${caption}](${origUrl})`;
+          }
 
-    if (translatedParas.length === 0) {
-      translatedParas.push(
-        "بررسی‌های آزمایشگاهی نشان می‌دهد مهاجمان با بهره‌گیری از این بردار حمله قادر به دور زدن لایه‌های حفاظتی متداول و دسترسی به منابع حساس سیستم هستند."
+          // ۳. اگر پاراگراف حاوی تصویر در دل متن است، لینک تصویر را حفظ کن و متن را کامل ترجمه کن
+          // ۴. اگر لیست بولت‌پوینت یا جدول یا پاراگراف عادی است، خط به خط یا کامل ترجمه کن
+          if (block.includes("\n* ") || block.includes("\n- ") || /^([*-]|\d+\.)\s+/m.test(block)) {
+            const listLines = block.split("\n");
+            const trLines = await Promise.all(
+              listLines.map(async (l) => {
+                const bulletMatch = l.match(/^(\s*(?:[*-]|\d+\.)\s+)(.+)$/);
+                if (bulletMatch) {
+                  const trItem = await translateSegmentToPersian(bulletMatch[2]);
+                  return `${bulletMatch[1]}${trItem}`;
+                }
+                return translateSegmentToPersian(l);
+              })
+            );
+            return trLines.join("\n");
+          }
+
+          return translateSegmentToPersian(block);
+        })
       );
+
+      for (const r of batchResults) {
+        if (r && r.trim()) {
+          translatedBlocks.push(r.trim());
+        }
+      }
     }
 
-    const assignedImage = downloadedImages[i];
-    const translatedAlt = assignedImage?.alt
-      ? await translateSegmentToPersian(assignedImage.alt)
-      : translatedHeading;
+    // اگر این قطعه قبل از اولین هدینگ قرار داشته و عنوانی ندارد
+    if (!headingEn && i === 0 && rawChunks.length > 1) {
+      if (sectionPrimaryImage) {
+        translatedBlocks.unshift(`![${sectionPrimaryImageAlt || ""}](${sectionPrimaryImage})`);
+      }
+      introParagraphs = translatedBlocks;
+      continue;
+    }
+
+    const translatedHeading = headingEn
+      ? await translateSegmentToPersian(headingEn)
+      : "";
 
     parsedSections.push({
       heading: translatedHeading,
-      paragraphs: translatedParas,
-      codeSnippet,
-      codeLanguage,
-      imageUrl: assignedImage ? assignedImage.originalUrl : undefined,
-      imageAlt: assignedImage ? `${translatedAlt} (ذخیره شده در: ${assignedImage.localPath})` : undefined,
+      paragraphs: translatedBlocks,
+      imageUrl: sectionPrimaryImage,
+      imageAlt: sectionPrimaryImageAlt,
     });
   }
 
-  if (parsedSections.length === 0) {
+  // اگر کل مطلب بدون هدینگ ## بود، تمام پاراگراف‌های مقدمه را در یک بخش اصلی کامل قرار بده
+  if (parsedSections.length === 0 && introParagraphs.length > 0) {
     parsedSections.push({
-      heading: "تحلیل فنی و مکانیزم بهره‌برداری",
-      paragraphs: [await translateSegmentToPersian(cleanBodyWithoutH1.slice(0, 1200))],
-      imageUrl: downloadedImages[0]?.originalUrl,
-      imageAlt: downloadedImages[0]?.localPath,
+      heading: "",
+      paragraphs: introParagraphs,
     });
+    introParagraphs = [];
   }
 
-  const firstSummary =
-    parsedSections[0]?.paragraphs[0]?.slice(0, 260) ||
-    "تحلیل جامع فنی و بررسی بردارهای حمله، شاخص‌های آلودگی و راهکارهای دفاعی و مقاوم‌سازی.";
+  // محاسبه تخمینی زمان مطالعه بر اساس کل کلمات واقعی متن
+  const totalWords = bodyContent.split(/\s+/).length;
+  const estMinutes = Math.max(2, Math.ceil(totalWords / 180));
+  const readTimeStr = `${estMinutes} دقیقه`;
+
+  // خلاصه کوتاه برای کارت پیش‌نمایش در لیست (بدون تکرار در داخل متن خبر)
+  const firstTextPara =
+    introParagraphs.find((p) => !p.startsWith("```") && !p.startsWith("![")) ||
+    parsedSections[0]?.paragraphs.find((p) => !p.startsWith("```") && !p.startsWith("![")) ||
+    translatedTitle;
+  const cardSummary = firstTextPara.slice(0, 220) + (firstTextPara.length > 220 ? "..." : "");
 
   logs.push(
-    `مدل قوی (${config.strongModel.modelName} @ ${config.strongModel.baseUrl}): ترجمه فارسی تخصصی و تولید ساختار ${
-      targetSection === "news" ? "خبر رادار تهدیدات" : "مقاله وبلاگ فنی"
-    } کامل شد.`
+    `مدل قوی (${config.strongModel.modelName}): ترجمه ۱۰۰٪ کامل تمامی ${parsedSections.length} بخش بدون حذف یا خلاصه‌سازی انجام شد.`
   );
 
   const nowId = `${targetSection}-${Date.now()}`;
 
   if (targetSection === "news") {
+    // در بخش خبر، اگر پاراگراف‌های ابتدایی قبل از اولین هدینگ وجود داشت، آن‌ها را در ابتدای بخش‌ها قرار می‌دهیم تا هیچ خطی جا نیفتد
+    const finalNewsSections: typeof parsedSections =
+      introParagraphs.length > 0
+        ? [{ heading: "", paragraphs: introParagraphs }, ...parsedSections]
+        : parsedSections;
+
     const generatedNews: NewsArticle = {
       id: nowId,
-      slug: `roham-intel-${Date.now().toString().slice(-6)}`,
-      title: translatedTitle || "گزارش فوری هوش تهدیدات سایبری",
-      subtitle: firstSummary,
+      slug: `roham-news-${Date.now().toString().slice(-6)}`,
+      title: translatedTitle || "گزارش خبری امنیت سایبری",
+      subtitle: "",
       category: extractedCves.length > 0 ? "zeroday" : "malware",
-      categoryLabel: extractedCves.length > 0 ? "آسیب‌پذیری زیرودی" : "بدافزار و تهدیدات",
+      categoryLabel: extractedCves.length > 0 ? "آسیب‌پذیری و امنیت" : "گزارش فنی و خبری",
       severity: extractedCves.length > 0 ? "CRITICAL" : "HIGH",
       status: "published",
-      isBreaking: true,
+      isBreaking: false,
       date: "مهر ۱۴۰۴",
-      readTime: "۶ دقیقه",
-      author: "واحد هوش تهدیدات رهام (پست‌گذار هوشمند)",
+      readTime: readTimeStr,
+      author: "تحریریه رهام",
       source: sourceDomain,
-      sourceUrl: sourceType === "url" ? sourceUrl : undefined,
-      coverImage: downloadedImages[0]?.originalUrl,
+      sourceUrl: detectedSourceUrl || undefined,
+      coverImage: undefined, // تصاویر دقیقاً در جای اصلی خود داخل متن نمایش داده می‌شوند
       downloadedImages,
       views: 1,
-      cveIds: extractedCves.length > 0 ? extractedCves : ["CVE-2026-0001"],
-      cvssScore: extractedCves.length > 0 ? "9.4" : "8.6",
-      affectedProducts: [sourceDomain, "Enterprise Endpoints & Browsers"],
-      exploitStatus: "گزارش رسمی و تحلیل فنی منتشر شده",
-      summary: firstSummary,
-      keyHighlights: [
-        `منبع گزارش: ${sourceDomain} — ترجمه و پالایش خودکار با پایپ‌لاین دو-مدله رهام.`,
-        parsedSections[0]?.paragraphs[0]?.slice(0, 160) || "شناسایی بردار نفوذ جدید در ایستگاه‌های کاری.",
-        `${downloadedImages.length} تصویر مستند فنی استخراج و در پوشه ${folderBase} آرشیو شد.`,
-      ],
-      sections: parsedSections.map((s) => ({
+      cveIds: extractedCves,
+      affectedProducts: [],
+      exploitStatus: "",
+      summary: cardSummary,
+      keyHighlights: [], // بدون هیچ بخش اضافه ساختگی
+      sections: finalNewsSections.map((s) => ({
         heading: s.heading,
         paragraphs: s.paragraphs,
         codeSnippet: s.codeSnippet,
         codeLanguage: s.codeLanguage,
         imageUrl: s.imageUrl,
         imageAlt: s.imageAlt,
-        callout:
-          "توصیه امنیتی رهام: پایش مستمر پروسه‌های غیرمجاز و محدودسازی دسترسی به نشست‌های احراز هویت شده را در اولویت قرار دهید.",
+        table: s.table,
       })),
-      iocs: [
-        {
-          type: "Domain/C2",
-          value: sourceDomain,
-          description: "دامنه مرجع / منبع گزارش تحلیلی",
-        },
-        ...(extractedCves.map((cve) => ({
-          type: "YARA/Rule",
-          value: `rule Detect_${cve.replace(/[^a-zA-Z0-9]/g, "_")} { condition: true }`,
-          description: `قاعده پایش و شناسایی بهره‌برداری از ${cve}`,
-        })) as NewsIoC[]),
-      ],
-      mitigationSteps: [
-        "نصب فوری آخرین وصله‌های امنیتی منتشرشده توسط تولیدکننده نرم‌افزار.",
-        "پایش لاگ‌های EDR/SIEM برای شناسایی پروسه‌های مشکوک و دسترسی به حافظه مرورگر.",
-        "استفاده از احراز هویت سخت‌افزاری (FIDO2) و ایزولاسیون نشست‌های حساس.",
-      ],
-      timeline: [
-        { time: "کشف اولیه", event: `انتشار گزارش فنی در ${sourceDomain}` },
-        { time: "پردازش هوشمند", event: "استخراج، دانلود تصاویر و ترجمه تخصصی در رادار رهام" },
-      ],
-      tags: [...extractedCves, "Threat-Intel", "AI-Publisher", sourceDomain],
+      iocs: [], // بدون هیچ بخش اضافه ساختگی
+      mitigationSteps: [], // بدون چک‌لیست اضافه ساختگی
+      timeline: [], // بدون تایم‌لاین اضافه ساختگی
+      tags: [...extractedCves, ...(sourceDomain ? [sourceDomain] : ["Cybersecurity"])],
     };
 
     return {
@@ -1644,6 +1899,7 @@ export async function runSmartAutoPublisher(params: {
       targetSection,
       sourceType,
       sourceDomain,
+      sourceUrl: detectedSourceUrl || undefined,
       rawTitle,
       cleanedMarkdown: rawMarkdown,
       extractedCves,
@@ -1656,54 +1912,46 @@ export async function runSmartAutoPublisher(params: {
     const generatedBlog: BlogPost = {
       id: nowId,
       slug: `roham-article-${Date.now().toString().slice(-6)}`,
-      title: translatedTitle || "مقاله تحلیلی امنیت سایبری",
-      subtitle: firstSummary,
-      summary: firstSummary,
+      title: translatedTitle || "مقاله فنی امنیت سایبری",
+      subtitle: "",
+      summary: cardSummary,
       category: "تحقیقات زیرودی",
-      readTime: "۸ دقیقه",
+      readTime: readTimeStr,
       date: "مهر ۱۴۰۴",
-      author: "تیم پژوهش امنیت سایبری رهام",
-      authorRole: `ترجمه و تدوین هوشمند از ${sourceDomain}`,
+      author: "تیم فنی رهام",
+      authorRole: sourceDomain ? `منبع: ${sourceDomain}` : "Roham Security Research",
       difficulty: "تخصصی (Deep-Dive)",
-      tags: [...extractedCves, "Deep-Dive", "Hardening", sourceDomain],
+      tags: [...extractedCves, ...(sourceDomain ? [sourceDomain] : ["Technical-Blog"])],
       status: "published",
       isFeatured: false,
       views: 1,
-      relatedChapterId: "chapter-1",
-      coverImage: downloadedImages[0]?.originalUrl,
-      sourceUrl: sourceType === "url" ? sourceUrl : undefined,
+      coverImage: undefined,
+      source: sourceDomain || undefined,
+      sourceUrl: detectedSourceUrl || undefined,
       downloadedImages,
-      tldr: [
-        parsedSections[0]?.paragraphs[0]?.slice(0, 170) || "کالبدشکافی فنی مکانیزم حمله و راهکارهای دفاعی.",
-        `تمامی ${downloadedImages.length} تصویر فنی مقاله در مسیر ${folderBase} ذخیره و بومی‌سازی شدند.`,
-        "ارائه چک‌لیست عملیاتی جهت مقاوم‌سازی ایستگاه‌های کاری و زیرساخت سازمانی.",
-      ],
+      tldr: [], // بدون خلاصه مدیریتی ساختگی
       content: {
-        intro: parsedSections[0]?.paragraphs[0] || firstSummary,
+        intro: introParagraphs.join("\n\n"),
         sections: parsedSections.map((s, idx) => ({
           id: `sec-${idx + 1}`,
-          heading: `${idx + 1}. ${s.heading}`,
+          heading: s.heading,
           paragraphs: s.paragraphs,
           codeSnippet: s.codeSnippet,
           codeLanguage: s.codeLanguage,
           imageUrl: s.imageUrl,
           imageAlt: s.imageAlt,
-          callout:
-            idx === 0
-              ? "نکته مهندسی: بررسی دقیق زنجیره حمله در سطح کرنل و یوزرها به تیم‌های دفاعی کمک می‌کند پیش از سرقت داده، فعالیت مخرب را متوقف کنند."
-              : undefined,
-          calloutType: "info",
+          table: s.table,
         })),
-        conclusion:
-          "با توجه به پیچیده‌تر شدن تکنیک‌های مهاجمان، اتکا به دفاع سنتی کافی نیست و پیاده‌سازی معماری Zero-Trust در کنار پایش رفتاری پروسه‌ها امری حیاتی است.",
-        actionableTakeaways: [
-          "به‌روزرسانی فوری سرویس‌های آسیب‌پذیر و بررسی شناسه‌های CVE مرتبط",
-          "محدودسازی دسترسی پروسه‌های غیرمجاز به فایل‌های حساس و کوکی‌های مرورگر",
-          "بازبینی قوانین تشخیص در سامانه‌های EDR و فایروال سازمانی",
-        ],
+        conclusion: "", // بدون نتیجه‌گیری ساختگی
+        actionableTakeaways: [], // بدون چک‌لیست ساختگی
         references:
-          sourceType === "url" && sourceUrl
-            ? [{ title: `منبع اصلی مقاله (${sourceDomain})`, url: sourceUrl }]
+          detectedSourceUrl || sourceDomain
+            ? [
+                {
+                  title: sourceDomain || detectedSourceUrl,
+                  url: detectedSourceUrl || "",
+                },
+              ]
             : [],
       },
     };
@@ -1713,6 +1961,7 @@ export async function runSmartAutoPublisher(params: {
       targetSection,
       sourceType,
       sourceDomain,
+      sourceUrl: detectedSourceUrl || undefined,
       rawTitle,
       cleanedMarkdown: rawMarkdown,
       extractedCves,

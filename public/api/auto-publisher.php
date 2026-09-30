@@ -572,7 +572,8 @@ if ($action === 'process_pipeline') {
 
     // گام ۱: دریافت محتوا (از لینک با حذف هدر/فوتر یا مستقیم از فایل Markdown بدون درخواست خارجی)
     $rawTitle = '';
-    $sourceDomain = 'Markdown File (.md)';
+    $sourceDomain = '';
+    $detectedSourceUrl = $sourceType === 'url' ? $sourceUrl : '';
     $rawMarkdown = '';
     $candidateImages = [];
 
@@ -588,7 +589,7 @@ if ($action === 'process_pipeline') {
         $sourceDomain = $scraped['sourceDomain'];
         $rawMarkdown = $scraped['extractedMarkdown'];
         $candidateImages = $scraped['images'];
-        $pipelineLogs[] = "واکشی موفق صفحه از دامنه {$sourceDomain} و حذف تگ‌های هدر، فوتر، ناوبری و تبلیغات.";
+        $pipelineLogs[] = "واکشی کامل متن اصلی از دامنه {$sourceDomain} (حذف تگ‌های هدر، فوتر، منو و تبلیغات بدون حذف محتوای فنی).";
     } else {
         if ($markdownContent === '') {
             roham_respond(['ok' => false, 'error' => 'محتوای فایل Markdown خالی است.'], 400);
@@ -597,11 +598,29 @@ if ($action === 'process_pipeline') {
         if (preg_match('/^#\s+(.+)$/m', $rawMarkdown, $tm)) {
             $rawTitle = trim($tm[1]);
         }
+        // بررسی وجود لینک یا نام منبع در داخل فایل Markdown
+        if (preg_match('/^(?:Source|URL|Original|Reference|منبع|لینک منبع)\s*:\s*(https?:\/\/\S+)/im', $rawMarkdown, $sm)) {
+            $detectedSourceUrl = trim($sm[1]);
+            $pHost = parse_url($detectedSourceUrl, PHP_URL_HOST);
+            if ($pHost) $sourceDomain = preg_replace('/^www\./i', '', $pHost);
+        } elseif (preg_match('/^(?:Source|منبع)\s*:\s*(.+)$/im', $rawMarkdown, $sm2)) {
+            $sourceDomain = trim($sm2[1]);
+        }
+        if (!empty($input['customSource'])) {
+            $customSrc = trim((string)$input['customSource']);
+            if (preg_match('/^https?:\/\//i', $customSrc)) {
+                $detectedSourceUrl = $customSrc;
+                $pHost = parse_url($detectedSourceUrl, PHP_URL_HOST);
+                if ($pHost) $sourceDomain = preg_replace('/^www\./i', '', $pHost);
+            } else {
+                $sourceDomain = $customSrc;
+            }
+        }
         $candidateImages = roham_extract_markdown_images($rawMarkdown);
-        $pipelineLogs[] = "دریافت مستقیم فایل Markdown (بدون ارسال ریکوئست به سایت خارجی) و استخراج " . count($candidateImages) . " تصویر.";
+        $pipelineLogs[] = "دریافت مستقیم و ۱۰۰٪ کامل فایل Markdown (بدون ارسال ریکوئست به سایت خارجی) و استخراج " . count($candidateImages) . " تصویر.";
     }
 
-    // گام ۲: اجرای مدل سبک (Light AI Model) جهت پالایش بدنه اصلی و فیلتر تصاویر
+    // گام ۲: اجرای مدل سبک (Light AI Model) فقط برای حذف نویز احتمالی هدر/فوتر در حالت لینک (بدون هیچ‌گونه خلاصه‌سازی یا حذف متن اصلی)
     $lightKey = roham_resolve_server_api_key($config['lightModel']['envKeyName'] ?? 'GEMINI_API_KEY', $db);
     $cleanedBody = $rawMarkdown;
     $extractedCves = [];
@@ -609,9 +628,9 @@ if ($action === 'process_pipeline') {
         $extractedCves = array_values(array_unique(array_map('strtoupper', $cveM[0])));
     }
 
-    if ($lightKey !== '') {
-        $lightSys = "You are a fast, lightweight technical content extractor. Strip any remaining website header, footer, newsletter prompts, social share buttons, or unrelated sidebar links. Return JSON with keys: {\"cleanTitle\": string, \"cleanedMarkdown\": string, \"cves\": string[], \"validImageUrls\": string[]}.";
-        $lightUser = "Source Title: {$rawTitle}\nCandidate Images: " . json_encode($candidateImages) . "\n\nRaw Content:\n" . mb_substr($rawMarkdown, 0, 16000, 'UTF-8');
+    if ($sourceType === 'url' && $lightKey !== '') {
+        $lightSys = "You are a lossless technical article body extractor. Remove ONLY website navigation menus, header, footer, ads, and unrelated sidebar links. CRITICAL RULE: DO NOT summarize, shorten, or delete ANY paragraph, heading, code block, command, list, or technical detail from the article! Keep 100% of the main article text verbatim from start to finish. Return JSON with keys: {\"cleanTitle\": string, \"cleanedMarkdown\": string, \"cves\": string[], \"validImageUrls\": string[]}.";
+        $lightUser = "Source Title: {$rawTitle}\nCandidate Images: " . json_encode($candidateImages) . "\n\nRaw Content:\n" . $rawMarkdown;
         $lightRes = roham_call_ai_model($config['lightModel'], $lightKey, $lightSys, $lightUser);
         if (is_array($lightRes) && !empty($lightRes['cleanedMarkdown'])) {
             $cleanedBody = (string)$lightRes['cleanedMarkdown'];
@@ -619,17 +638,15 @@ if ($action === 'process_pipeline') {
             if (!empty($lightRes['cves']) && is_array($lightRes['cves'])) {
                 $extractedCves = array_values(array_unique(array_merge($extractedCves, $lightRes['cves'])));
             }
-            $pipelineLogs[] = "پالایش بدنه اصلی و متادیتا توسط مدل سبک ({$config['lightModel']['modelName']}) انجام شد.";
+            $pipelineLogs[] = "حذف نویزهای پیرامونی صفحه بدون کاستن از متن اصلی توسط مدل سبک ({$config['lightModel']['modelName']}) انجام شد.";
         }
-    } else {
-        $pipelineLogs[] = "پالایش ساختاری DOM و استخراج بدنه اصلی با موتور محلی انجام شد.";
     }
 
     // گام ۳: دانلود تمام تصاویر مقاله به پوشه اختصاصی روی هاست (/uploads/media/)
     $downloadedImages = [];
     if (!empty($config['mediaConfig']['downloadImages']) && !empty($candidateImages)) {
         $downloadedImages = roham_download_images_to_host($candidateImages, $config['mediaConfig']);
-        $pipelineLogs[] = count($downloadedImages) . " تصویر بررسی و در پوشه /" . trim($config['mediaConfig']['uploadFolder'], '/') . " ذخیره شد.";
+        $pipelineLogs[] = count($downloadedImages) . " تصویر دانلود و در پوشه /" . trim($config['mediaConfig']['uploadFolder'], '/') . " ذخیره شد.";
     }
 
     // جایگزینی لینک‌های قدیمی تصاویر داخل متن با آدرس لوکال دانلودشده روی هاست
@@ -639,7 +656,7 @@ if ($action === 'process_pipeline') {
         }
     }
 
-    // گام ۴: اجرای مدل قوی (Strong AI Model) برای ترجمه تخصصی امنیت سایبری و تولید ساختار نهایی خبر یا بلاگ
+    // گام ۴: اجرای مدل قوی (Strong AI Model) برای ترجمه ۱۰۰٪ کامل و وفادار متن بدون حذفیات و بدون بخش‌های ساختگی
     $strongKey = roham_resolve_server_api_key($config['strongModel']['envKeyName'] ?? 'GEMINI_API_KEY', $db);
     $customInst = $config['strongModel']['customInstructions'] ?? '';
     $coverImage = $downloadedImages[0]['localPath'] ?? '';
@@ -647,16 +664,16 @@ if ($action === 'process_pipeline') {
     $generatedPost = null;
     if ($strongKey !== '') {
         if ($targetSection === 'news') {
-            $strongSys = "You are a Senior Cybersecurity Threat Intelligence Editor at a premier Persian publication like The Hacker News. Translate and structure the provided technical article into a rich Persian NewsArticle JSON object. {$customInst}\nReturn strictly valid JSON with keys: title, subtitle, category ('urgent'|'malware'|'zeroday'|'apt'|'cloud'), categoryLabel, severity ('CRITICAL'|'HIGH'|'MEDIUM'|'INFO'), cvssScore, cveIds (string[]), affectedProducts (string[]), exploitStatus, summary, keyHighlights (string[]), sections (array of {heading, paragraphs: string[], codeSnippet, codeLanguage, callout, imageUrl, imageAlt}), iocs (array of {type, value, description}), mitigationSteps (string[]), timeline (array of {time, event}), tags (string[]). Distribute any provided local image paths into sections[i].imageUrl with a Persian caption in imageAlt.";
+            $strongSys = "You are a Senior Cybersecurity Translator & Editor. Translate the ENTIRE provided article into fluent, accurate Persian. CRITICAL RULES:\n1. DO NOT summarize, truncate, or omit ANY paragraph, section, code block, list, or technical detail. Every single paragraph and code snippet in the input MUST be preserved in full.\n2. DO NOT invent or add any extra sections (leave keyHighlights, iocs, mitigationSteps, and timeline as empty arrays []).\n3. Keep all code blocks untouched in their original programming language.\n4. Place the provided local image paths in the corresponding sections where they appear.\n{$customInst}\nReturn strictly valid JSON with keys: title, subtitle, category ('urgent'|'malware'|'zeroday'|'apt'|'cloud'), categoryLabel, severity ('CRITICAL'|'HIGH'|'MEDIUM'|'INFO'), cveIds (string[]), summary, sections (array of {heading, paragraphs: string[], codeSnippet, codeLanguage, imageUrl, imageAlt}), tags (string[]).";
         } else {
-            $strongSys = "You are a Principal Security Researcher writing a deep-dive Persian engineering blog post. Translate and structure the provided technical content into a rich Persian BlogPost JSON object. {$customInst}\nReturn strictly valid JSON with keys: title, subtitle, summary, category ('استیلر و بدافزار'|'دفاع و هاردنینگ'|'هویت و سشن‌ها'|'تحقیقات زیرودی'), difficulty ('پیشرفته'|'تخصصی (Deep-Dive)'), readTime, tags (string[]), tldr (string[]), content ({intro, sections: array of {id, heading, paragraphs: string[], codeSnippet, codeLanguage, callout, calloutType, imageUrl, imageAlt}, conclusion, actionableTakeaways: string[]}). Distribute any provided local image paths into content.sections[i].imageUrl with a Persian caption in imageAlt.";
+            $strongSys = "You are a Principal Security Translator & Author. Translate the ENTIRE provided technical article into fluent, accurate Persian. CRITICAL RULES:\n1. DO NOT summarize, truncate, or omit ANY paragraph, section, code block, list, or technical detail. Every single paragraph and code snippet in the input MUST be preserved in full.\n2. DO NOT invent or add any extra sections (leave tldr and actionableTakeaways as empty arrays [], and conclusion as empty string unless the article explicitly has a conclusion).\n3. Keep all code blocks untouched in their original programming language.\n4. Place the provided local image paths in the corresponding content.sections where they appear.\n{$customInst}\nReturn strictly valid JSON with keys: title, subtitle, summary, category ('استیلر و بدافزار'|'دفاع و هاردنینگ'|'هویت و سشن‌ها'|'تحقیقات زیرودی'), difficulty ('پیشرفته'|'تخصصی (Deep-Dive)'), readTime, tags (string[]), content ({intro, sections: array of {id, heading, paragraphs: string[], codeSnippet, codeLanguage, imageUrl, imageAlt}, conclusion}).";
         }
 
-        $strongUser = "Original Title: {$rawTitle}\nSource: {$sourceDomain}\nDetected CVEs: " . implode(', ', $extractedCves) . "\nDownloaded Local Images: " . json_encode($downloadedImages, JSON_UNESCAPED_UNICODE) . "\n\nCleaned Content:\n" . mb_substr($cleanedBody, 0, 20000, 'UTF-8');
+        $strongUser = "Original Title: {$rawTitle}\nSource: {$sourceDomain}\nSource URL: {$detectedSourceUrl}\nDownloaded Local Images: " . json_encode($downloadedImages, JSON_UNESCAPED_UNICODE) . "\n\nFull Article Content (Translate 100% completely without omitting anything):\n" . $cleanedBody;
         $strongRes = roham_call_ai_model($config['strongModel'], $strongKey, $strongSys, $strongUser);
         if (is_array($strongRes) && !empty($strongRes['title'])) {
             $generatedPost = $strongRes;
-            $pipelineLogs[] = "ترجمه تخصصی و ساختاردهی کامل توسط مدل قوی ({$config['strongModel']['modelName']}) با موفقیت انجام شد.";
+            $pipelineLogs[] = "ترجمه ۱۰۰٪ کامل و بدون حذفیات توسط مدل قوی ({$config['strongModel']['modelName']}) با موفقیت انجام شد.";
         }
     }
 
@@ -665,6 +682,7 @@ if ($action === 'process_pipeline') {
         'targetSection' => $targetSection,
         'sourceType' => $sourceType,
         'sourceDomain' => $sourceDomain,
+        'sourceUrl' => $detectedSourceUrl,
         'rawTitle' => $rawTitle,
         'cleanedMarkdown' => $cleanedBody,
         'extractedCves' => $extractedCves,

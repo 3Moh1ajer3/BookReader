@@ -26,6 +26,7 @@ import {
   Activity,
   FileWarning,
   ChevronLeft,
+  ExternalLink,
   X,
 } from "lucide-react";
 import {
@@ -628,45 +629,49 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                 )}
               </div>
 
-              {/* Mobile-Only Quick Threat Dossier Card */}
-              <div
-                className={`lg:hidden p-5 rounded-2xl border mb-8 space-y-3 ${currentTheme.surface}`}
-              >
-                <div className="flex items-center justify-between border-b border-slate-800/60 pb-2.5">
-                  <span className="text-xs font-extrabold text-amber-400 flex items-center gap-1.5">
-                    <ShieldAlert className="w-4 h-4" />
-                    شناسنامه فنی تهدید (Threat Dossier)
-                  </span>
-                  {activeArticle.cvssScore && (
-                    <span className="px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-700/50 text-xs font-mono font-bold">
-                      CVSS {activeArticle.cvssScore}
+              {/* Mobile-Only Quick Threat Dossier Card (ONLY if threat metrics exist) */}
+              {(activeArticle.cvssScore ||
+                activeArticle.exploitStatus ||
+                (activeArticle.affectedProducts && activeArticle.affectedProducts.length > 0)) && (
+                <div
+                  className={`lg:hidden p-5 rounded-2xl border mb-8 space-y-3 ${currentTheme.surface}`}
+                >
+                  <div className="flex items-center justify-between border-b border-slate-800/60 pb-2.5">
+                    <span className="text-xs font-extrabold text-amber-400 flex items-center gap-1.5">
+                      <ShieldAlert className="w-4 h-4" />
+                      شناسنامه فنی تهدید (Threat Dossier)
                     </span>
+                    {activeArticle.cvssScore && (
+                      <span className="px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-700/50 text-xs font-mono font-bold">
+                        CVSS {activeArticle.cvssScore}
+                      </span>
+                    )}
+                  </div>
+                  {activeArticle.exploitStatus && (
+                    <div className="text-xs">
+                      <span className={currentTheme.subtext}>وضعیت اکسپلویت: </span>
+                      <span className="font-bold text-rose-400">{activeArticle.exploitStatus}</span>
+                    </div>
+                  )}
+                  {activeArticle.affectedProducts && activeArticle.affectedProducts.length > 0 && (
+                    <div className="space-y-1">
+                      <div className={`text-[11px] ${currentTheme.subtext}`}>
+                        سامانه‌ها و محصولات تحت تاثیر:
+                      </div>
+                      <div className="flex flex-wrap gap-1.5" style={{ direction: "ltr" }}>
+                        {activeArticle.affectedProducts.map((prod) => (
+                          <span
+                            key={prod}
+                            className="px-2 py-0.5 rounded bg-slate-950/90 text-slate-200 border border-slate-800 text-[11px] font-mono"
+                          >
+                            {prod}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
-                {activeArticle.exploitStatus && (
-                  <div className="text-xs">
-                    <span className={currentTheme.subtext}>وضعیت اکسپلویت: </span>
-                    <span className="font-bold text-rose-400">{activeArticle.exploitStatus}</span>
-                  </div>
-                )}
-                {activeArticle.affectedProducts && activeArticle.affectedProducts.length > 0 && (
-                  <div className="space-y-1">
-                    <div className={`text-[11px] ${currentTheme.subtext}`}>
-                      سامانه‌ها و محصولات تحت تاثیر:
-                    </div>
-                    <div className="flex flex-wrap gap-1.5" style={{ direction: "ltr" }}>
-                      {activeArticle.affectedProducts.map((prod) => (
-                        <span
-                          key={prod}
-                          className="px-2 py-0.5 rounded bg-slate-950/90 text-slate-200 border border-slate-800 text-[11px] font-mono"
-                        >
-                          {prod}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
 
               {/* Key Highlights Box (The Hacker News style "Key Takeaways / نکات کلیدی خبر") */}
               {activeArticle.keyHighlights && activeArticle.keyHighlights.length > 0 && (
@@ -717,12 +722,17 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
               )}
 
               {/* Lead Summary Paragraph */}
-              <div
-                className={`leading-[1.95] mb-8 font-medium ${currentTheme.text}`}
-                style={{ fontSize: `${fontSize + 1}px`, maxWidth: "68ch" }}
-              >
-                {activeArticle.summary}
-              </div>
+              {/* Lead Summary Paragraph (only if not an auto-published full-text article where summary is a snippet of first paragraph) */}
+              {!activeArticle.id.startsWith("news-") &&
+                activeArticle.summary &&
+                activeArticle.summary.trim().length > 0 && (
+                  <div
+                    className={`leading-[1.95] mb-8 font-medium ${currentTheme.text}`}
+                    style={{ fontSize: `${fontSize + 1}px`, maxWidth: "68ch" }}
+                  >
+                    {activeArticle.summary}
+                  </div>
+                )}
 
               {/* Multi-Section Deep Technical News Body */}
               <div className="space-y-10" style={{ fontSize: `${fontSize}px`, maxWidth: "68ch" }}>
@@ -732,20 +742,111 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                     id={`news-sec-${idx}`}
                     className="space-y-4 scroll-mt-24"
                   >
-                    <h2 className="text-lg sm:text-2xl font-extrabold tracking-tight flex items-center gap-2.5 pt-2">
-                      <span className="w-2 h-6 rounded-full bg-emerald-500 shrink-0" />
-                      <span>{sec.heading}</span>
-                    </h2>
+                    {sec.heading && sec.heading.trim().length > 0 && (
+                      <h2 className="text-lg sm:text-2xl font-extrabold tracking-tight flex items-center gap-2.5 pt-2">
+                        <span className="w-2 h-6 rounded-full bg-emerald-500 shrink-0" />
+                        <span>{sec.heading}</span>
+                      </h2>
+                    )}
 
                     <div className="space-y-4">
-                      {sec.paragraphs.map((p, pIdx) => (
-                        <p
-                          key={pIdx}
-                          className={`leading-[1.95] ${currentTheme.text}`}
-                        >
-                          {p}
-                        </p>
-                      ))}
+                      {sec.paragraphs.map((p, pIdx) => {
+                        const trimmed = p.trim();
+                        if (!trimmed) return null;
+
+                        // 1. Embedded Code Block inside paragraphs (```lang\ncode```)
+                        if (trimmed.startsWith("```")) {
+                          const fenceMatch = /^```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```$/.exec(trimmed);
+                          const lang = fenceMatch?.[1] || "code";
+                          const codeContent = (fenceMatch?.[2] || trimmed.replace(/^```|```$/g, "")).trim();
+                          const inlineCodeKey = `news-sec-${idx}-pcode-${pIdx}`;
+                          return (
+                            <div
+                              key={pIdx}
+                              className="my-5 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 text-slate-100 shadow-lg"
+                              style={{ direction: "ltr", textAlign: "left" }}
+                            >
+                              <div className="px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs font-mono text-slate-400">
+                                <div className="flex items-center gap-2">
+                                  <Terminal className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span className="uppercase font-bold text-emerald-400">
+                                    {lang}
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => handleCopyText(inlineCodeKey, codeContent)}
+                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] cursor-pointer transition-colors"
+                                >
+                                  {copiedKey === inlineCodeKey ? (
+                                    <>
+                                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                      <span className="text-emerald-400">Copied</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="w-3.5 h-3.5" />
+                                      <span>Copy Code</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                              <pre className="p-4 sm:p-5 text-xs sm:text-sm font-mono overflow-x-auto leading-relaxed text-emerald-100">
+                                <code>{codeContent}</code>
+                              </pre>
+                            </div>
+                          );
+                        }
+
+                        // 2. Embedded Markdown Image inside paragraphs (![alt](url))
+                        const imgMatch = /^!\[([^\]]*)\]\(([^)]+)\)$/.exec(trimmed);
+                        if (imgMatch) {
+                          const imgAlt = imgMatch[1] || sec.heading || activeArticle.title;
+                          const imgSrc = imgMatch[2].trim();
+                          if (imgSrc === sec.imageUrl) return null;
+                          return (
+                            <figure
+                              key={pIdx}
+                              className={`rounded-2xl overflow-hidden border my-5 ${currentTheme.surface}`}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={imgSrc}
+                                alt={imgAlt}
+                                referrerPolicy="no-referrer"
+                                className="w-full max-h-[420px] object-contain bg-slate-950/40"
+                              />
+                              {imgAlt && (
+                                <figcaption className={`px-4 py-2.5 text-xs border-t border-slate-800/60 ${currentTheme.subtext}`}>
+                                  {imgAlt}
+                                </figcaption>
+                              )}
+                            </figure>
+                          );
+                        }
+
+                        // 3. Blockquote (> ...)
+                        if (trimmed.startsWith(">")) {
+                          const quoteText = trimmed.replace(/^>\s?/gm, "");
+                          return (
+                            <blockquote
+                              key={pIdx}
+                              className={`p-4 sm:p-5 rounded-2xl border-r-4 border-emerald-500 ${currentTheme.surface} ${currentTheme.text} italic leading-[1.95] whitespace-pre-line`}
+                            >
+                              {quoteText}
+                            </blockquote>
+                          );
+                        }
+
+                        // 4. Standard or Multi-line Paragraph
+                        return (
+                          <p
+                            key={pIdx}
+                            className={`leading-[1.95] whitespace-pre-line ${currentTheme.text}`}
+                          >
+                            {p}
+                          </p>
+                        );
+                      })}
                     </div>
 
                     {/* Section Downloaded Image / Technical Figure */}
@@ -756,7 +857,7 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                           src={sec.imageUrl}
                           alt={sec.imageAlt || sec.heading}
                           referrerPolicy="no-referrer"
-                          className="w-full max-h-[380px] object-cover"
+                          className="w-full max-h-[420px] object-contain bg-slate-950/40"
                         />
                         {sec.imageAlt && (
                           <figcaption className={`px-4 py-2.5 text-xs border-t border-slate-800/60 ${currentTheme.subtext}`}>
@@ -801,6 +902,42 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                         <pre className="p-4 sm:p-5 text-xs sm:text-sm font-mono overflow-x-auto leading-relaxed text-emerald-100">
                           <code>{sec.codeSnippet}</code>
                         </pre>
+                      </div>
+                    )}
+
+                    {/* Structured Technical Table */}
+                    {sec.table && sec.table.headers.length > 0 && (
+                      <div className={`overflow-x-auto rounded-2xl border my-5 ${currentTheme.surface}`}>
+                        <table className="w-full text-right text-xs sm:text-sm border-collapse">
+                          <thead>
+                            <tr className="border-b border-slate-800/80">
+                              {sec.table.headers.map((h, hIdx) => (
+                                <th
+                                  key={hIdx}
+                                  className="py-3 px-4 font-bold whitespace-nowrap text-emerald-400"
+                                >
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/50">
+                            {sec.table.rows.map((row, rIdx) => (
+                              <tr key={rIdx} className="hover:bg-emerald-500/5 transition-colors">
+                                {row.map((cell, cIdx) => (
+                                  <td
+                                    key={cIdx}
+                                    className={`py-3 px-4 leading-relaxed ${
+                                      cIdx === 0 ? "font-mono font-bold text-emerald-300" : currentTheme.text
+                                    }`}
+                                  >
+                                    {cell}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     )}
 
@@ -966,6 +1103,43 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                 </section>
               )}
 
+              {/* Source Attribution & Original Reference Box at the end of the article */}
+              {(activeArticle.sourceUrl || activeArticle.source) && (
+                <section
+                  className={`mt-10 p-5 sm:p-6 rounded-2xl border space-y-3 ${currentTheme.surface}`}
+                  style={{ maxWidth: "68ch" }}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-xs sm:text-sm font-extrabold flex items-center gap-2 text-emerald-400">
+                      <ExternalLink className="w-4 h-4 shrink-0" />
+                      <span>منبع و مرجع اصلی خبر (Source Reference)</span>
+                    </h4>
+                    {activeArticle.source && (
+                      <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] font-mono">
+                        {activeArticle.source}
+                      </span>
+                    )}
+                  </div>
+
+                  {activeArticle.sourceUrl && (
+                    <div
+                      className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-mono"
+                      style={{ direction: "ltr", textAlign: "left" }}
+                    >
+                      <a
+                        href={activeArticle.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-400 hover:text-emerald-300 underline underline-offset-4 break-all flex items-center gap-1.5"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                        <span>{activeArticle.sourceUrl}</span>
+                      </a>
+                    </div>
+                  )}
+                </section>
+              )}
+
               {/* Article Tags */}
               {activeArticle.tags && activeArticle.tags.length > 0 && (
                 <div className="mt-10 pt-6 border-t border-slate-800/80 flex flex-wrap items-center gap-2">
@@ -1023,89 +1197,108 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
 
             {/* Sticky Desktop Threat Intelligence Dossier Sidebar (4 cols) */}
             <aside className="hidden lg:block lg:col-span-4 sticky top-20 space-y-6">
-              {/* Threat Intelligence Dossier Card */}
+              {/* Threat Intelligence Dossier / Article TOC Card */}
               <div className={`p-6 rounded-3xl border space-y-5 ${currentTheme.surface}`}>
-                <div className="flex items-center justify-between border-b border-slate-800 pb-3.5">
-                  <div className="flex items-center gap-2">
-                    <ShieldAlert className="w-5 h-5 text-rose-400" />
-                    <h3 className="text-sm font-extrabold">پرونده فنی تهدید (Threat Dossier)</h3>
-                  </div>
-                  <span
-                    className={`px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold border ${getSeverityBadgeStyle(
-                      activeArticle.severity
-                    )}`}
-                  >
-                    {activeArticle.severity}
-                  </span>
-                </div>
-
-                <div className="space-y-3.5 text-xs">
-                  {activeArticle.cvssScore && (
-                    <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/90 border border-slate-800">
-                      <span className="text-slate-400">امتیاز شدت آسیب‌پذیری (CVSS):</span>
-                      <span className="text-sm font-black font-mono text-rose-400">
-                        {activeArticle.cvssScore} / 10
+                {(activeArticle.cvssScore ||
+                  activeArticle.exploitStatus ||
+                  (activeArticle.cveIds && activeArticle.cveIds.length > 0) ||
+                  (activeArticle.affectedProducts && activeArticle.affectedProducts.length > 0)) ? (
+                  <>
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3.5">
+                      <div className="flex items-center gap-2">
+                        <ShieldAlert className="w-5 h-5 text-rose-400" />
+                        <h3 className="text-sm font-extrabold">پرونده فنی تهدید (Threat Dossier)</h3>
+                      </div>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold border ${getSeverityBadgeStyle(
+                          activeArticle.severity
+                        )}`}
+                      >
+                        {activeArticle.severity}
                       </span>
                     </div>
-                  )}
 
-                  {activeArticle.exploitStatus && (
-                    <div className="p-3 rounded-2xl bg-rose-950/30 border border-rose-500/30 space-y-1">
-                      <div className="text-[11px] text-rose-300 font-bold">وضعیت بهره‌برداری در حیات وحش:</div>
-                      <div className="text-xs text-rose-200 font-semibold">
-                        {activeArticle.exploitStatus}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeArticle.cveIds && activeArticle.cveIds.length > 0 && (
-                    <div className="space-y-1.5">
-                      <div className={currentTheme.subtext}>شناسه‌های CVE / MITRE ATT&CK:</div>
-                      <div className="flex flex-wrap gap-1.5" style={{ direction: "ltr" }}>
-                        {activeArticle.cveIds.map((id) => (
-                          <span
-                            key={id}
-                            className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-amber-400 font-mono text-xs font-bold"
-                          >
-                            {id}
+                    <div className="space-y-3.5 text-xs">
+                      {activeArticle.cvssScore && (
+                        <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/90 border border-slate-800">
+                          <span className="text-slate-400">امتیاز شدت آسیب‌پذیری (CVSS):</span>
+                          <span className="text-sm font-black font-mono text-rose-400">
+                            {activeArticle.cvssScore} / 10
                           </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                        </div>
+                      )}
 
-                  {activeArticle.affectedProducts && activeArticle.affectedProducts.length > 0 && (
-                    <div className="space-y-1.5">
-                      <div className={currentTheme.subtext}>بسترها و محصولات هدف:</div>
-                      <ul className="space-y-1.5" style={{ direction: "ltr", textAlign: "left" }}>
-                        {activeArticle.affectedProducts.map((prod) => (
-                          <li
-                            key={prod}
-                            className="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 font-mono text-[11px] flex items-center gap-2"
-                          >
-                            <Cpu className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span>{prod}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      {activeArticle.exploitStatus && (
+                        <div className="p-3 rounded-2xl bg-rose-950/30 border border-rose-500/30 space-y-1">
+                          <div className="text-[11px] text-rose-300 font-bold">وضعیت بهره‌برداری در حیات وحش:</div>
+                          <div className="text-xs text-rose-200 font-semibold">
+                            {activeArticle.exploitStatus}
+                          </div>
+                        </div>
+                      )}
+
+                      {activeArticle.cveIds && activeArticle.cveIds.length > 0 && (
+                        <div className="space-y-1.5">
+                          <div className={currentTheme.subtext}>شناسه‌های CVE / MITRE ATT&CK:</div>
+                          <div className="flex flex-wrap gap-1.5" style={{ direction: "ltr" }}>
+                            {activeArticle.cveIds.map((id) => (
+                              <span
+                                key={id}
+                                className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-amber-400 font-mono text-xs font-bold"
+                              >
+                                {id}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {activeArticle.affectedProducts && activeArticle.affectedProducts.length > 0 && (
+                        <div className="space-y-1.5">
+                          <div className={currentTheme.subtext}>بسترها و محصولات هدف:</div>
+                          <ul className="space-y-1.5" style={{ direction: "ltr", textAlign: "left" }}>
+                            {activeArticle.affectedProducts.map((prod) => (
+                              <li
+                                key={prod}
+                                className="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 font-mono text-[11px] flex items-center gap-2"
+                              >
+                                <Cpu className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                <span>{prod}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3.5">
+                    <div className="flex items-center gap-2">
+                      <Layers className="w-5 h-5 text-emerald-400" />
+                      <h3 className="text-sm font-extrabold">ساختار و سرفصل‌های مطلب</h3>
+                    </div>
+                    <span className="text-[11px] font-mono text-slate-400">
+                      {activeArticle.readTime}
+                    </span>
+                  </div>
+                )}
 
                 {/* Quick Section Jump in Article */}
-                <div className="pt-4 border-t border-slate-800 space-y-2">
+                <div className="pt-2 space-y-2">
                   <div className="text-xs font-bold text-emerald-400 mb-2">
                     دسترسی سریع به بخش‌های گزارش:
                   </div>
-                  {activeArticle.sections.map((sec, idx) => (
-                    <a
-                      key={idx}
-                      href={`#news-sec-${idx}`}
-                      className="block text-xs text-slate-400 hover:text-emerald-400 transition-colors py-1 truncate"
-                    >
-                      • {sec.heading}
-                    </a>
-                  ))}
+                  {activeArticle.sections
+                    .filter((sec) => sec.heading && sec.heading.trim().length > 0)
+                    .map((sec, idx) => (
+                      <a
+                        key={idx}
+                        href={`#news-sec-${idx}`}
+                        className="block text-xs text-slate-400 hover:text-emerald-400 transition-colors py-1 truncate"
+                      >
+                        • {sec.heading}
+                      </a>
+                    ))}
                   {activeArticle.iocs && activeArticle.iocs.length > 0 && (
                     <a
                       href="#news-iocs"
