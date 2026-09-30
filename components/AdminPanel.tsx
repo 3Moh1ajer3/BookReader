@@ -438,8 +438,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               { id: "overview", label: "داشبورد و آمار کلی", icon: LayoutDashboard },
               {
                 id: "cms",
-                label: "مدیریت وبلاگ و اخبار (CMS)",
+                label: "پست‌گذار هوشمند و CMS",
                 icon: FileText,
+                badge: "AI",
               },
               {
                 id: "leads",
@@ -1223,24 +1224,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               </div>
 
-              {/* Gemini API Key on Host */}
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2.5">
-                <div className="text-xs sm:text-sm font-bold text-blue-400">
-                  کلید هوش مصنوعی Gemini برای ترجمه پیشرفته روی هاست (اختیاری)
+              {/* Dual-Model AI Pipeline & Server Env Info */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="text-xs sm:text-sm font-bold text-emerald-400 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    <span>معماری دو-مدله هوش مصنوعی (مدل سبک + مدل قوی) و دانلودر تصاویر</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    تنظیمات <code className="font-mono text-slate-300">Base URL</code>، نام مدل‌های سبک و قوی، متغیر محیطی سرور و مسیر پوشه ذخیره تصاویر (<code className="font-mono text-emerald-400">/uploads/media/</code>) در بخش پست‌گذار هوشمند قرار دارد.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  فایل <code className="font-mono text-slate-300">api/translate.php</code> به‌صورت پیش‌فرض از دیکشنری تخصصی امنیت + مترجم گوگل استفاده می‌کند. اگر کلید Gemini را در اینجا وارد کنید، در دیتابیس امن سرور ذخیره شده و برای ترجمه‌های هوش مصنوعی استفاده می‌شود.
-                </p>
-                <input
-                  type="password"
-                  value={settingsDraft.geminiApiKey || ""}
-                  onChange={(e) =>
-                    setSettingsDraft({ ...settingsDraft, geminiApiKey: e.target.value })
-                  }
-                  placeholder="AIzaSy..."
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white font-mono"
-                  style={{ direction: "ltr", textAlign: "left" }}
-                />
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("cms")}
+                  className="px-4 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold shrink-0 cursor-pointer"
+                >
+                  باز کردن پست‌گذار هوشمند
+                </button>
               </div>
             </form>
           )}

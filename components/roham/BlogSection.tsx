@@ -598,6 +598,25 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                 </div>
               )}
 
+              {/* Cover Image if available */}
+              {activeArticle.coverImage && (
+                <figure className={`rounded-2xl overflow-hidden border ${tc.border} ${tc.surface}`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={activeArticle.coverImage}
+                    alt={activeArticle.title}
+                    referrerPolicy="no-referrer"
+                    className="w-full max-h-[420px] object-cover"
+                  />
+                  {activeArticle.downloadedImages?.[0]?.localPath && (
+                    <figcaption className={`px-4 py-2.5 text-[11px] font-mono border-t ${tc.border} ${tc.muted} flex items-center justify-between`}>
+                      <span>تصویر شاخص مقاله</span>
+                      <span dir="ltr">{activeArticle.downloadedImages[0].localPath}</span>
+                    </figcaption>
+                  )}
+                </figure>
+              )}
+
               {/* Lead Introduction Paragraph */}
               <div
                 className={`leading-[1.95] font-medium border-r-4 border-emerald-500 pr-4 sm:pr-5 ${tc.body}`}
@@ -634,6 +653,24 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                           </p>
                         ))}
                       </div>
+
+                      {/* Section Downloaded Image / Technical Figure */}
+                      {sec.imageUrl && (
+                        <figure className={`rounded-2xl overflow-hidden border my-5 ${tc.border} ${tc.surface}`}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={sec.imageUrl}
+                            alt={sec.imageAlt || sec.heading}
+                            referrerPolicy="no-referrer"
+                            className="w-full max-h-[400px] object-cover"
+                          />
+                          {sec.imageAlt && (
+                            <figcaption className={`px-4 py-2.5 text-xs border-t ${tc.border} ${tc.muted}`}>
+                              {sec.imageAlt}
+                            </figcaption>
+                          )}
+                        </figure>
+                      )}
 
                       {/* Interactive Code / Terminal Block (Always LTR) */}
                       {sec.codeSnippet && (

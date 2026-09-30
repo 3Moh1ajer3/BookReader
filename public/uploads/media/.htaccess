@@ -1,0 +1,6 @@
+# Roham Media Upload Directory Security
+# غیرفعال کردن اجرای اسکریپت‌های PHP در پوشه تصاویر دانلود شده
+Options -Indexes -ExecCGI
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|php8|phar|pl|py|cgi|sh)$">
+    Require all denied
+</FilesMatch>

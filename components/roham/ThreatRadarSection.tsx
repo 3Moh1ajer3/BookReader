@@ -697,6 +697,25 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                 </div>
               )}
 
+              {/* Cover Image if available */}
+              {activeArticle.coverImage && (
+                <figure className={`rounded-2xl overflow-hidden border mb-8 ${currentTheme.surface}`} style={{ maxWidth: "68ch" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={activeArticle.coverImage}
+                    alt={activeArticle.title}
+                    referrerPolicy="no-referrer"
+                    className="w-full max-h-[380px] object-cover"
+                  />
+                  {activeArticle.downloadedImages?.[0]?.localPath && (
+                    <figcaption className={`px-4 py-2 text-[11px] font-mono border-t border-slate-800/60 ${currentTheme.subtext} flex items-center justify-between`}>
+                      <span>تصویر مستند گزارش خبری</span>
+                      <span dir="ltr">{activeArticle.downloadedImages[0].localPath}</span>
+                    </figcaption>
+                  )}
+                </figure>
+              )}
+
               {/* Lead Summary Paragraph */}
               <div
                 className={`leading-[1.95] mb-8 font-medium ${currentTheme.text}`}
@@ -728,6 +747,24 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                         </p>
                       ))}
                     </div>
+
+                    {/* Section Downloaded Image / Technical Figure */}
+                    {sec.imageUrl && (
+                      <figure className={`rounded-2xl overflow-hidden border my-5 ${currentTheme.surface}`}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={sec.imageUrl}
+                          alt={sec.imageAlt || sec.heading}
+                          referrerPolicy="no-referrer"
+                          className="w-full max-h-[380px] object-cover"
+                        />
+                        {sec.imageAlt && (
+                          <figcaption className={`px-4 py-2.5 text-xs border-t border-slate-800/60 ${currentTheme.subtext}`}>
+                            {sec.imageAlt}
+                          </figcaption>
+                        )}
+                      </figure>
+                    )}
 
                     {/* Technical Code / Payload / Log Block */}
                     {sec.codeSnippet && (

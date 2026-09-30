@@ -19,6 +19,7 @@ import {
   PlusCircle,
   MinusCircle,
   ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import {
   BlogPost,
@@ -33,6 +34,7 @@ import {
   adminDeleteNewsArticle,
   adminResetDefaultContent,
 } from "@/lib/contentStore";
+import { SmartAutoPublisherPanel } from "./SmartAutoPublisherPanel";
 
 interface AdminContentManagerProps {
   onOpenBlogPost?: (slug: string) => void;
@@ -43,7 +45,7 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
   onOpenBlogPost,
   onOpenNewsArticle,
 }) => {
-  const [cmsSubTab, setCmsSubTab] = useState<"blog" | "news">("blog");
+  const [cmsSubTab, setCmsSubTab] = useState<"blog" | "news" | "auto_publisher">("auto_publisher");
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -1215,7 +1217,18 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <div className="flex items-center p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+          <div className="flex flex-wrap items-center p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs gap-1">
+            <button
+              onClick={() => setCmsSubTab("auto_publisher")}
+              className={`px-3.5 py-2 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                cmsSubTab === "auto_publisher"
+                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-900/30"
+                  : "text-emerald-300 hover:text-white"
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>پست‌گذار هوشمند (AI Auto-Publisher)</span>
+            </button>
             <button
               onClick={() => setCmsSubTab("blog")}
               className={`px-3.5 py-2 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
@@ -1267,6 +1280,46 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Sub-tab 0: Smart Dual-Model AI Auto-Publisher */}
+      {cmsSubTab === "auto_publisher" && (
+        <SmartAutoPublisherPanel
+          onPublishBlog={async (post, openInEditor) => {
+            if (openInEditor) {
+              setEditingBlog(post);
+              return;
+            }
+            const res = await adminSaveBlogPost(post);
+            if (res.ok) {
+              setBlogPosts(res.blogPosts);
+              setCmsSubTab("blog");
+              showToast(
+                "success",
+                "مقاله هوشمند با موفقیت در دیتابیس ذخیره و در بخش وبلاگ (/blog) منتشر شد."
+              );
+            } else {
+              showToast("error", res.error || "خطا در ذخیره مقاله");
+            }
+          }}
+          onPublishNews={async (article, openInEditor) => {
+            if (openInEditor) {
+              setEditingNews(article);
+              return;
+            }
+            const res = await adminSaveNewsArticle(article);
+            if (res.ok) {
+              setNewsArticles(res.newsArticles);
+              setCmsSubTab("news");
+              showToast(
+                "success",
+                "گزارش خبری هوشمند با موفقیت در دیتابیس ذخیره و در رادار تهدیدات (/radar) منتشر شد."
+              );
+            } else {
+              showToast("error", res.error || "خطا در ذخیره خبر");
+            }
+          }}
+        />
+      )}
 
       {/* Sub-tab 1: Blog Posts List */}
       {cmsSubTab === "blog" && (
