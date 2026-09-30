@@ -205,6 +205,18 @@ function roham_init_sql_tables(PDO $pdo, string $driver): void {
                 PRIMARY KEY (`k`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         ");
+
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `roham_content` (
+                `id` VARCHAR(64) NOT NULL,
+                `content_type` VARCHAR(32) NOT NULL,
+                `status` VARCHAR(32) NOT NULL DEFAULT 'published',
+                `updated_at` VARCHAR(64) NOT NULL,
+                `payload_json` LONGTEXT NOT NULL,
+                PRIMARY KEY (`id`),
+                KEY `idx_roham_content_type` (`content_type`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
     } else {
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS roham_users (
@@ -235,6 +247,15 @@ function roham_init_sql_tables(PDO $pdo, string $driver): void {
             CREATE TABLE IF NOT EXISTS roham_settings (
                 k TEXT PRIMARY KEY,
                 v TEXT NOT NULL
+            );
+        ");
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS roham_content (
+                id TEXT PRIMARY KEY,
+                content_type TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'published',
+                updated_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL
             );
         ");
     }
