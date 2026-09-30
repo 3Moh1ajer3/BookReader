@@ -40,7 +40,9 @@ import {
   Ban,
   Check,
   Save,
+  FileText,
 } from "lucide-react";
+import { AdminContentManager } from "./roham/AdminContentManager";
 
 interface AdminPanelProps {
   currentUser: RohamUser | null;
@@ -49,9 +51,12 @@ interface AdminPanelProps {
   onOpenReader: () => void;
   onOpenAuthModal: () => void;
   onSettingsUpdated: (settings: SiteSettings) => void;
+  initialTab?: AdminTab;
+  onOpenBlogPost?: (slug: string) => void;
+  onOpenNewsArticle?: (slug: string) => void;
 }
 
-type AdminTab = "overview" | "leads" | "users" | "podcasts" | "settings";
+export type AdminTab = "overview" | "cms" | "leads" | "users" | "podcasts" | "settings";
 
 const toPersianDigits = (num: number | string): string => {
   const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
@@ -65,8 +70,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onOpenReader,
   onOpenAuthModal,
   onSettingsUpdated,
+  initialTab,
+  onOpenBlogPost,
+  onOpenNewsArticle,
 }) => {
-  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+  const [activeTab, setActiveTab] = useState<AdminTab>(initialTab || "overview");
   const [dashboard, setDashboard] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -428,6 +436,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="p-2 rounded-2xl bg-slate-900/90 border border-slate-800 flex lg:flex-col gap-1 overflow-x-auto">
             {[
               { id: "overview", label: "داشبورد و آمار کلی", icon: LayoutDashboard },
+              {
+                id: "cms",
+                label: "مدیریت وبلاگ و اخبار (CMS)",
+                icon: FileText,
+              },
               {
                 id: "leads",
                 label: "درخواست‌ها و ثبت‌نام‌ها",
@@ -1230,6 +1243,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 />
               </div>
             </form>
+          )}
+
+          {/* 6. DYNAMIC BLOG & SECURITY NEWS CMS TAB */}
+          {activeTab === "cms" && (
+            <AdminContentManager
+              onOpenBlogPost={onOpenBlogPost}
+              onOpenNewsArticle={onOpenNewsArticle}
+            />
           )}
         </main>
       </div>

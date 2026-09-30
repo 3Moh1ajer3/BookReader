@@ -64,12 +64,47 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"latest" | "popular">("latest");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activePostSlug, setActivePostSlug] = useState<string | null>(initialPostSlug || null);
+  const [activePostSlug, setActivePostSlug] = useState<string | null>(() => {
+    if (initialPostSlug) return initialPostSlug;
+    if (typeof window !== "undefined") {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return params.get("post");
+      } catch {}
+    }
+    return null;
+  });
 
   // Reader customization states (persisted in localStorage for professional readers)
-  const [canvasTheme, setCanvasTheme] = useState<ReaderCanvasTheme>("slate");
-  const [fontSize, setFontSize] = useState<number>(17);
-  const [bookmarkedIds, setBookmarkedIds] = useState<string[]>([]);
+  const [canvasTheme, setCanvasTheme] = useState<ReaderCanvasTheme>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const savedTheme = localStorage.getItem("roham_blog_reader_theme") as ReaderCanvasTheme | null;
+        if (savedTheme && ["slate", "oled", "sepia", "light"].includes(savedTheme)) {
+          return savedTheme;
+        }
+      } catch {}
+    }
+    return "slate";
+  });
+  const [fontSize, setFontSize] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const savedSize = Number(localStorage.getItem("roham_blog_reader_fontsize"));
+        if (savedSize >= 14 && savedSize <= 24) return savedSize;
+      } catch {}
+    }
+    return 17;
+  });
+  const [bookmarkedIds, setBookmarkedIds] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const savedBookmarks = JSON.parse(localStorage.getItem("roham_blog_bookmarks") || "[]");
+        if (Array.isArray(savedBookmarks)) return savedBookmarks;
+      } catch {}
+    }
+    return [];
+  });
   const [checkedTakeaways, setCheckedTakeaways] = useState<Record<string, boolean>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedCodeKey, setCopiedCodeKey] = useState<string | null>(null);
@@ -78,7 +113,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
   const [mobileTocOpen, setMobileTocOpen] = useState<boolean>(false);
   const [mobileSettingsOpen, setMobileSettingsOpen] = useState<boolean>(false);
 
-  // Load dynamic posts from MySQL / contentStore & reader prefs
+  // Load dynamic posts from MySQL / contentStore
   useEffect(() => {
     let cancelled = false;
     fetchContentStore().then((res) => {
@@ -89,28 +124,6 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
         setPosts(visible.length > 0 ? visible : DEFAULT_BLOG_POSTS);
       }
     });
-
-    if (typeof window !== "undefined") {
-      try {
-        const savedBookmarks = JSON.parse(localStorage.getItem("roham_blog_bookmarks") || "[]");
-        if (Array.isArray(savedBookmarks)) setBookmarkedIds(savedBookmarks);
-        const savedTheme = localStorage.getItem("roham_blog_reader_theme") as ReaderCanvasTheme | null;
-        if (savedTheme && ["slate", "oled", "sepia", "light"].includes(savedTheme)) {
-          setCanvasTheme(savedTheme);
-        }
-        const savedSize = Number(localStorage.getItem("roham_blog_reader_fontsize"));
-        if (savedSize >= 14 && savedSize <= 24) {
-          setFontSize(savedSize);
-        }
-
-        // Check URL query parameter ?post=slug
-        const params = new URLSearchParams(window.location.search);
-        const urlPost = params.get("post");
-        if (urlPost) {
-          setActivePostSlug(urlPost);
-        }
-      } catch {}
-    }
 
     return () => {
       cancelled = true;

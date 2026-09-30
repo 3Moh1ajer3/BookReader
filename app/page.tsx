@@ -665,10 +665,44 @@ export default function Home() {
     handleNavigate("home");
   };
 
+  const [adminInitialTab, setAdminInitialTab] = useState<"overview" | "cms">("overview");
+  const [selectedBlogSlug, setSelectedBlogSlug] = useState<string | null>(null);
+  const [selectedNewsSlug, setSelectedNewsSlug] = useState<string | null>(null);
+
   const handleOpenAdmin = () => {
+    setAdminInitialTab("overview");
     setActiveView("admin");
     if (typeof window !== "undefined") {
       window.history.pushState(null, "", "/admin");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleOpenAdminCms = () => {
+    setAdminInitialTab("cms");
+    setActiveView("admin");
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, "", "/admin");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleOpenBlogPostFromCms = (slug: string) => {
+    setSelectedBlogSlug(slug);
+    setActiveView("portal");
+    setActiveTab("blog");
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, "", `/blog?post=${encodeURIComponent(slug)}`);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleOpenNewsFromCms = (slug: string) => {
+    setSelectedNewsSlug(slug);
+    setActiveView("portal");
+    setActiveTab("radar");
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, "", `/radar?news=${encodeURIComponent(slug)}`);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
@@ -714,6 +748,9 @@ export default function Home() {
           onOpenReader={() => handleOpenReader()}
           onOpenAuthModal={() => setIsAuthModalOpen(true)}
           onSettingsUpdated={(newSettings) => setSiteSettings(newSettings)}
+          initialTab={adminInitialTab}
+          onOpenBlogPost={handleOpenBlogPostFromCms}
+          onOpenNewsArticle={handleOpenNewsFromCms}
         />
         {globalAuthModal}
       </>
@@ -784,15 +821,30 @@ export default function Home() {
 
           {activeTab === "blog" && (
             <BlogSection
-              onOpenReader={() => handleOpenReader()}
+              onOpenReader={(bookId, chapterId) => {
+                if (bookId && chapterId) {
+                  handleJumpToChapter(bookId, chapterId);
+                } else {
+                  handleOpenReader(bookId);
+                }
+              }}
               onOpenConsultation={() => setIsConsultationOpen(true)}
               onBackToHome={() => handleNavigate("home")}
+              isAdmin={currentUser?.role === "admin"}
+              onOpenAdminCms={handleOpenAdminCms}
+              initialPostSlug={selectedBlogSlug}
             />
           )}
 
           {activeTab === "radar" && (
             <ThreatRadarSection
               onBackToHome={() => handleNavigate("home")}
+              onOpenReader={() => handleOpenReader()}
+              onOpenConsultation={() => setIsConsultationOpen(true)}
+              onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)}
+              isAdmin={currentUser?.role === "admin"}
+              onOpenAdminCms={handleOpenAdminCms}
+              initialNewsSlug={selectedNewsSlug}
             />
           )}
 

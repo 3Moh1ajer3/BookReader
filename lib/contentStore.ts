@@ -868,9 +868,9 @@ export async function incrementContentView(contentType: "blog" | "news", id: str
 
 export async function adminSaveBlogPost(post: BlogPost): Promise<{
   ok: boolean;
-  message?: string;
+  message: string;
   error?: string;
-  blogPosts?: BlogPost[];
+  blogPosts: BlogPost[];
 }> {
   const local = getLocalContentStore();
   let updatedList = [...local.blogPosts];
@@ -890,7 +890,8 @@ export async function adminSaveBlogPost(post: BlogPost): Promise<{
   });
 
   if (res.isPhpAvailable && !res.ok) {
-    return { ok: false, error: res.data?.error || "خطا در ذخیره مقاله در دیتابیس" };
+    const errMsg = res.data?.error || "خطا در ذخیره مقاله در دیتابیس";
+    return { ok: false, message: errMsg, error: errMsg, blogPosts: updatedList };
   }
 
   return {
@@ -902,8 +903,8 @@ export async function adminSaveBlogPost(post: BlogPost): Promise<{
 
 export async function adminDeleteBlogPost(postId: string): Promise<{
   ok: boolean;
-  message?: string;
-  blogPosts?: BlogPost[];
+  message: string;
+  blogPosts: BlogPost[];
 }> {
   const local = getLocalContentStore();
   const updatedList = local.blogPosts.filter((p) => p.id !== postId);
@@ -919,9 +920,9 @@ export async function adminDeleteBlogPost(postId: string): Promise<{
 
 export async function adminSaveNewsArticle(article: NewsArticle): Promise<{
   ok: boolean;
-  message?: string;
+  message: string;
   error?: string;
-  newsArticles?: NewsArticle[];
+  newsArticles: NewsArticle[];
 }> {
   const local = getLocalContentStore();
   const updatedList = [...local.newsArticles];
@@ -938,7 +939,8 @@ export async function adminSaveNewsArticle(article: NewsArticle): Promise<{
   });
 
   if (res.isPhpAvailable && !res.ok) {
-    return { ok: false, error: res.data?.error || "خطا در ذخیره خبر در دیتابیس" };
+    const errMsg = res.data?.error || "خطا در ذخیره خبر در دیتابیس";
+    return { ok: false, message: errMsg, error: errMsg, newsArticles: updatedList };
   }
 
   return {
@@ -950,8 +952,8 @@ export async function adminSaveNewsArticle(article: NewsArticle): Promise<{
 
 export async function adminDeleteNewsArticle(articleId: string): Promise<{
   ok: boolean;
-  message?: string;
-  newsArticles?: NewsArticle[];
+  message: string;
+  newsArticles: NewsArticle[];
 }> {
   const local = getLocalContentStore();
   const updatedList = local.newsArticles.filter((n) => n.id !== articleId);
@@ -983,3 +985,10 @@ export async function adminResetDefaultContent(): Promise<{
     newsArticles: DEFAULT_NEWS_ARTICLES,
   };
 }
+
+export const saveBlogPostToStore = adminSaveBlogPost;
+export const deleteBlogPostFromStore = adminDeleteBlogPost;
+export const saveNewsArticleToStore = adminSaveNewsArticle;
+export const deleteNewsArticleFromStore = adminDeleteNewsArticle;
+export const resetContentStoreToDefaults = adminResetDefaultContent;
+
