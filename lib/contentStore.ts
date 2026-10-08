@@ -400,6 +400,172 @@ export const DEFAULT_BLOG_POSTS: BlogPost[] = [
 
 export const DEFAULT_NEWS_ARTICLES: NewsArticle[] = [
   {
+    id: "news-thn-fbi-china-emails-2026",
+    slug: "fbi-says-china-linked-hackers-ran-portal-access-stolen-emails",
+    title: "افشاگری FBI: هکرهای وابسته به چین پورتالی برای دسترسی شخص ثالث به ایمیل‌های مسروقه دولتی راه‌اندازی کرده بودند",
+    subtitle: "آژانس‌های امنیتی ۷ کشور اعلام کردند گروه هکری وابسته به شرکت Integrity Technology Group با بهره‌برداری از ۸ آسیب‌پذیری بحرانی و ابزارهای اختصاصی، ایمیل‌های سازمان‌های دولتی و درمانی را سرقت و در قالب وب‌اپلیکیشن به مشتریان خود می‌فروخته است.",
+    category: "apt",
+    categoryLabel: "عملیات سایبری APT و تهدیدات پیشرفته",
+    severity: "CRITICAL",
+    status: "published",
+    isBreaking: true,
+    date: "۱۷ مهر ۱۴۰۵ · ۱۹:۳۰",
+    readTime: "۸ دقیقه",
+    author: "تحریریه امنیت سایبری رهام",
+    source: "The Hacker News",
+    sourceUrl: "https://thehackernews.com/2026/10/fbi-says-china-linked-hackers-ran.html",
+    coverImage: "/api/proxy-image?url=" + encodeURIComponent("https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhyj_ek8VTEYw5CpVqkAK63I01D84oGBvRsHmwpjeAfat3TCDqzhXqRWXWCGkNZKwH3rF0uyeuowCSGcBT-mLkdw-174FA0gGh8ZIVKOXUbXt9w0eTZZTlMGE-ySkZIIkswfxe0-cEU9ww6E8iIpWI2eDQU_NrsezDxIoE2WNBt8mDtG6nYeke9Ut17_JY/s1700-nu-rw-lo-l85-e365/china-email.jpg"),
+    downloadedImages: [
+      {
+        originalUrl: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhyj_ek8VTEYw5CpVqkAK63I01D84oGBvRsHmwpjeAfat3TCDqzhXqRWXWCGkNZKwH3rF0uyeuowCSGcBT-mLkdw-174FA0gGh8ZIVKOXUbXt9w0eTZZTlMGE-ySkZIIkswfxe0-cEU9ww6E8iIpWI2eDQU_NrsezDxIoE2WNBt8mDtG6nYeke9Ut17_JY/s1700-nu-rw-lo-l85-e365/china-email.jpg",
+        localPath: "/api/proxy-image?url=" + encodeURIComponent("https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhyj_ek8VTEYw5CpVqkAK63I01D84oGBvRsHmwpjeAfat3TCDqzhXqRWXWCGkNZKwH3rF0uyeuowCSGcBT-mLkdw-174FA0gGh8ZIVKOXUbXt9w0eTZZTlMGE-ySkZIIkswfxe0-cEU9ww6E8iIpWI2eDQU_NrsezDxIoE2WNBt8mDtG6nYeke9Ut17_JY/s1700-nu-rw-lo-l85-e365/china-email.jpg"),
+        alt: "حملات سایبری هکرهای وابسته به چین به سرورهای ایمیل سازمانی",
+        status: "downloaded",
+      },
+      {
+        originalUrl: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjVYuoalvwUlwvLZFDideJ8jW4rz-IodX0Lwi7uyP7Ab0wiDeu_BqVhPDdejQQ65MC3p9Xc4MApnHz56NJ5SDc1HMg0DvozkkGYv9TGtDLCh26v1yD5-GyzQxnA5-6A6B4beW96H_6FyrByq22cvU5JDF-i8e5GIfV4wg1SpCvjwAJt74FaqkAb2gzqE7ll/s728-nu-rw-lo-l85-e365/core-d.png",
+        localPath: "/api/proxy-image?url=" + encodeURIComponent("https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjVYuoalvwUlwvLZFDideJ8jW4rz-IodX0Lwi7uyP7Ab0wiDeu_BqVhPDdejQQ65MC3p9Xc4MApnHz56NJ5SDc1HMg0DvozkkGYv9TGtDLCh26v1yD5-GyzQxnA5-6A6B4beW96H_6FyrByq22cvU5JDF-i8e5GIfV4wg1SpCvjwAJt74FaqkAb2gzqE7ll/s728-nu-rw-lo-l85-e365/core-d.png"),
+        alt: "تحلیل فنی ساختار فرماندهی و کنترل بات‌نت",
+        status: "downloaded",
+      },
+      {
+        originalUrl: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjVV2rRkX8tRMF6gCzemvQNpwFwGxRWxY1cJEYfoLLSj1EZYJOlj5WTR77t0i6kELXujYcaHTpRDqTjCbVHH5Pnh7wzxUiKP5j4dsDkWIMlp2bmpZsL0jeAsA_19pHH5UPtyBvNkZdyGEULOAsXPcraMP5CYjQRFefhXRSdEjYkrdcpUnc4ILcvcdEfAauE/s728-nu-rw-lo-l85-e365/tl-d.jpg",
+        localPath: "/api/proxy-image?url=" + encodeURIComponent("https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjVV2rRkX8tRMF6gCzemvQNpwFwGxRWxY1cJEYfoLLSj1EZYJOlj5WTR77t0i6kELXujYcaHTpRDqTjCbVHH5Pnh7wzxUiKP5j4dsDkWIMlp2bmpZsL0jeAsA_19pHH5UPtyBvNkZdyGEULOAsXPcraMP5CYjQRFefhXRSdEjYkrdcpUnc4ILcvcdEfAauE/s728-nu-rw-lo-l85-e365/tl-d.jpg"),
+        alt: "دفاع شبکه و هاردنینگ سرورهای ایمیل",
+        status: "downloaded",
+      },
+    ],
+    views: 6140,
+    cveIds: [
+      "CVE-2014-6278",
+      "CVE-2015-3306",
+      "CVE-2015-5477",
+      "CVE-2016-3081",
+      "CVE-2019-11510",
+      "CVE-2021-22205",
+      "CVE-2021-3199",
+      "CVE-2023-22894",
+    ],
+    cvssScore: "9.8",
+    affectedProducts: [
+      "Microsoft Exchange Server / Microsoft 365 (EWS, OWA, RPC, MAPI)",
+      "GNU Bash, ProFTPD, ISC BIND DNS, Apache Struts",
+      "Pulse Connect Secure, GitLab, ONLYOFFICE Document Server, Strapi CMS",
+      "Active Directory Domain Controllers (DCSync Abuse)",
+    ],
+    exploitStatus: "بهره‌برداری فعال در حیات‌وحش (Active In-The-Wild Exploitation)",
+    summary:
+      "پلیس فدرال آمریکا (FBI) و نهادهای امنیت سایبری ۶ کشور دیگر در یک بیانیه مشترک هشدار دادند که هکرهای وابسته به شرکت امنیت سایبری Integrity Technology Group در چین، پورتال وبی راه‌اندازی کرده‌اند که امکان دسترسی اشخاص ثالث به محتوای ایمیل‌های مسروقه سازمانی را فراهم می‌کرده است.",
+    keyHighlights: [
+      "راه‌اندازی یک وب‌اپلیکیشن اختصاصی با دسترسی مبتنی بر URL برای مطالعه ایمیل‌های مسروقه نهادهای دولتی توسط مشتریان شخص ثالث.",
+      "استفاده از بیش از ۱,۳۰۰ اسکریپت تست نفوذ و بهره‌برداری از ۸ آسیب‌پذیری شناخته‌شده در سرویس‌های عمومی اینترنتی.",
+      "سرقت گسترده اطلاعات احراز هویت از کنترلرهای دامنه اکتیو دایرکتوری با استفاده از تکنیک DCSync و ابزار DC.exe.",
+      "جمع‌آوری خودکار ایمیل‌ها با اسکریپت Curlc4.txt از طریق رابط EWS و بازگشت مداوم به حساب‌های Microsoft 365 با ابزار office-cli."
+    ],
+    sections: [
+      {
+        heading: "کالبدشکافی عملیات نفوذ و اهداف مورد حمله",
+        paragraphs: [
+          "به گفته اف‌بی‌آی و سازمان‌های امنیت سایبری همکار در ۶ کشور دیگر در تاریخ ۸ اکتبر ۲۰۲۶، هکرهای وابسته به شرکت فناوری چینی Integrity Technology Group به سرقت محتوای ایمیل از نهادهای دولتی، سازمان‌های اجرای قانون، سیستم‌های بهداشت و درمان، و نهادهای مذهبی در جنوب شرقی آسیا، آمریکای شمالی و آفریقا پرداخته‌اند.",
+          "شرکت مذکور پیش از این توسط ایالات متحده و بریتانیا تحت تحریم قرار گرفته بود. مهاجمان با بهره‌برداری از ابزاری مشتمل بر بیش از ۱,۳۰۰ اسکریپت خودکار، وب‌سایت‌های سازمانی را اسکن کرده، رمزهای عبور حساب‌های Microsoft 365 و Exchange را حدس زده و محتوای صندوق‌های پستی را با ابزارهای اختصاصی کپی می‌کردند.",
+          "طبق بیانیه مشترک آژانس‌ها، این هکرها حداقل از اواسط ژانویه ۲۰۲۱ به شبکه‌های قربانیان نفوذ کرده‌اند. در سپتامبر ۲۰۲۴ نیز اف‌بی‌آی بات‌نت بزرگ Raptor Train متشکل از ۲۰۰ هزار دستگاه روتر و دوربین را که تحت کنترل همین شرکت بود متوقف کرده بود."
+        ],
+        imageUrl: "/api/proxy-image?url=" + encodeURIComponent("https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjVYuoalvwUlwvLZFDideJ8jW4rz-IodX0Lwi7uyP7Ab0wiDeu_BqVhPDdejQQ65MC3p9Xc4MApnHz56NJ5SDc1HMg0DvozkkGYv9TGtDLCh26v1yD5-GyzQxnA5-6A6B4beW96H_6FyrByq22cvU5JDF-i8e5GIfV4wg1SpCvjwAJt74FaqkAb2gzqE7ll/s728-nu-rw-lo-l85-e365/core-d.png"),
+        imageAlt: "تحلیل ساختار بات‌نت و سرورهای فرماندهی و کنترل C2",
+      },
+      {
+        heading: "جدول آسیب‌پذیری‌های مورد بهره‌برداری (CVEs)",
+        paragraphs: [
+          "مهاجمان عمدتاً از طریق ابزارهای خط فرمانی مبتنی بر کدهای اکسپلویت نوشته‌شده به زبان‌های پایتون و Go وارد شبکه‌ها می‌شدند. بیانیه به ۸ نقص امنیتی شناخته‌شده اشاره می‌کند که مهاجمان با موفقیت از آن‌ها در اسکریپت‌های نفوذ خود استفاده کرده‌اند:"
+        ],
+        table: {
+          headers: ["شناسه آسیب‌پذیری", "محصول هدف", "نسخه‌های تحت تاثیر", "نسخه اصلاح‌شده"],
+          rows: [
+            ["CVE-2014-6278", "GNU Bash (Shellshock)", "تا نسخه 4.3 bash43-026", "تایید نشده"],
+            ["CVE-2015-3306*", "ProFTPD", "نسخه 1.3.5", "نسخه 1.3.5a"],
+            ["CVE-2015-5477*", "ISC BIND DNS", "نسخه 9.x قبل از 9.9.7-P2 و 9.10.x", "نسخه‌های 9.9.7-P2 / 9.10.2-P3"],
+            ["CVE-2016-3081*", "Apache Struts", "نسخه‌های 2.3.19 تا 2.3.28", "نسخه‌های 2.3.20.3 / 2.3.24.3"],
+            ["CVE-2019-11510", "Pulse Connect Secure", "نسخه‌های 8.2، 8.3 و 9.0", "نسخه‌های 8.2R12.1 / 8.3R7.1"],
+            ["CVE-2021-22205", "GitLab", "تمامی نسخه‌ها از 11.9 به بالا", "نسخه‌های 13.8.8 / 13.9.6 / 13.10.3"],
+            ["CVE-2021-3199*", "ONLYOFFICE Document Server", "نسخه‌های 5.1.5 تا 5.6.2", "نسخه 5.6.3"],
+            ["CVE-2023-22894*", "Strapi Headless CMS", "نسخه‌های تا 4.5.5 (و تا 4.7.9)", "نسخه 4.8.0"],
+          ],
+        },
+        callout: "آسیب‌پذیری‌های دارای ستاره (*) مواردی هستند که به کاتالوگ آسیب‌پذیری‌های مورد بهره‌برداری CISA KEV افزوده شده‌اند."
+      },
+      {
+        heading: "تکنیک‌های فیشینگ با ورود جعلی (XSS) و حمله اسپری رمز عبور (EBurst)",
+        paragraphs: [
+          "راه دیگر ورود مهاجمان، ایجاد صفحات لاگین جعلی بود. اف‌بی‌آی یک پی‌لود اسکریپت‌نویسی بین سایتی (XSS) کشف کرد که فرم ورود جعلی نام‌کاربری و رمز عبور را روی صفحات وب آسیب‌پذیر تزریق می‌کرد. پس از وارد کردن نام‌کاربری و رمز عبور توسط کاربر، صفحه یک فایل ZIP رمزگذاری‌شده حاوی بدافزاری به نام live700_v1.exe به او ارائه می‌داد.",
+          "با اجرای آن، پردازشی به نام DiagTrack.exe (با نام مشابه سرویس مجاز تله‌متری ویندوز) آغاز به کار کرده و ترافیک رمزنگاری‌شده را به دامنه dns.studiocloud[.]xyz ارسال می‌کرد.",
+          "علاوه بر این، مهاجمان از تکنیک حمله اسپری رمز عبور (Password Spraying) با ابزار متن‌باز پایتونی به نام EBurst برای نفوذ به حساب‌های کاربری Microsoft 365 و Exchange بهره می‌بردند که رابط‌های متنوعی نظیر ECP, EWS, OAB, OWA, RPC, MAPI و PowerShell را هدف قرار می‌دهد."
+        ]
+      },
+      {
+        heading: "نحوه ماندگاری در شبکه، سرقت هویتی (DCSync) و استخراج ایمیل‌ها",
+        paragraphs: [
+          "برای حفظ دسترسی دائمی، مهاجمان برنامه VPN مجاز SoftEther را نصب می‌کردند تا نرم‌افزارهای امنیتی به آن مشکوک نشوند. آن‌ها نام فایل نصبی را به conhost.exe یا dllhost.exe تغییر می‌دادند و آن را طوری تنظیم می‌کردند که با هر بالا آمدن سیستم مجدداً متصل شود.",
+          "برای استخراج اعتبارنامه‌ها، آن‌ها ابزاری به نام DC.exe را اجرا می‌کردند که از تکنیک DCSync برای کپی کردن اطلاعات از Domain Controller از طریق سرویس تکثیر اکتیو دایرکتوری بهره می‌برد.",
+          "برای سرقت ایمیل‌ها، هکرها رباتی بر پایه اسکریپت PHP به نام Curlc4.txt ساختند که ایمیل‌ها را از طریق Exchange Web Services (EWS) جمع‌آوری، فشرده‌سازی و رمزگذاری کرده و به دامنه C2 به نام natcloudservice[.]com ارسال می‌کرد. ابزار دیگری به نام office-cli نیز با تکیه بر اطلاعات Client ID و Tenant ID به صورت پیوسته به حساب‌های Microsoft 365 بازمی‌گشت تا ایمیل‌های بازه‌های زمانی مختلف را استخراج نماید."
+        ],
+        imageUrl: "/api/proxy-image?url=" + encodeURIComponent("https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjVV2rRkX8tRMF6gCzemvQNpwFwGxRWxY1cJEYfoLLSj1EZYJOlj5WTR77t0i6kELXujYcaHTpRDqTjCbVHH5Pnh7wzxUiKP5j4dsDkWIMlp2bmpZsL0jeAsA_19pHH5UPtyBvNkZdyGEULOAsXPcraMP5CYjQRFefhXRSdEjYkrdcpUnc4ILcvcdEfAauE/s728-nu-rw-lo-l85-e365/tl-d.jpg"),
+        imageAlt: "اقدامات ضروری مدافعان برای هاردنینگ سرورهای ایمیل و شبکه",
+      },
+      {
+        heading: "راهکارهای پیشنهادی آژانس‌های امنیت سایبری برای مدافعان",
+        paragraphs: [
+          "نهادهای امنیتی به تیم‌های دفاعی توصیه اکید کرده‌اند که نشانه‌های این فعالیت را در شبکه‌های خود شکار کنند. گام‌های ضروری شامل موارد زیر است:",
+          "• غیرفعال کردن پورت‌ها و سرویس‌های بدون استفاده، به ویژه دسترسی از راه دور و اشتراک فایل.\n• اعتبارسنجی و پاکسازی ورودی‌های کاربر در برنامه‌های کاربردی وب جهت مقابله با حملات XSS.\n• الزام احراز هویت چندعاملی (MFA)، به ویژه برای وب‌میل، VPN و حساب‌های دسترسی به سیستم‌های حساس.\n• نظارت بر تکثیرهای غیرمنتظره در اکتیو دایرکتوری (نشانه‌ای از اجرای تکنیک DCSync).\n• بررسی دقیق اپلیکیشن‌های متصل در حساب‌های ابری که مجوز خواندن ایمیل و فایل دارند.\n• اعمال فوری وصله‌های امنیتی برای ۸ آسیب‌پذیری فهرست‌شده و جایگزینی نرم‌افزارهایی که پشتیبانی آن‌ها پایان یافته است."
+        ]
+      }
+    ],
+    iocs: [
+      {
+        type: "Domain/C2",
+        value: "dns.studiocloud[.]xyz",
+        description: "دامنه فرماندهی و کنترل متصل به باینری DiagTrack.exe و گروه Integrity Technology"
+      },
+      {
+        type: "Domain/C2",
+        value: "natcloudservice[.]com",
+        description: "دامنه سرور کنترل C2 دریافت‌کننده ایمیل‌های استخراج‌شده از طریق اسکریپت Curlc4.txt"
+      },
+      {
+        type: "Process/Command",
+        value: "DC.exe (DCSync Active Directory Replication Abuse)",
+        description: "ابزار کپی‌برداری از پایگاه‌داده NTDS.dit کنترلر دامنه از طریق Active Directory Replication"
+      },
+      {
+        type: "File Path",
+        value: "Curlc4.txt / office-cli",
+        description: "ابزارهای اختصاصی سرقت ایمیل سازمانی از Microsoft 365 و Microsoft Exchange EWS"
+      }
+    ],
+    mitigationSteps: [
+      "مسدودسازی تمامی دامنه‌ها و IPهای C2 شناسایی‌شده در سطح فایروال و EDR.",
+      "نصب فوری وصله‌های رسمی برای ۸ نقص امنیتی CVE-2023-22894، CVE-2021-22205، CVE-2016-3081 و CVE-2019-11510.",
+      "بررسی لاگ‌های دسترسی سرویس‌های EWS و اکتیو دایرکتوری برای شناسایی الگوهای مشکوک درخواست تکثیر DCSync.",
+      "پیاده‌سازی احراز هویت چندعاملی سخت‌گیرانه (FIDO2) بر روی تمامی نقاط دسترسی وب‌میل و VPN."
+    ],
+    timeline: [
+      { time: "ژانویه ۲۰۲۱", event: "آغاز نفوذهای اولیه گروه وابسته به Integrity Technology به شبکه‌های سازمانی" },
+      { time: "سپتامبر ۲۰۲۴", event: "اقدام هماهنگ FBI برای انهدام بات‌نت ۲۰۰ هزار دستگاهی Raptor Train" },
+      { time: "اکتبر ۲۰۲۶", event: "انتشار بیانیه رسمی ۷ آژانس بین‌المللی درباره وب‌اپلیکیشن سرقت ایمیل و اسکریپت‌های پایتون/Go" }
+    ],
+    tags: [
+      "APT",
+      "FBI Advisory",
+      "The Hacker News",
+      "Integrity Technology",
+      "Microsoft Exchange",
+      "EWS",
+      "DCSync",
+      "CVE-2023-22894",
+      "CVE-2021-22205",
+      "CVE-2016-3081"
+    ]
+  },
+  {
     id: "news-01",
     slug: "lummac2-clickfix-powershell-campaign-targeting-enterprise-sessions",
     title: "هشدار فوری: موج جدید حملات بدافزار استیلر LummaC2 با تکنیک مهندسی اجتماعی ClickFix و کپچای جعلی",
@@ -1207,9 +1373,30 @@ async function translateSingleChunkToPersian(chunk: string): Promise<string> {
   if (/[\u0600-\u06FF]/.test(trimmed) && (trimmed.match(/[\u0600-\u06FF]/g)?.length || 0) > trimmed.length * 0.25) {
     return trimmed;
   }
+
+  // ۱. اولویت نخست: مسیر سرور Gemini/GTX اختصاصی رهام (/api/gemini/translate)
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch("/api/gemini/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({ text: trimmed, targetLang: "fa" }),
+    });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.ok && typeof data.text === "string" && data.text.trim()) {
+        return data.text.trim();
+      }
+    }
+  } catch {}
+
+  // ۲. اولویت دوم مستقیم کلاینت: Google Translate GTX با تایم‌اوت ۵ ثانیه‌ای
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=fa&dt=t&q=${encodeURIComponent(
       trimmed
     )}`;
@@ -1368,11 +1555,37 @@ async function fetchArticleFromUrlWithFallback(
   methodUsed?: string;
   error?: string;
 }> {
-  // روش ۱: خوانشگر استاندارد Jina Reader با تایم‌اوت ۴.۵ ثانیه‌ای
+  // روش ۰: سرور پرسرعت داخلی Next.js (/api/fetch-url) - دور زدن کامل CORS و فایروال کلاینت
   try {
-    onProgress?.("روش ۱: در حال واکشی ساختار متنی از خوانشگر استاندارد Jina Reader (تایم‌اوت ۴ ثانیه)...");
+    onProgress?.("روش سرور: در حال واکشی ساختار متنی از طریق سرور اختصاصی رهام (/api/fetch-url)...");
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4500);
+    const timeoutId = setTimeout(() => controller.abort(), 18000);
+
+    const apiRes = await fetch(`/api/fetch-url?url=${encodeURIComponent(url)}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (apiRes.ok) {
+      const data = await apiRes.json();
+      if (data && data.ok && data.markdown && data.markdown.length > 80) {
+        return {
+          ok: true,
+          title: data.title || "",
+          markdown: data.markdown,
+          methodUsed: data.methodUsed || "سرور پرسرعت رهام (Server-Side Reader)",
+        };
+      }
+    }
+  } catch (serverErr) {
+    console.warn("Server route /api/fetch-url warning:", serverErr);
+  }
+
+  // روش ۱: خوانشگر استاندارد Jina Reader با تایم‌اوت ۱۲ ثانیه‌ای (کلاینت)
+  try {
+    onProgress?.("روش ۱: در حال واکشی مستقیم ساختار متنی از خوانشگر استاندارد Jina Reader...");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
 
     const jinaRes = await fetch(`https://r.jina.ai/${url}`, {
       headers: { Accept: "text/plain" },
@@ -1387,17 +1600,17 @@ async function fetchArticleFromUrlWithFallback(
         const title = titleMatch ? titleMatch[1].trim() : "";
         const cleaned = cleanWebScrapedMarkdown(text);
         if (cleaned.length > 80) {
-          return { ok: true, title, markdown: cleaned, methodUsed: "Jina Reader" };
+          return { ok: true, title, markdown: cleaned, methodUsed: "Jina Reader (Client Direct)" };
         }
       }
     }
   } catch {}
 
-  // روش ۲: پروکسی فوق‌سریع CodeTabs با تایم‌اوت ۴ ثانیه‌ای
+  // روش ۲: پروکسی فوق‌سریع CodeTabs با تایم‌اوت ۶ ثانیه‌ای
   try {
-    onProgress?.("روش ۲: در حال دریافت سورس صفحه از طریق پروکسی اختصاصی CodeTabs...");
+    onProgress?.("روش ۲: در حال دریافت سورس صفحه از طریق پروکسی کمکی CodeTabs...");
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
 
     const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
     const proxyRes = await fetch(proxyUrl, { signal: controller.signal });
@@ -1419,11 +1632,11 @@ async function fetchArticleFromUrlWithFallback(
     }
   } catch {}
 
-  // روش ۳: AllOrigins JSON API با تایم‌اوت ۴ ثانیه‌ای
+  // روش ۳: AllOrigins JSON API با تایم‌اوت ۶ ثانیه‌ای
   try {
     onProgress?.("روش ۳: در حال دریافت از درگاه کمکی AllOrigins...");
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
 
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
     const proxyRes = await fetch(proxyUrl, { signal: controller.signal });
@@ -1881,10 +2094,10 @@ export async function runSmartAutoPublisher(params: {
       )
         .toString(16)
         .slice(0, 8);
-      const localPath = `${folderBase}/roham-img-${idx + 1}-${shortHash}.${ext}`;
+      const proxyPath = `/api/proxy-image?url=${encodeURIComponent(img.url)}`;
       const item: DownloadedMediaItem = {
         originalUrl: img.url,
-        localPath,
+        localPath: proxyPath,
         alt: img.alt,
         status: "downloaded",
       };

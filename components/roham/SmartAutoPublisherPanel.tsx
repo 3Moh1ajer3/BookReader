@@ -66,8 +66,8 @@ Enterprise SOC teams must immediately audit endpoint telemetry for unauthorized 
 
 const SAMPLE_URLS = [
   {
-    label: "گزارش آسیب‌پذیری زیرودی (The Hacker News)",
-    url: "https://thehackernews.com/2025/03/critical-zero-day-vulnerability-actively-exploited.html",
+    label: "گزارش هکرهای وابسته به چین و سرقت ایمیل (The Hacker News)",
+    url: "https://thehackernews.com/2026/10/fbi-says-china-linked-hackers-ran.html",
     target: "news" as const,
   },
   {
