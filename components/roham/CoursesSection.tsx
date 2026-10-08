@@ -230,6 +230,7 @@ interface CoursesSectionProps {
   onOpenConsultation?: () => void;
   onOpenReader?: () => void;
   onBackToHome?: () => void;
+  portalTheme?: "light" | "dark";
 }
 
 export const CoursesSection: React.FC<CoursesSectionProps> = ({
@@ -237,7 +238,9 @@ export const CoursesSection: React.FC<CoursesSectionProps> = ({
   onOpenConsultation,
   onOpenReader,
   onBackToHome,
+  portalTheme = "light",
 }) => {
+  const isDark = portalTheme === "dark";
   const [expandedCourseId, setExpandedCourseId] = useState<string | null>(null);
 
   const toggleSyllabus = (courseId: string) => {
@@ -245,47 +248,76 @@ export const CoursesSection: React.FC<CoursesSectionProps> = ({
   };
 
   return (
-    <section id="courses" className="py-12 sm:py-20 bg-slate-950/90 border-b border-slate-900 text-slate-100 relative">
+    <section
+      id="courses"
+      className={`py-12 sm:py-20 border-b relative transition-colors ${
+        isDark ? "bg-slate-950 border-slate-900 text-slate-100" : "bg-[#fbfbf9] border-slate-200 text-slate-900"
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Optional Breadcrumb */}
         {onBackToHome && (
-          <div className="mb-8 flex items-center gap-2 text-xs text-slate-400">
+          <div className={`mb-8 flex items-center gap-2 text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>
             <button
               onClick={onBackToHome}
-              className="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer flex items-center gap-1.5"
+              className="text-emerald-700 dark:text-emerald-400 hover:underline font-semibold cursor-pointer flex items-center gap-1.5"
             >
               <span>صفحه اصلی رهام</span>
             </button>
             <span>/</span>
-            <span className="text-slate-300">دوره‌های آموزشی و آکادمی رهام</span>
+            <span className={isDark ? "text-slate-300" : "text-slate-800 font-semibold"}>
+              دوره‌های آموزشی و آکادمی رهام
+            </span>
           </div>
         )}
 
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono">
+          <div
+            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono border ${
+              isDark
+                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                : "bg-emerald-50 border-emerald-200 text-emerald-800"
+            }`}
+          >
             <GraduationCap className="w-3.5 h-3.5" />
             <span>آکادمی و دوره‌های آموزشی گروه امنیتی رهام</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+          <h2
+            className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${
+              isDark ? "text-white" : "text-slate-900"
+            }`}
+          >
             دوره‌های تخصصی امنیت و دفاع سایبری
           </h2>
-          <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
+          <p className={`text-sm sm:text-base leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
             آموزش‌های کاربردی، عمیق و پروژه-محور برای تیم‌های فنی سازمان‌ها، کارشناسان امنیت و پژوهشگران مستقل؛ طراحی شده توسط متخصصین ارشد دفاع در برابر استیلرها و تحقیقات روز صفر.
           </p>
 
           {/* Pillars Badges */}
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-2 text-xs text-slate-300 font-medium">
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900 border border-slate-800">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="flex flex-wrap items-center justify-center gap-4 pt-2 text-xs font-medium">
+            <div
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border ${
+                isDark ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-700 shadow-2xs"
+              }`}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>مبتنی بر پروژه‌ها و نمونه‌های واقعی</span>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900 border border-slate-800">
-              <Terminal className="w-3.5 h-3.5 text-emerald-400" />
+            <div
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border ${
+                isDark ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-700 shadow-2xs"
+              }`}
+            >
+              <Terminal className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>لَب اختصاصی و تمرینات سندباکس</span>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900 border border-slate-800">
-              <Award className="w-3.5 h-3.5 text-emerald-400" />
+            <div
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border ${
+                isDark ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-700 shadow-2xs"
+              }`}
+            >
+              <Award className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>گواهینامه پایان دوره معتبر رهام</span>
             </div>
           </div>
@@ -299,39 +331,72 @@ export const CoursesSection: React.FC<CoursesSectionProps> = ({
             return (
               <div
                 key={course.id}
-                className="rounded-3xl bg-slate-900/60 border border-slate-800/90 hover:border-emerald-500/40 transition-all duration-200 overflow-hidden shadow-lg"
+                className={`rounded-3xl border transition-all duration-200 overflow-hidden ${
+                  isDark
+                    ? "bg-slate-900/60 border-slate-800/90 hover:border-emerald-500/40 shadow-lg"
+                    : "bg-white border-slate-200/90 hover:border-emerald-500/60 shadow-sm"
+                }`}
               >
                 {/* Main Card Body */}
                 <div className="p-6 sm:p-8 space-y-6">
                   {/* Top Bar: Code, Level, Duration */}
                   <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-md font-mono text-xs font-bold bg-emerald-950/80 border border-emerald-800/50 text-emerald-400">
+                      <span
+                        className={`px-2.5 py-1 rounded-md font-mono text-xs font-bold border ${
+                          isDark
+                            ? "bg-emerald-950/80 border-emerald-800/50 text-emerald-400"
+                            : "bg-emerald-50 border-emerald-200 text-emerald-800"
+                        }`}
+                      >
                         {course.code}
                       </span>
-                      <span className="px-2.5 py-1 rounded-md bg-slate-800/80 text-slate-300 font-medium">
+                      <span
+                        className={`px-2.5 py-1 rounded-md font-medium ${
+                          isDark ? "bg-slate-800/80 text-slate-300" : "bg-slate-100 text-slate-700"
+                        }`}
+                      >
                         سطح: {course.level}
                       </span>
-                      <span className="px-2.5 py-1 rounded-md bg-slate-800/80 text-slate-300 hidden sm:inline-block">
+                      <span
+                        className={`px-2.5 py-1 rounded-md hidden sm:inline-block ${
+                          isDark ? "bg-slate-800/80 text-slate-300" : "bg-slate-100 text-slate-700"
+                        }`}
+                      >
                         شیوه: {course.mode}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-slate-400 font-mono text-xs">
-                      <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                    <div
+                      className={`flex items-center gap-1.5 font-mono text-xs ${
+                        isDark ? "text-slate-400" : "text-slate-500"
+                      }`}
+                    >
+                      <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       <span>{course.duration}</span>
                     </div>
                   </div>
 
                   {/* Title & Description */}
                   <div className="space-y-2">
-                    <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug">
+                    <h3
+                      className={`text-xl sm:text-2xl font-bold tracking-tight leading-snug ${
+                        isDark ? "text-white" : "text-slate-900"
+                      }`}
+                    >
                       {course.title}
                     </h3>
-                    <p className="text-xs sm:text-sm font-mono text-slate-500" style={{ direction: "ltr", textAlign: "right" }}>
+                    <p
+                      className="text-xs sm:text-sm font-mono text-slate-500"
+                      style={{ direction: "ltr", textAlign: "right" }}
+                    >
                       {course.englishTitle}
                     </p>
-                    <p className="text-sm text-slate-300 leading-relaxed pt-2">
+                    <p
+                      className={`text-sm leading-relaxed pt-2 ${
+                        isDark ? "text-slate-300" : "text-slate-600"
+                      }`}
+                    >
                       {course.description}
                     </p>
                   </div>
@@ -341,35 +406,55 @@ export const CoursesSection: React.FC<CoursesSectionProps> = ({
                     {course.highlights.map((h, i) => (
                       <div
                         key={i}
-                        className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950/50 border border-slate-800/60 text-xs text-slate-300"
+                        className={`flex items-start gap-2.5 p-3 rounded-xl border text-xs ${
+                          isDark
+                            ? "bg-slate-950/50 border-slate-800/60 text-slate-300"
+                            : "bg-slate-50/70 border-slate-200/80 text-slate-700"
+                        }`}
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                         <span>{h}</span>
                       </div>
                     ))}
                   </div>
 
                   {/* Audience & Prerequisites info */}
-                  <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-800/50 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs text-slate-400">
+                  <div
+                    className={`p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs ${
+                      isDark
+                        ? "bg-slate-950/40 border-slate-800/50 text-slate-400"
+                        : "bg-slate-50 border-slate-200 text-slate-600"
+                    }`}
+                  >
                     <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                       <span>
-                        <strong className="text-slate-300">مخاطبان هدف:</strong> {course.audience}
+                        <strong className={isDark ? "text-slate-300" : "text-slate-800"}>
+                          مخاطبان هدف:
+                        </strong>{" "}
+                        {course.audience}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-slate-500 shrink-0" />
+                      <Layers className="w-4 h-4 text-slate-400 shrink-0" />
                       <span>
-                        <strong className="text-slate-300">پیش‌نیاز:</strong> {course.prerequisites}
+                        <strong className={isDark ? "text-slate-300" : "text-slate-800"}>
+                          پیش‌نیاز:
+                        </strong>{" "}
+                        {course.prerequisites}
                       </span>
                     </div>
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="pt-2 flex flex-wrap items-center justify-between gap-4 border-t border-slate-800/80">
+                  <div
+                    className={`pt-2 flex flex-wrap items-center justify-between gap-4 border-t ${
+                      isDark ? "border-slate-800/80" : "border-slate-100"
+                    }`}
+                  >
                     <button
                       onClick={() => toggleSyllabus(course.id)}
-                      className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300 cursor-pointer py-2 transition-colors"
+                      className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer py-2 transition-colors"
                     >
                       <span>{isExpanded ? "بستن سرفصل‌ها و مباحث" : "مشاهده سرفصل‌های جامع دوره"}</span>
                       <ChevronDown
@@ -382,7 +467,7 @@ export const CoursesSection: React.FC<CoursesSectionProps> = ({
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => onOpenEnrollModal(course)}
-                        className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-950 flex items-center gap-2 cursor-pointer"
+                        className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
                       >
                         <span>درخواست ثبت‌نام و مشاوره دوره</span>
                         <ArrowLeft className="w-3.5 h-3.5" />
@@ -393,9 +478,17 @@ export const CoursesSection: React.FC<CoursesSectionProps> = ({
 
                 {/* Collapsible Syllabus Section */}
                 {isExpanded && (
-                  <div className="border-t border-slate-800 bg-slate-950/80 p-6 sm:p-8 animate-in slide-in-from-top-2 duration-200">
-                    <h4 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-emerald-400" />
+                  <div
+                    className={`border-t p-6 sm:p-8 animate-in slide-in-from-top-2 duration-200 ${
+                      isDark ? "border-slate-800 bg-slate-950/80" : "border-slate-200 bg-slate-50/60"
+                    }`}
+                  >
+                    <h4
+                      className={`text-sm font-bold mb-6 flex items-center gap-2 ${
+                        isDark ? "text-white" : "text-slate-900"
+                      }`}
+                    >
+                      <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       <span>سرفصل‌های تفصیلی و مباحث آموزشی {course.code}</span>
                     </h4>
 
@@ -403,19 +496,29 @@ export const CoursesSection: React.FC<CoursesSectionProps> = ({
                       {course.syllabus.map((s, idx) => (
                         <div
                           key={idx}
-                          className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-3"
+                          className={`p-5 rounded-2xl border space-y-3 ${
+                            isDark
+                              ? "bg-slate-900/60 border-slate-800"
+                              : "bg-white border-slate-200/90 shadow-2xs"
+                          }`}
                         >
-                          <div className="text-xs font-bold text-emerald-400 flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[10px] font-mono">
+                          <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
+                            <span
+                              className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold ${
+                                isDark
+                                  ? "bg-emerald-500/20 text-emerald-400"
+                                  : "bg-emerald-100 text-emerald-800"
+                              }`}
+                            >
                               {idx + 1}
                             </span>
                             <span>{s.title}</span>
                           </div>
 
-                          <ul className="space-y-2 text-xs text-slate-300 pr-3">
+                          <ul className={`space-y-2 text-xs pr-3 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                             {s.topics.map((topic, tIdx) => (
                               <li key={tIdx} className="flex items-start gap-2">
-                                <span className="text-emerald-500 font-bold shrink-0">•</span>
+                                <span className="text-emerald-600 dark:text-emerald-500 font-bold shrink-0">•</span>
                                 <span className="leading-relaxed">{topic}</span>
                               </li>
                             ))}
@@ -424,14 +527,24 @@ export const CoursesSection: React.FC<CoursesSectionProps> = ({
                       ))}
                     </div>
 
-                    <div className="mt-6 p-4 rounded-xl bg-slate-900/40 border border-slate-800 text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div
+                      className={`mt-6 p-4 rounded-xl border text-xs flex flex-col sm:flex-row items-center justify-between gap-3 ${
+                        isDark
+                          ? "bg-slate-900/40 border-slate-800 text-slate-400"
+                          : "bg-white border-slate-200 text-slate-600"
+                      }`}
+                    >
                       <span>
                         جهت برگزاری دوره‌ها به صورت اختصاصی برای تیم‌ها و سازمان‌ها، با واحد آموزش رهام هماهنگ فرمایید.
                       </span>
                       {onOpenConsultation && (
                         <button
                           onClick={onOpenConsultation}
-                          className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors"
+                          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors border ${
+                            isDark
+                              ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700"
+                              : "bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300"
+                          }`}
                         >
                           درخواست جلسه هماهنگی سازمانی
                         </button>
@@ -445,13 +558,23 @@ export const CoursesSection: React.FC<CoursesSectionProps> = ({
         </div>
 
         {/* Bottom Banner with Reference to Book */}
-        <div className="mt-16 p-8 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/30 border border-slate-800 text-center sm:text-right flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div
+          className={`mt-16 p-8 rounded-3xl border text-center sm:text-right flex flex-col sm:flex-row items-center justify-between gap-6 ${
+            isDark
+              ? "bg-slate-900 border-slate-800 text-slate-200"
+              : "bg-white border-slate-200/90 text-slate-800 shadow-sm"
+          }`}
+        >
           <div className="space-y-2">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2 justify-center sm:justify-start">
-              <BookOpen className="w-5 h-5 text-emerald-400" />
+            <h3
+              className={`text-lg font-bold flex items-center gap-2 justify-center sm:justify-start ${
+                isDark ? "text-white" : "text-slate-900"
+              }`}
+            >
+              <BookOpen className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               <span>مطالعه پیش‌نیازها و منابع تحقیقاتی در کتابخانه رهام</span>
             </h3>
-            <p className="text-xs sm:text-sm text-slate-400 max-w-xl leading-relaxed">
+            <p className={`text-xs sm:text-sm max-w-xl leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
               تمامی شرکت‌کنندگان دوره‌ها به محتوای جامع کتاب «از روز صفر تا روز صفر»، واژه‌نامه‌های تخصصی امنیت و ابزار کدهای تعاملی دسترسی رایگان دارند.
             </p>
           </div>
@@ -459,7 +582,11 @@ export const CoursesSection: React.FC<CoursesSectionProps> = ({
           {onOpenReader && (
             <button
               onClick={onOpenReader}
-              className="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 shrink-0 flex items-center gap-2 cursor-pointer transition-colors"
+              className={`px-5 py-3 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-2 cursor-pointer transition-colors border ${
+                isDark
+                  ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700"
+                  : "bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300 shadow-2xs"
+              }`}
             >
               <span>مشاهده کتابخانه تخصصی</span>
               <ArrowLeft className="w-3.5 h-3.5" />

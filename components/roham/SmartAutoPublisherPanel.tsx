@@ -96,6 +96,8 @@ export const SmartAutoPublisherPanel: React.FC<SmartAutoPublisherPanelProps> = (
   const [running, setRunning] = useState<boolean>(false);
   const [activeStage, setActiveStage] = useState<number>(0);
   const [stageMessage, setStageMessage] = useState<string>("");
+  const [pipelineError, setPipelineError] = useState<string | null>(null);
+  const [pipelineLiveLogs, setPipelineLiveLogs] = useState<string[]>([]);
   const [result, setResult] = useState<SmartPublisherPipelineResult | null>(null);
   const [publishing, setPublishing] = useState<boolean>(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -116,7 +118,7 @@ export const SmartAutoPublisherPanel: React.FC<SmartAutoPublisherPanelProps> = (
 
   const notify = (type: "success" | "error", text: string) => {
     setToast({ type, text });
-    setTimeout(() => setToast(null), 4500);
+    setTimeout(() => setToast(null), 5000);
   };
 
   const handleSaveAiConfig = async (e: React.FormEvent) => {
@@ -140,6 +142,20 @@ export const SmartAutoPublisherPanel: React.FC<SmartAutoPublisherPanelProps> = (
     reader.readAsText(file);
   };
 
+  const handleSwitchToManualPaste = () => {
+    setSourceType("markdown");
+    setPipelineError(null);
+    if (!markdownContent.trim() && sourceUrl.trim()) {
+      let host = "";
+      try {
+        host = new URL(sourceUrl).hostname;
+      } catch {}
+      setMarkdownContent(
+        `# گزارش امنیتی برگرفته از ${host || sourceUrl}\n\nSource: ${sourceUrl}\n\n[متن یا پاراگراف‌های مقاله را اینجا کپی و Paste کنید]`
+      );
+    }
+  };
+
   const handleStartPipeline = async () => {
     if (sourceType === "url" && !sourceUrl.trim()) {
       notify("error", "لطفاً ابتدا لینک خبر یا مقاله را وارد نمایید.");
@@ -152,33 +168,51 @@ export const SmartAutoPublisherPanel: React.FC<SmartAutoPublisherPanelProps> = (
 
     setRunning(true);
     setResult(null);
+    setPipelineError(null);
+    setPipelineLiveLogs([]);
     setActiveStage(1);
+    setStageMessage("در حال آماده‌سازی و برقراری ارتباط...");
 
-    const pipelineRes = await runSmartAutoPublisher({
-      sourceType,
-      sourceUrl: sourceUrl.trim(),
-      markdownContent: markdownContent.trim(),
-      targetSection,
-      config,
-      onStageChange: (idx, msg) => {
-        setActiveStage(idx);
-        setStageMessage(msg);
-      },
-    });
+    try {
+      const pipelineRes = await runSmartAutoPublisher({
+        sourceType,
+        sourceUrl: sourceUrl.trim(),
+        markdownContent: markdownContent.trim(),
+        targetSection,
+        config,
+        onStageChange: (idx, msg) => {
+          setActiveStage(idx);
+          setStageMessage(msg);
+          setPipelineLiveLogs((prev) => [...prev, msg]);
+        },
+      });
 
-    setRunning(false);
-    setActiveStage(0);
+      if (!pipelineRes.ok) {
+        const err = pipelineRes.error || "خطا در پردازش محتوا";
+        setPipelineError(err);
+        if (pipelineRes.pipelineLogs && pipelineRes.pipelineLogs.length > 0) {
+          setPipelineLiveLogs(pipelineRes.pipelineLogs);
+        }
+        notify("error", err);
+        return;
+      }
 
-    if (!pipelineRes.ok) {
-      notify("error", pipelineRes.error || "خطا در پردازش محتوا");
-      return;
+      setResult(pipelineRes);
+      if (pipelineRes.pipelineLogs) {
+        setPipelineLiveLogs(pipelineRes.pipelineLogs);
+      }
+      notify(
+        "success",
+        `پردازش دو-مرحله‌ای کامل شد! ${pipelineRes.downloadedImages.length} تصویر در پوشه /${config.mediaConfig.uploadFolder} ذخیره و متن به فارسی ترجمه شد.`
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "خطای غیرمنتظره در اجرای پایپ‌لاین";
+      setPipelineError(`خطای سیستمی: ${msg}`);
+      notify("error", `خطا: ${msg}`);
+    } finally {
+      setRunning(false);
+      setActiveStage(0);
     }
-
-    setResult(pipelineRes);
-    notify(
-      "success",
-      `پردازش دو-مرحله‌ای کامل شد! ${pipelineRes.downloadedImages.length} تصویر در پوشه /${config.mediaConfig.uploadFolder} ذخیره و متن به فارسی ترجمه شد.`
-    );
   };
 
   const handlePublishFinal = async (openInEditor: boolean) => {
@@ -979,6 +1013,69 @@ export const SmartAutoPublisherPanel: React.FC<SmartAutoPublisherPanelProps> = (
                 );
               })}
             </div>
+
+            {/* Live trace list */}
+            {pipelineLiveLogs.length > 0 && (
+              <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs font-mono space-y-1 text-slate-300">
+                <div className="text-[11px] font-bold text-emerald-400 mb-1">لاگ‌های مرحله جاری:</div>
+                {pipelineLiveLogs.slice(-3).map((l, i) => (
+                  <div key={i} className="flex items-center gap-1.5 text-slate-300">
+                    <span className="text-emerald-400">›</span>
+                    <span>{l}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Persistent Error Diagnosis & Quick-Paste Recovery Card */}
+        {pipelineError && (
+          <div className="p-5 rounded-2xl bg-rose-950/40 border border-rose-500/50 space-y-3.5 animate-in fade-in duration-200">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-rose-500/20 text-rose-400 shrink-0 mt-0.5">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1.5 min-w-0 flex-1">
+                <h4 className="text-sm font-extrabold text-rose-200">
+                  گزارش تشخیص خطا در پردازش خودکار
+                </h4>
+                <p className="text-xs text-rose-300 leading-relaxed">
+                  {pipelineError}
+                </p>
+                {sourceType === "url" && (
+                  <div className="pt-2 flex flex-wrap items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={handleSwitchToManualPaste}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md shadow-emerald-950 transition-all"
+                    >
+                      <FileCode className="w-4 h-4" />
+                      <span>انتقال مستقیم به تب ویرایشگر Markdown و الصاق متن مقاله</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleStartPipeline}
+                      className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs text-slate-200 cursor-pointer transition-colors"
+                    >
+                      تلاش مجدد
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Diagnostic trace if available */}
+            {pipelineLiveLogs.length > 0 && (
+              <div className="p-3 rounded-xl bg-slate-950/90 border border-slate-800 text-[11px] font-mono text-slate-400 space-y-1">
+                <div className="text-slate-300 font-bold">تاریخچه اجرای پایپ‌لاین قبل از توقف:</div>
+                {pipelineLiveLogs.map((l, i) => (
+                  <div key={i} className="truncate">
+                    • {l}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -46,6 +46,7 @@ interface ThreatRadarSectionProps {
   isAdmin?: boolean;
   onOpenAdminCms?: () => void;
   initialNewsSlug?: string | null;
+  portalTheme?: "light" | "dark";
 }
 
 type NewsCategoryFilter = "all" | "urgent" | "zeroday" | "malware" | "apt" | "cloud";
@@ -63,7 +64,9 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
   isAdmin,
   onOpenAdminCms,
   initialNewsSlug,
+  portalTheme = "light",
 }) => {
+  const isDark = portalTheme === "dark";
   const [articles, setArticles] = useState<NewsArticle[]>(DEFAULT_NEWS_ARTICLES);
   const [categoryFilter, setCategoryFilter] = useState<NewsCategoryFilter>("all");
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("ALL");
@@ -81,7 +84,7 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
     return null;
   });
 
-  // Professional Reader & SOC Analyst tools
+  // Professional Reader & SOC Analyst tools (default to light/editorial unless portal is explicitly dark)
   const [canvasTheme, setCanvasTheme] = useState<ReaderCanvasTheme>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -91,7 +94,7 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
         }
       } catch {}
     }
-    return "slate";
+    return portalTheme === "dark" ? "slate" : "light";
   });
   const [fontSize, setFontSize] = useState<number>(() => {
     if (typeof window !== "undefined") {
@@ -1373,23 +1376,32 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
   // VIEW 2: MAIN CYBERSECURITY NEWSROOM & THREAT RADAR PORTAL (/radar)
   // ============================================================================
   return (
-    <section id="radar" className="py-10 sm:py-16 bg-slate-950 min-h-screen text-slate-100">
+    <section
+      id="radar"
+      className={`py-10 sm:py-16 min-h-screen transition-colors ${
+        isDark ? "bg-slate-950 text-slate-100" : "bg-[#fbfbf9] text-slate-900"
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 sm:space-y-10">
         {/* Top Navigation Breadcrumb + Admin CMS Action */}
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-xs text-slate-400">
+          <div
+            className={`flex items-center gap-2 text-xs ${
+              isDark ? "text-slate-400" : "text-slate-600"
+            }`}
+          >
             {onBackToHome && (
               <>
                 <button
                   onClick={onBackToHome}
-                  className="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer flex items-center gap-1.5"
+                  className="text-emerald-700 dark:text-emerald-400 hover:underline font-semibold cursor-pointer flex items-center gap-1.5"
                 >
                   <span>صفحه اصلی رهام</span>
                 </button>
                 <span>/</span>
               </>
             )}
-            <span className="text-slate-200 font-semibold">
+            <span className={`font-semibold ${isDark ? "text-slate-200" : "text-slate-900"}`}>
               رادار اخبار امنیت سایبری و هوش تهدیدات (Threat Intelligence Newsroom)
             </span>
           </div>
@@ -1397,7 +1409,11 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
           {isAdmin && onOpenAdminCms && (
             <button
               onClick={onOpenAdminCms}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/15 border border-amber-500/40 hover:bg-amber-500/25 text-amber-300 text-xs font-bold cursor-pointer transition-colors"
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
+                isDark
+                  ? "bg-amber-500/15 border border-amber-500/40 hover:bg-amber-500/25 text-amber-300"
+                  : "bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-900 shadow-2xs"
+              }`}
             >
               <PlusCircle className="w-4 h-4" />
               <span>انتشار خبر جدید / مدیریت رادار (CMS)</span>
@@ -1406,7 +1422,13 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
         </div>
 
         {/* Live Threat Ticker Banner */}
-        <div className="p-3 sm:px-4 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div
+          className={`p-3 sm:px-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+            isDark
+              ? "bg-slate-900/90 border-slate-800 text-slate-300"
+              : "bg-white border-slate-200/90 text-slate-700 shadow-2xs"
+          }`}
+        >
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="px-2.5 py-1 rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[11px] font-bold flex items-center gap-1.5 shrink-0">
               <Radio className="w-3.5 h-3.5 animate-pulse text-rose-400" />
@@ -1427,17 +1449,23 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
         <div className="space-y-6">
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
             <div className="space-y-3 max-w-3xl">
-              <div className="inline-flex items-center gap-2 text-xs font-mono text-emerald-400">
+              <div className="inline-flex items-center gap-2 text-xs font-mono text-emerald-700 dark:text-emerald-400 font-bold">
                 <Radio className="w-4 h-4" />
                 <span>ROHAM CYBERSECURITY NEWSROOM & THREAT RADAR</span>
               </div>
               <h1
-                className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-[1.2]"
+                className={`text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-[1.2] ${
+                  isDark ? "text-white" : "text-slate-900"
+                }`}
                 style={{ textWrap: "balance" }}
               >
                 اخبار تخصصی امنیت سایبری، کالبدشکافی بدافزارها و هشدارهای روز صفر
               </h1>
-              <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+              <p
+                className={`text-sm sm:text-base leading-relaxed ${
+                  isDark ? "text-slate-300" : "text-slate-600"
+                }`}
+              >
                 هر گزارش شامل تحلیل کامل فنی، کدها و پیلودهای حمله، شاخص‌های آلودگی (IoCs) قابل کپی برای تیم‌های SOC و چک‌لیست گام‌به‌گام ایمن‌سازی در یک صفحه اختصاصی و خوانا است.
               </p>
             </div>
@@ -1445,18 +1473,26 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
             {/* Search Input */}
             <div className="w-full lg:w-80 shrink-0">
               <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search
+                  className={`w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${
+                    isDark ? "text-slate-400" : "text-slate-400"
+                  }`}
+                />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="جستجوی خبر، CVE، نام بدافزار یا محصول..."
-                  className="w-full pr-10 pl-8 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:outline-none text-xs text-white placeholder-slate-500"
+                  className={`w-full pr-10 pl-8 py-2.5 rounded-xl border focus:border-emerald-500 focus:outline-none text-xs transition-colors ${
+                    isDark
+                      ? "bg-slate-900 border-slate-800 text-white placeholder-slate-500"
+                      : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 shadow-2xs"
+                  }`}
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery("")}
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -1466,7 +1502,11 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
           </div>
 
           {/* Filter Bar: Categories + Severity + Bookmarks */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-900">
+          <div
+            className={`flex flex-wrap items-center justify-between gap-3 pt-2 border-t ${
+              isDark ? "border-slate-800" : "border-slate-200"
+            }`}
+          >
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
               {(
                 [
@@ -1483,8 +1523,10 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                   onClick={() => setCategoryFilter(cat.id)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
                     categoryFilter === cat.id
-                      ? "bg-emerald-600 text-white shadow-xs"
-                      : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
+                      ? "bg-emerald-700 dark:bg-emerald-600 text-white shadow-xs"
+                      : isDark
+                      ? "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
+                      : "bg-white text-slate-700 hover:text-slate-900 border border-slate-200 shadow-2xs"
                   }`}
                 >
                   {cat.label}
@@ -1494,7 +1536,11 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
 
             <div className="flex items-center gap-2">
               {/* Severity Filter */}
-              <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-900 border border-slate-800 text-[11px]">
+              <div
+                className={`flex items-center gap-1 p-1 rounded-xl border text-[11px] ${
+                  isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-2xs"
+                }`}
+              >
                 {(["ALL", "CRITICAL", "HIGH"] as const).map((sev) => (
                   <button
                     key={sev}
@@ -1506,7 +1552,9 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                           : sev === "HIGH"
                             ? "bg-amber-600 text-white"
                             : "bg-slate-700 text-white"
-                        : "text-slate-400 hover:text-white"
+                        : isDark
+                        ? "text-slate-400 hover:text-white"
+                        : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
                     {sev === "ALL" ? "همه سطوح" : sev}
@@ -1519,8 +1567,12 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                 onClick={() => setOnlySaved(!onlySaved)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 cursor-pointer transition-colors ${
                   onlySaved
-                    ? "bg-amber-500/20 border-amber-500/50 text-amber-300"
-                    : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+                    ? isDark
+                      ? "bg-amber-500/20 border-amber-500/50 text-amber-300"
+                      : "bg-amber-50 border-amber-300 text-amber-900"
+                    : isDark
+                    ? "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+                    : "bg-white border-slate-200 text-slate-700 hover:text-slate-900 shadow-2xs"
                 }`}
               >
                 <Bookmark className="w-3.5 h-3.5" />
@@ -1554,7 +1606,11 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
           !searchQuery.trim() && (
             <div
               onClick={() => handleOpenArticle(leadBreakingArticle)}
-              className="group rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900/95 to-rose-950/25 border border-slate-800 hover:border-emerald-500/60 p-6 sm:p-8 lg:p-10 transition-all cursor-pointer shadow-2xl"
+              className={`group rounded-3xl border p-6 sm:p-8 lg:p-10 transition-all cursor-pointer ${
+                isDark
+                  ? "bg-gradient-to-br from-slate-900 via-slate-900/95 to-rose-950/25 border-slate-800 hover:border-emerald-500/60 shadow-2xl"
+                  : "bg-white border-slate-200 hover:border-emerald-600 shadow-sm hover:shadow-md"
+              }`}
             >
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
                 <div className="lg:col-span-8 space-y-4">
@@ -1566,25 +1622,49 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                     >
                       {getSeverityPersianLabel(leadBreakingArticle.severity)}
                     </span>
-                    <span className="px-2.5 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold">
+                    <span
+                      className={`px-2.5 py-1 rounded-md font-bold border ${
+                        isDark
+                          ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                          : "bg-emerald-50 border-emerald-200 text-emerald-800"
+                      }`}
+                    >
                       {leadBreakingArticle.categoryLabel}
                     </span>
-                    <span className="text-slate-400 tabular-nums">{leadBreakingArticle.date}</span>
-                    <span className="text-slate-500">·</span>
-                    <span className="text-slate-400">مطالعه: {leadBreakingArticle.readTime}</span>
+                    <span className={isDark ? "text-slate-400 tabular-nums" : "text-slate-500 tabular-nums"}>
+                      {leadBreakingArticle.date}
+                    </span>
+                    <span className={isDark ? "text-slate-500" : "text-slate-400"}>·</span>
+                    <span className={isDark ? "text-slate-400" : "text-slate-500"}>
+                      مطالعه: {leadBreakingArticle.readTime}
+                    </span>
                   </div>
 
-                  <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-white group-hover:text-emerald-300 transition-colors leading-snug">
+                  <h2
+                    className={`text-xl sm:text-2xl lg:text-3xl font-black leading-snug transition-colors ${
+                      isDark
+                        ? "text-white group-hover:text-emerald-300"
+                        : "text-slate-900 group-hover:text-emerald-700"
+                    }`}
+                  >
                     {leadBreakingArticle.title}
                   </h2>
 
                   {leadBreakingArticle.subtitle && (
-                    <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
+                    <p
+                      className={`text-xs sm:text-sm leading-relaxed font-medium ${
+                        isDark ? "text-slate-300" : "text-slate-700"
+                      }`}
+                    >
                       {leadBreakingArticle.subtitle}
                     </p>
                   )}
 
-                  <p className="text-xs sm:text-sm text-slate-400 leading-relaxed line-clamp-3">
+                  <p
+                    className={`text-xs sm:text-sm leading-relaxed line-clamp-3 ${
+                      isDark ? "text-slate-400" : "text-slate-600"
+                    }`}
+                  >
                     {leadBreakingArticle.summary}
                   </p>
 
@@ -1593,19 +1673,29 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                       {(leadBreakingArticle.cveIds || []).map((cve) => (
                         <span
                           key={cve}
-                          className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-amber-400 font-mono text-xs font-bold"
+                          className={`px-2.5 py-1 rounded-lg border font-mono text-xs font-bold ${
+                            isDark
+                              ? "bg-slate-950 border-slate-800 text-amber-400"
+                              : "bg-amber-50 border-amber-200 text-amber-800"
+                          }`}
                         >
                           {cve}
                         </span>
                       ))}
                       {leadBreakingArticle.cvssScore && (
-                        <span className="px-2.5 py-1 rounded-lg bg-rose-950/80 border border-rose-800/60 text-rose-300 font-mono text-xs font-bold">
+                        <span
+                          className={`px-2.5 py-1 rounded-lg border font-mono text-xs font-bold ${
+                            isDark
+                              ? "bg-rose-950/80 border-rose-800/60 text-rose-300"
+                              : "bg-rose-50 border-rose-200 text-rose-800"
+                          }`}
+                        >
                           CVSS {leadBreakingArticle.cvssScore}
                         </span>
                       )}
                     </div>
 
-                    <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 group-hover:bg-emerald-500 text-white text-xs font-bold transition-colors">
+                    <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-bold transition-colors">
                       <span>مطالعه گزارش کامل، IoCها و چک‌لیست دفاعی</span>
                       <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
                     </span>
@@ -1613,25 +1703,43 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                 </div>
 
                 {/* Right Highlights Preview Box */}
-                <div className="lg:col-span-4 p-5 rounded-2xl bg-slate-950/90 border border-slate-800/90 space-y-3">
-                  <div className="flex items-center justify-between text-xs font-bold text-emerald-400 border-b border-slate-800 pb-2.5">
+                <div
+                  className={`lg:col-span-4 p-5 rounded-2xl border space-y-3 ${
+                    isDark
+                      ? "bg-slate-950/90 border-slate-800/90"
+                      : "bg-slate-50 border-slate-200 text-slate-800"
+                  }`}
+                >
+                  <div
+                    className={`flex items-center justify-between text-xs font-bold border-b pb-2.5 ${
+                      isDark ? "border-slate-800 text-emerald-400" : "border-slate-200 text-emerald-800"
+                    }`}
+                  >
                     <span className="flex items-center gap-1.5">
                       <Flame className="w-4 h-4" />
                       نکات کلیدی این بولتن
                     </span>
                     <span className="font-mono text-[10px] text-slate-400">THREAT BRIEF</span>
                   </div>
-                  <ul className="space-y-2.5 text-xs text-slate-300 leading-relaxed">
+                  <ul
+                    className={`space-y-2.5 text-xs leading-relaxed ${
+                      isDark ? "text-slate-300" : "text-slate-600"
+                    }`}
+                  >
                     {(leadBreakingArticle.keyHighlights || []).slice(0, 3).map((hl, i) => (
                       <li key={i} className="flex items-start gap-2">
-                        <span className="text-emerald-400 font-bold">•</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">•</span>
                         <span className="line-clamp-2">{hl}</span>
                       </li>
                     ))}
                   </ul>
-                  <div className="pt-2 border-t border-slate-900 flex items-center justify-between text-[11px] text-slate-400">
+                  <div
+                    className={`pt-2 border-t flex items-center justify-between text-[11px] ${
+                      isDark ? "border-slate-800 text-slate-400" : "border-slate-200 text-slate-500"
+                    }`}
+                  >
                     <span>شاخص‌های شکار تهدید (IoCs):</span>
-                    <span className="font-mono text-rose-400 font-bold">
+                    <span className="font-mono text-rose-600 dark:text-rose-400 font-bold">
                       {toPersianDigits((leadBreakingArticle.iocs || []).length)} مورد ثبت‌شده
                     </span>
                   </div>
@@ -1644,19 +1752,31 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* News Stream Column (8 cols) */}
           <div className="lg:col-span-8 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
-                <Layers className="w-4 h-4 text-emerald-400" />
+            <div
+              className={`flex items-center justify-between border-b pb-3 ${
+                isDark ? "border-slate-800" : "border-slate-200"
+              }`}
+            >
+              <h3
+                className={`text-base sm:text-lg font-extrabold flex items-center gap-2 ${
+                  isDark ? "text-white" : "text-slate-900"
+                }`}
+              >
+                <Layers className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>فید کامل گزارش‌های خبری و بولتن‌های امنیتی</span>
               </h3>
-              <span className="text-xs text-slate-400">
+              <span className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                 نمایش {toPersianDigits(filteredArticles.length)} گزارش
               </span>
             </div>
 
             {streamArticles.length === 0 ? (
-              <div className="p-12 rounded-3xl bg-slate-900/50 border border-slate-800 text-center space-y-3">
-                <p className="text-sm font-bold text-slate-300">
+              <div
+                className={`p-12 rounded-3xl border text-center space-y-3 ${
+                  isDark ? "bg-slate-900/50 border-slate-800" : "bg-white border-slate-200 shadow-sm"
+                }`}
+              >
+                <p className={`text-sm font-bold ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                   گزارشی منطبق با فیلتر یا عبارت جستجوی شما یافت نشد.
                 </p>
                 <button
@@ -1667,7 +1787,7 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                     setOnlySaved(false);
                     setSearchQuery("");
                   }}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-emerald-700 dark:bg-emerald-600 text-white text-xs font-bold cursor-pointer"
                 >
                   نمایش همه اخبار رادار
                 </button>
@@ -1678,7 +1798,11 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                   <article
                     key={article.id}
                     onClick={() => handleOpenArticle(article)}
-                    className="group p-5 sm:p-6 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-900 transition-all cursor-pointer space-y-4"
+                    className={`group p-5 sm:p-6 rounded-2xl border transition-all cursor-pointer space-y-4 ${
+                      isDark
+                        ? "bg-slate-900/70 border-slate-800 hover:border-emerald-500/50 hover:bg-slate-900 text-slate-100"
+                        : "bg-white border-slate-200 hover:border-emerald-600 text-slate-900 shadow-sm hover:shadow-md"
+                    }`}
                   >
                     {/* Metadata Row */}
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -1690,16 +1814,28 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                         >
                           {article.severity}
                         </span>
-                        <span className="text-emerald-400 font-bold">{article.categoryLabel}</span>
-                        <span className="text-slate-600">·</span>
-                        <span className="text-slate-400 tabular-nums">{article.date}</span>
-                        <span className="text-slate-600">·</span>
-                        <span className="text-slate-400">{article.readTime}</span>
+                        <span className="text-emerald-700 dark:text-emerald-400 font-bold">
+                          {article.categoryLabel}
+                        </span>
+                        <span className={isDark ? "text-slate-600" : "text-slate-300"}>·</span>
+                        <span className={isDark ? "text-slate-400 tabular-nums" : "text-slate-500 tabular-nums"}>
+                          {article.date}
+                        </span>
+                        <span className={isDark ? "text-slate-600" : "text-slate-300"}>·</span>
+                        <span className={isDark ? "text-slate-400" : "text-slate-500"}>
+                          {article.readTime}
+                        </span>
                       </div>
 
                       <div className="flex items-center gap-2">
                         {article.cvssScore && (
-                          <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-rose-400 font-mono text-[11px] font-bold">
+                          <span
+                            className={`px-2 py-0.5 rounded border font-mono text-[11px] font-bold ${
+                              isDark
+                                ? "bg-slate-950 border-slate-800 text-rose-400"
+                                : "bg-rose-50 border-rose-200 text-rose-800"
+                            }`}
+                          >
                             CVSS {article.cvssScore}
                           </span>
                         )}
@@ -1707,8 +1843,12 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                           onClick={(e) => toggleSaveArticle(article.id, e)}
                           className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
                             savedIds.includes(article.id)
-                              ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
-                              : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                              ? isDark
+                                ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
+                                : "bg-amber-50 border-amber-300 text-amber-900"
+                              : isDark
+                              ? "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                              : "bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900"
                           }`}
                           title="ذخیره گزارش"
                         >
@@ -1719,37 +1859,59 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
 
                     {/* Title & Summary */}
                     <div className="space-y-2">
-                      <h3 className="text-base sm:text-xl font-extrabold text-white group-hover:text-emerald-300 transition-colors leading-snug">
+                      <h3
+                        className={`text-base sm:text-xl font-extrabold leading-snug transition-colors ${
+                          isDark
+                            ? "text-white group-hover:text-emerald-300"
+                            : "text-slate-900 group-hover:text-emerald-700"
+                        }`}
+                      >
                         {article.title}
                       </h3>
-                      <p className="text-xs sm:text-sm text-slate-400 leading-relaxed line-clamp-2">
+                      <p
+                        className={`text-xs sm:text-sm leading-relaxed line-clamp-2 ${
+                          isDark ? "text-slate-400" : "text-slate-600"
+                        }`}
+                      >
                         {article.summary}
                       </p>
                     </div>
 
                     {/* Bottom Bar: CVEs, IoC count, and Full-Page Link */}
-                    <div className="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div
+                      className={`pt-3 border-t flex flex-wrap items-center justify-between gap-3 text-xs ${
+                        isDark ? "border-slate-800/80" : "border-slate-100"
+                      }`}
+                    >
                       <div className="flex flex-wrap items-center gap-2">
                         {(article.cveIds || []).slice(0, 2).map((cve) => (
                           <span
                             key={cve}
-                            className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-amber-400 font-mono text-[11px]"
+                            className={`px-2 py-0.5 rounded border font-mono text-[11px] font-bold ${
+                              isDark
+                                ? "bg-slate-950 border-slate-800 text-amber-400"
+                                : "bg-amber-50 border-amber-200 text-amber-800"
+                            }`}
                             style={{ direction: "ltr" }}
                           >
                             {cve}
                           </span>
                         ))}
                         {article.iocs && article.iocs.length > 0 && (
-                          <span className="text-[11px] text-slate-400">
+                          <span
+                            className={`text-[11px] ${
+                              isDark ? "text-slate-400" : "text-slate-500"
+                            }`}
+                          >
                             شامل {toPersianDigits(article.iocs.length)} شاخص IoC و{" "}
                             {toPersianDigits((article.mitigationSteps || []).length)} راهکار دفاعی
                           </span>
                         )}
                       </div>
 
-                      <span className="font-bold text-emerald-400 group-hover:text-emerald-300 flex items-center gap-1">
-                        <span>ورود به صفحه کامل گزارش خبری</span>
-                        <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                      <span className="text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1 group-hover:-translate-x-1 transition-transform">
+                        <span>مطالعه کامل گزارش</span>
+                        <ChevronLeft className="w-3.5 h-3.5" />
                       </span>
                     </div>
                   </article>
@@ -1761,13 +1923,27 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
           {/* Right Sidebar: Active CVE Matrix, Popular Bulletins, and Tags (4 cols) */}
           <aside className="lg:col-span-4 space-y-6">
             {/* Active Threat & CVE Radar Widget */}
-            <div className="p-5 sm:p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <h4 className="text-sm font-extrabold text-white flex items-center gap-2">
-                  <ShieldAlert className="w-4 h-4 text-rose-400" />
+            <div
+              className={`p-5 sm:p-6 rounded-3xl border space-y-4 ${
+                isDark ? "bg-slate-900/90 border-slate-800" : "bg-white border-slate-200 shadow-sm"
+              }`}
+            >
+              <div
+                className={`flex items-center justify-between border-b pb-3 ${
+                  isDark ? "border-slate-800" : "border-slate-200"
+                }`}
+              >
+                <h4
+                  className={`text-sm font-extrabold flex items-center gap-2 ${
+                    isDark ? "text-white" : "text-slate-900"
+                  }`}
+                >
+                  <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                   <span>جدول آسیب‌پذیری‌ها و تکنیک‌های فعال</span>
                 </h4>
-                <span className="text-[10px] font-mono text-emerald-400">LIVE MATRIX</span>
+                <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 font-bold">
+                  LIVE MATRIX
+                </span>
               </div>
 
               <div className="space-y-2.5">
@@ -1775,16 +1951,26 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                   <div
                     key={art.id}
                     onClick={() => handleOpenArticle(art)}
-                    className="p-3 rounded-2xl bg-slate-950 border border-slate-800/90 hover:border-emerald-500/40 cursor-pointer transition-all flex items-center justify-between gap-2"
+                    className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between gap-2 ${
+                      isDark
+                        ? "bg-slate-950 border-slate-800/90 hover:border-emerald-500/40"
+                        : "bg-slate-50/70 border-slate-200 hover:border-emerald-600 hover:bg-white"
+                    }`}
                   >
                     <div className="min-w-0">
                       <div
-                        className="text-xs font-mono font-bold text-amber-400 truncate"
+                        className="text-xs font-mono font-bold text-amber-700 dark:text-amber-400 truncate"
                         style={{ direction: "ltr", textAlign: "right" }}
                       >
                         {(art.cveIds && art.cveIds[0]) || art.category.toUpperCase()}
                       </div>
-                      <div className="text-[11px] text-slate-300 truncate">{art.title}</div>
+                      <div
+                        className={`text-[11px] truncate ${
+                          isDark ? "text-slate-300" : "text-slate-700"
+                        }`}
+                      >
+                        {art.title}
+                      </div>
                     </div>
                     <span
                       className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 border ${getSeverityBadgeStyle(
@@ -1799,8 +1985,14 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
             </div>
 
             {/* Popular Topics & Threat Tags */}
-            <div className="p-5 sm:p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4">
-              <h4 className="text-sm font-extrabold text-white">برچسب‌های تخصصی شکار تهدید</h4>
+            <div
+              className={`p-5 sm:p-6 rounded-3xl border space-y-4 ${
+                isDark ? "bg-slate-900/90 border-slate-800" : "bg-white border-slate-200 shadow-sm"
+              }`}
+            >
+              <h4 className={`text-sm font-extrabold ${isDark ? "text-white" : "text-slate-900"}`}>
+                برچسب‌های تخصصی شکار تهدید
+              </h4>
               <div className="flex flex-wrap gap-1.5">
                 {allTags.map((tag) => (
                   <button
@@ -1808,8 +2000,10 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                     onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
                     className={`px-2.5 py-1 rounded-xl text-xs font-mono cursor-pointer transition-colors ${
                       selectedTag === tag
-                        ? "bg-emerald-600 text-white"
-                        : "bg-slate-950 border border-slate-800 text-slate-300 hover:border-emerald-500/40"
+                        ? "bg-emerald-700 dark:bg-emerald-600 text-white"
+                        : isDark
+                        ? "bg-slate-950 border border-slate-800 text-slate-300 hover:border-emerald-500/40"
+                        : "bg-slate-50 border border-slate-200 text-slate-700 hover:border-emerald-600 hover:bg-white"
                     }`}
                   >
                     #{tag}
@@ -1819,17 +2013,27 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
             </div>
 
             {/* Enterprise Advisory Callout */}
-            <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/30 space-y-3">
-              <div className="text-xs font-extrabold text-emerald-400">
+            <div
+              className={`p-6 rounded-3xl border space-y-3 ${
+                isDark
+                  ? "bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 border-emerald-500/30"
+                  : "bg-gradient-to-br from-emerald-50/70 via-white to-white border-emerald-200 shadow-sm"
+              }`}
+            >
+              <div className="text-xs font-extrabold text-emerald-800 dark:text-emerald-400">
                 دفاع پیشگیرانه در برابر استیلرها و تهدیدات روز
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p
+                className={`text-xs leading-relaxed ${
+                  isDark ? "text-slate-300" : "text-slate-600"
+                }`}
+              >
                 بیش از ۷۰٪ حوادث بررسی‌شده در رادار تهدیدات رهام با سرقت کوکی‌های مرورگر و توکن‌های نشست آغاز می‌شوند. آنتی‌استیلر رهام زنجیره حمله را در همان ثانیه اول متوقف می‌کند.
               </p>
               {onOpenConsultation && (
                 <button
                   onClick={onOpenConsultation}
-                  className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer transition-colors"
+                  className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer transition-colors shadow-2xs"
                 >
                   دریافت مشاوره امن‌سازی سازمان
                 </button>

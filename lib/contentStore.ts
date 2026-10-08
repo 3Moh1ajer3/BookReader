@@ -1208,10 +1208,13 @@ async function translateSingleChunkToPersian(chunk: string): Promise<string> {
     return trimmed;
   }
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=fa&dt=t&q=${encodeURIComponent(
       trimmed
     )}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && Array.isArray(data[0])) {
@@ -1256,6 +1259,208 @@ async function translateSegmentToPersian(text: string): Promise<string> {
 }
 
 /**
+ * تبدیل هوشمند HTML خام وب‌سایت به Markdown تمیز با حفظ کدهای فنی، تصاویر، جداول و متون
+ */
+function convertHtmlToCleanMarkdown(html: string): { title: string; markdown: string } {
+  let title = "";
+  const ogTitleMatch = html.match(/<meta\s+[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i);
+  const titleTagMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+
+  if (ogTitleMatch) {
+    title = ogTitleMatch[1].trim();
+  } else if (titleTagMatch) {
+    title = titleTagMatch[1].split(/[|\-–—]/)[0].trim();
+  } else if (h1Match) {
+    title = h1Match[1].replace(/<[^>]+>/g, "").trim();
+  }
+
+  // حذف اسکریپت‌ها، استایل‌ها، تگ‌های ناوبری، هدر و فوتر
+  let cleaned = html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+    .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, "")
+    .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, "")
+    .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, "")
+    .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, "")
+    .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, "")
+    .replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, "");
+
+  // ترجیح دادن به تگ article یا main در صورت وجود
+  const articleMatch =
+    cleaned.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i) ||
+    cleaned.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i);
+  if (articleMatch) {
+    cleaned = articleMatch[1];
+  }
+
+  // تبدیل عناوین
+  cleaned = cleaned.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, "\n\n# $1\n\n");
+  cleaned = cleaned.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, "\n\n## $1\n\n");
+  cleaned = cleaned.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, "\n\n### $1\n\n");
+  cleaned = cleaned.replace(/<h4[^>]*>([\s\S]*?)<\/h4>/gi, "\n\n#### $1\n\n");
+
+  // تبدیل کدهای فنی
+  cleaned = cleaned.replace(
+    /<pre[^>]*><code(?:\s+class=["'][^"']*language-([a-z0-9_-]+)[^"']*["'])?[^>]*>([\s\S]*?)<\/code><\/pre>/gi,
+    (_, lang, code) => {
+      const unescaped = code
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"');
+      return `\n\n\`\`\`${lang || "code"}\n${unescaped.trim()}\n\`\`\`\n\n`;
+    }
+  );
+
+  // تبدیل تصاویر
+  cleaned = cleaned.replace(
+    /<img[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*alt=["']([^"']*)["'][^>]*>/gi,
+    "\n\n![$2]($1)\n\n"
+  );
+  cleaned = cleaned.replace(
+    /<img[^>]+alt=["']([^"']*)["'][^>]*src=["'](https?:\/\/[^"']+)["'][^>]*>/gi,
+    "\n\n![$1]($2)\n\n"
+  );
+  cleaned = cleaned.replace(/<img[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*>/gi, "\n\n![]($1)\n\n");
+
+  // تبدیل نقل‌قول‌ها
+  cleaned = cleaned.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, "\n\n> $1\n\n");
+
+  // تبدیل لیست‌ها
+  cleaned = cleaned.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, "\n* $1");
+
+  // تبدیل پاراگراف‌ها
+  cleaned = cleaned.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, "\n\n$1\n\n");
+  cleaned = cleaned.replace(/<br\s*\/?>/gi, "\n");
+
+  // حذف تگ‌های HTML باقی‌مانده
+  cleaned = cleaned.replace(/<[^>]+>/g, " ");
+
+  // حل انتیتی‌های متداول
+  cleaned = cleaned
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+
+  // منظم کردن فاصله‌ها
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n").trim();
+
+  return {
+    title: title || "گزارش فنی",
+    markdown: cleaned,
+  };
+}
+
+/**
+ * واکشی چندمرحله‌ای و پایدار محتوای لینک با تایم‌اوت و پروکسی‌های کمکی
+ */
+async function fetchArticleFromUrlWithFallback(
+  url: string,
+  onProgress?: (msg: string) => void
+): Promise<{
+  ok: boolean;
+  title: string;
+  markdown: string;
+  methodUsed?: string;
+  error?: string;
+}> {
+  // روش ۱: خوانشگر استاندارد Jina Reader با تایم‌اوت ۴.۵ ثانیه‌ای
+  try {
+    onProgress?.("روش ۱: در حال واکشی ساختار متنی از خوانشگر استاندارد Jina Reader (تایم‌اوت ۴ ثانیه)...");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4500);
+
+    const jinaRes = await fetch(`https://r.jina.ai/${url}`, {
+      headers: { Accept: "text/plain" },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (jinaRes.ok) {
+      const text = await jinaRes.text();
+      if (text.trim().length > 120 && !text.includes("403 Forbidden") && !text.includes("Cloudflare Ray ID")) {
+        const titleMatch = text.match(/^Title:\s*(.+)$/m) || text.match(/^#\s+(.+)$/m);
+        const title = titleMatch ? titleMatch[1].trim() : "";
+        const cleaned = cleanWebScrapedMarkdown(text);
+        if (cleaned.length > 80) {
+          return { ok: true, title, markdown: cleaned, methodUsed: "Jina Reader" };
+        }
+      }
+    }
+  } catch {}
+
+  // روش ۲: پروکسی فوق‌سریع CodeTabs با تایم‌اوت ۴ ثانیه‌ای
+  try {
+    onProgress?.("روش ۲: در حال دریافت سورس صفحه از طریق پروکسی اختصاصی CodeTabs...");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
+    const proxyRes = await fetch(proxyUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (proxyRes.ok) {
+      const htmlText = await proxyRes.text();
+      if (htmlText.length > 200 && !htmlText.includes("Just a moment...") && !htmlText.includes("Cloudflare")) {
+        const converted = convertHtmlToCleanMarkdown(htmlText);
+        if (converted.markdown.length > 100) {
+          return {
+            ok: true,
+            title: converted.title,
+            markdown: converted.markdown,
+            methodUsed: "CodeTabs Fast Proxy",
+          };
+        }
+      }
+    }
+  } catch {}
+
+  // روش ۳: AllOrigins JSON API با تایم‌اوت ۴ ثانیه‌ای
+  try {
+    onProgress?.("روش ۳: در حال دریافت از درگاه کمکی AllOrigins...");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    const proxyRes = await fetch(proxyUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (proxyRes.ok) {
+      const jsonData = await proxyRes.json();
+      const htmlText = jsonData?.contents;
+      if (typeof htmlText === "string" && htmlText.length > 200) {
+        const converted = convertHtmlToCleanMarkdown(htmlText);
+        if (converted.markdown.length > 100) {
+          return {
+            ok: true,
+            title: converted.title,
+            markdown: converted.markdown,
+            methodUsed: "AllOrigins Engine",
+          };
+        }
+      }
+    }
+  } catch {}
+
+  // در صورت مسدود بودن تمام روش‌ها به دلیل فایروال سایت مبدأ
+  let parsedHost = "";
+  try {
+    parsedHost = new URL(url).hostname;
+  } catch {}
+
+  return {
+    ok: false,
+    title: "",
+    markdown: "",
+    error: `سایت مبدأ (${parsedHost || "لینک"}) دارای فایروال ضدبات قوی (Cloudflare WAF / Anti-Bot) است و دسترسی ربات‌های واکشی را محدود کرده است.`,
+  };
+}
+
+/**
  * حذف صرفاً منوهای هدر، فوتر، تبلیغات و لینک‌های شبکه اجتماعی سایت‌ها در حالت دریافت از URL
  * با حفظ ۱۰۰٪ متن اصلی مقاله، کدهای فنی، جداول و تصاویر
  */
@@ -1274,7 +1479,10 @@ function cleanWebScrapedMarkdown(rawMd: string): string {
 
     if (!startedArticle) {
       // شروع مقاله با اولین هدینگ یا اولین پاراگراف واقعی
-      if (/^#{1,3}\s+\S+/.test(trimmed) || (trimmed.length > 80 && !trimmed.startsWith("* [") && !trimmed.startsWith("- ["))) {
+      if (
+        /^#{1,3}\s+\S+/.test(trimmed) ||
+        (trimmed.length > 40 && !trimmed.startsWith("* [") && !trimmed.startsWith("- [") && !trimmed.startsWith("!["))
+      ) {
         startedArticle = true;
       } else {
         continue;
@@ -1301,6 +1509,7 @@ function cleanWebScrapedMarkdown(rawMd: string): string {
   }
 
   const result = cleanedLines.join("\n").trim();
+  // اگر الگوی پاکسازی متن را بیش از حد خالی کرد، کل متن خام فیلترنشده را برگردان تا داده‌ای گم نشود
   return result.length > 60 ? result : text;
 }
 
@@ -1377,11 +1586,14 @@ export async function runSmartAutoPublisher(params: {
       : "در حال خواندن مستقیم و ۱۰۰٪ کامل فایل Markdown (بدون ارسال ریکوئست خارجی)..."
   );
 
-  // ۱. تلاش برای اجرای پایپ‌لاین سمت سرور PHP در هاست cPanel
+  // ۱. تلاش برای اجرای پایپ‌لاین سمت سرور PHP در هاست cPanel (با تایم‌اوت ۲ ثانیه‌ای برای عدم توقف)
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
     const token = getStoredToken();
     const res = await fetch("/api/auto-publisher.php?action=process_pipeline", {
       method: "POST",
+      signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -1396,6 +1608,7 @@ export async function runSmartAutoPublisher(params: {
         overrideConfig: config,
       }),
     });
+    clearTimeout(timeoutId);
     const text = await res.text();
     if (!text.trim().startsWith("<?php") && !text.trim().startsWith("<!DOCTYPE")) {
       const serverData = JSON.parse(text);
@@ -1532,29 +1745,26 @@ export async function runSmartAutoPublisher(params: {
       };
     }
 
-    let fetchedText = "";
-    try {
-      const jinaRes = await fetch(`https://r.jina.ai/${sourceUrl}`, {
-        headers: { Accept: "text/plain" },
-      });
-      if (jinaRes.ok) {
-        fetchedText = await jinaRes.text();
-      }
-    } catch {}
+    onStageChange?.(1, `در حال واکشی محتوای مقاله از آدرس ${parsedHost}...`);
+    const fetchRes = await fetchArticleFromUrlWithFallback(sourceUrl, (msg) => {
+      logs.push(msg);
+      onStageChange?.(1, msg);
+    });
 
-    if (fetchedText.trim().length > 80) {
-      const titleMatch =
-        fetchedText.match(/^Title:\s*(.+)$/m) || fetchedText.match(/^#\s+(.+)$/m);
-      rawTitle = titleMatch ? titleMatch[1].trim() : `گزارش فنی از ${parsedHost}`;
-      rawMarkdown = cleanWebScrapedMarkdown(fetchedText);
+    if (fetchRes.ok && fetchRes.markdown.trim().length > 60) {
+      rawTitle = fetchRes.title || `گزارش فنی از ${parsedHost}`;
+      rawMarkdown = fetchRes.markdown;
       logs.push(
-        `متن کامل مقاله از دامنه ${parsedHost} واکشی شد و هدر، فوتر و منوهای سایت حذف گردید (حفظ ۱۰۰٪ متن اصلی).`
+        `متن کامل مقاله از دامنه ${parsedHost} با روش «${fetchRes.methodUsed}» دریافت شد و هدر، فوتر و منوها حذف گردید (حفظ ۱۰۰٪ متن اصلی).`
       );
     } else {
+      const errDetail =
+        fetchRes.error ||
+        `سایت مبدأ (${parsedHost}) به دلیل تدابیر ضدبات اجازه واکشی خودکار را محدود کرده است.`;
+      logs.push(`خطا در واکشی مستقیم: ${errDetail}`);
       return {
         ok: false,
-        error:
-          "سایت مبدأ اجازه واکشی مستقیم را نداد (محافظت Cloudflare). لطفاً متن یا فایل .md آن را در تب «فایل Markdown» قرار دهید تا کامل پردازش شود.",
+        error: `${errDetail} — راهکار سریع: لطفاً متن مقاله را کپی کرده و در تب «فایل Markdown» قرار دهید تا ظرف چند ثانیه بدون هیچ نقصی پردازش و منتشر شود.`,
         targetSection,
         sourceType,
         sourceDomain: parsedHost,
@@ -1563,7 +1773,7 @@ export async function runSmartAutoPublisher(params: {
         extractedCves: [],
         downloadedImages: [],
         coverImage: "",
-        pipelineLogs: [],
+        pipelineLogs: logs,
       };
     }
   } else {

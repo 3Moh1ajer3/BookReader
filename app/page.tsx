@@ -135,15 +135,41 @@ export default function Home() {
     } catch {}
   }, [preferences]);
 
+  // Roham Portal theme state (default is prestigious, bright & readable "light")
+  const [portalTheme, setPortalTheme] = useState<"light" | "dark">(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("roham_portal_theme");
+        if (saved === "light" || saved === "dark") return saved;
+      } catch {}
+    }
+    return "light";
+  });
+
+  const handleTogglePortalTheme = () => {
+    setPortalTheme((prev) => {
+      const next = prev === "dark" ? "light" : "dark";
+      try {
+        localStorage.setItem("roham_portal_theme", next);
+      } catch {}
+      return next;
+    });
+  };
+
   // Synchronize active theme with <html> element
   useEffect(() => {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
 
     if (activeView === "portal" || activeView === "admin") {
-      root.classList.remove("theme-light", "theme-sepia", "theme-oled");
-      root.classList.add("theme-dark", "dark");
-      root.style.colorScheme = "only dark";
+      root.classList.remove("theme-light", "theme-sepia", "theme-oled", "theme-dark", "dark");
+      if (portalTheme === "dark") {
+        root.classList.add("theme-dark", "dark");
+        root.style.colorScheme = "only dark";
+      } else {
+        root.classList.add("theme-light");
+        root.style.colorScheme = "only light";
+      }
       return;
     }
 
@@ -186,7 +212,7 @@ export default function Home() {
       oled: "#000000",
     };
     metaThemeColor.setAttribute("content", themeBgColors[theme] || "#f8fafc");
-  }, [preferences.theme, activeView]);
+  }, [preferences.theme, activeView, portalTheme]);
 
   // Clean Path URL navigation listener (no # hashes in URL)
   useEffect(() => {
@@ -762,15 +788,31 @@ export default function Home() {
     return (
       <div
         id="roham-portal"
-        className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans"
+        className={`min-h-screen flex flex-col font-sans transition-colors duration-200 ${
+          portalTheme === "dark"
+            ? "bg-slate-950 text-slate-100 dark"
+            : "bg-[#fbfbf9] text-slate-900"
+        }`}
         style={{ direction: "rtl" }}
       >
         {siteSettings?.announcementEnabled && siteSettings.announcementText && (
-          <div className="w-full bg-gradient-to-l from-emerald-950 via-slate-900 to-emerald-950 border-b border-emerald-500/30 px-4 py-2 text-xs text-slate-200">
+          <div
+            className={`w-full border-b px-4 py-2 text-xs transition-colors ${
+              portalTheme === "dark"
+                ? "bg-gradient-to-l from-emerald-950 via-slate-900 to-emerald-950 border-emerald-500/30 text-slate-200"
+                : "bg-emerald-50 border-emerald-200 text-emerald-950 shadow-2xs"
+            }`}
+          >
             <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 text-center">
-              <Megaphone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <Megaphone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               {siteSettings.announcementBadge && (
-                <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">
+                <span
+                  className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
+                    portalTheme === "dark"
+                      ? "bg-emerald-500/20 text-emerald-300"
+                      : "bg-emerald-200/60 text-emerald-900"
+                  }`}
+                >
                   {siteSettings.announcementBadge}
                 </span>
               )}
@@ -788,6 +830,8 @@ export default function Home() {
           currentUser={currentUser}
           onOpenAuth={() => setIsAuthModalOpen(true)}
           onOpenAdmin={handleOpenAdmin}
+          portalTheme={portalTheme}
+          onTogglePortalTheme={handleTogglePortalTheme}
         />
 
         <main className="flex-1 w-full animate-in fade-in duration-200">
@@ -797,6 +841,7 @@ export default function Home() {
               onOpenReader={() => handleOpenReader()}
               onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)}
               onOpenConsultation={() => setIsConsultationOpen(true)}
+              portalTheme={portalTheme}
             />
           )}
 
@@ -804,6 +849,7 @@ export default function Home() {
             <AntiStealerSection
               onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)}
               onBackToHome={() => handleNavigate("home")}
+              portalTheme={portalTheme}
             />
           )}
 
@@ -816,6 +862,7 @@ export default function Home() {
               onOpenConsultation={() => setIsConsultationOpen(true)}
               onOpenReader={() => handleOpenReader()}
               onBackToHome={() => handleNavigate("home")}
+              portalTheme={portalTheme}
             />
           )}
 
@@ -833,6 +880,7 @@ export default function Home() {
               isAdmin={currentUser?.role === "admin"}
               onOpenAdminCms={handleOpenAdminCms}
               initialPostSlug={selectedBlogSlug}
+              portalTheme={portalTheme}
             />
           )}
 
@@ -845,6 +893,7 @@ export default function Home() {
               isAdmin={currentUser?.role === "admin"}
               onOpenAdminCms={handleOpenAdminCms}
               initialNewsSlug={selectedNewsSlug}
+              portalTheme={portalTheme}
             />
           )}
 
@@ -852,6 +901,7 @@ export default function Home() {
             <ServicesSection
               onOpenConsultation={() => setIsConsultationOpen(true)}
               onBackToHome={() => handleNavigate("home")}
+              portalTheme={portalTheme}
             />
           )}
         </main>
@@ -861,6 +911,7 @@ export default function Home() {
           onOpenConsultation={() => setIsConsultationOpen(true)}
           onOpenEarlyAccess={() => setIsEarlyAccessOpen(true)}
           onNavigate={handleNavigate}
+          portalTheme={portalTheme}
         />
 
         {/* Global Modals for Roham Site */}

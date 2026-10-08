@@ -43,6 +43,7 @@ interface BlogSectionProps {
   isAdmin?: boolean;
   onOpenAdminCms?: () => void;
   initialPostSlug?: string | null;
+  portalTheme?: "light" | "dark";
 }
 
 type ReaderCanvasTheme = "slate" | "oled" | "sepia" | "light";
@@ -58,7 +59,9 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
   isAdmin,
   onOpenAdminCms,
   initialPostSlug,
+  portalTheme = "light",
 }) => {
+  const isDark = portalTheme === "dark";
   const [posts, setPosts] = useState<BlogPost[]>(DEFAULT_BLOG_POSTS);
   const [selectedCategory, setSelectedCategory] = useState<string>("همه");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -75,7 +78,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
     return null;
   });
 
-  // Reader customization states (persisted in localStorage for professional readers)
+  // Reader customization states (defaults to prestigious editorial light unless portal is explicitly dark)
   const [canvasTheme, setCanvasTheme] = useState<ReaderCanvasTheme>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -85,7 +88,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
         }
       } catch {}
     }
-    return "slate";
+    return portalTheme === "dark" ? "slate" : "light";
   });
   const [fontSize, setFontSize] = useState<number>(() => {
     if (typeof window !== "undefined") {
@@ -1213,20 +1216,27 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
   // MODE B: EDITORIAL FRONT-PAGE & TECHNICAL RESEARCH CATALOG (/blog)
   // ============================================================================
   return (
-    <section id="blog" className="py-10 sm:py-16 bg-slate-950 border-b border-slate-900 text-slate-100">
+    <section
+      id="blog"
+      className={`py-10 sm:py-16 min-h-screen transition-colors ${
+        isDark ? "bg-slate-950 border-b border-slate-900 text-slate-100" : "bg-[#fbfbf9] border-b border-slate-200 text-slate-900"
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Top Breadcrumb + Admin CMS Quick Action */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           {onBackToHome ? (
-            <div className="flex items-center gap-2 text-xs text-slate-400">
+            <div className={`flex items-center gap-2 text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>
               <button
                 onClick={onBackToHome}
-                className="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer flex items-center gap-1.5"
+                className="text-emerald-700 dark:text-emerald-400 hover:underline font-semibold cursor-pointer flex items-center gap-1.5"
               >
                 <span>صفحه اصلی رهام</span>
               </button>
               <span aria-hidden="true">/</span>
-              <span className="text-slate-300">وبلاگ مهندسی و تحقیقات امنیت سایبری</span>
+              <span className={isDark ? "text-slate-300" : "text-slate-800 font-semibold"}>
+                وبلاگ مهندسی و تحقیقات امنیت سایبری
+              </span>
             </div>
           ) : (
             <div />
@@ -1235,7 +1245,11 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
           {onOpenAdminCms && (
             <button
               onClick={onOpenAdminCms}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600/15 border border-emerald-500/30 hover:bg-emerald-600/25 text-emerald-300 text-xs font-bold transition-colors cursor-pointer"
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                isDark
+                  ? "bg-emerald-600/15 border border-emerald-500/30 hover:bg-emerald-600/25 text-emerald-300"
+                  : "bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 shadow-2xs"
+              }`}
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span>مدیریت و انتشار مقاله جدید (CMS)</span>
@@ -1244,19 +1258,25 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
         </div>
 
         {/* Editorial Masthead & Search Bar */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-8 border-b border-slate-800/90 mb-8">
+        <div
+          className={`flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-8 border-b mb-8 ${
+            isDark ? "border-slate-800/90" : "border-slate-200"
+          }`}
+        >
           <div className="space-y-3 max-w-3xl">
-            <div className="flex items-center gap-2 text-xs text-emerald-400 font-semibold">
+            <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 font-bold">
               <FileText className="w-4 h-4" />
               <span>پایگاه مقالات مهندسی، کالبدشکافی بدافزار و معماری دفاع سایبری رهام</span>
             </div>
             <h1
-              className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight"
+              className={`text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight ${
+                isDark ? "text-white" : "text-slate-900"
+              }`}
               style={{ textWrap: "balance" }}
             >
               وبلاگ تخصصی و پژوهش‌های فنی رهام
             </h1>
-            <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
+            <p className={`text-sm sm:text-base leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
               مقالات عمیق، کدهای اثبات مفهوم، کالبدشکافی گام‌به‌گام استیلرها و راهنماهای عملی هاردنینگ؛ طراحی‌شده برای مطالعه طولانی و راحت روی دسکتاپ و موبایل.
             </p>
           </div>
@@ -1264,21 +1284,39 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
           {/* Search & Sort Controls */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto shrink-0">
             <div className="relative flex-1 sm:w-72">
-              <Search className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search
+                className={`w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${
+                  isDark ? "text-slate-500" : "text-slate-400"
+                }`}
+              />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="جستجو در عنوان، کدها، تگ‌ها (مثلاً DPAPI)..."
-                className="w-full bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded-xl pr-10 pl-3 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none transition-colors"
+                className={`w-full rounded-xl pr-10 pl-3 py-2.5 text-xs focus:border-emerald-500 focus:outline-none transition-colors border ${
+                  isDark
+                    ? "bg-slate-900 border-slate-800 text-slate-100 placeholder-slate-500"
+                    : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 shadow-2xs"
+                }`}
               />
             </div>
 
-            <div className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl text-xs shrink-0">
+            <div
+              className={`flex items-center gap-1 p-1 rounded-xl text-xs shrink-0 border ${
+                isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-2xs"
+              }`}
+            >
               <button
                 onClick={() => setSortBy("latest")}
                 className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                  sortBy === "latest" ? "bg-slate-800 text-white" : "text-slate-400 hover:text-white"
+                  sortBy === "latest"
+                    ? isDark
+                      ? "bg-slate-800 text-white"
+                      : "bg-emerald-700 text-white"
+                    : isDark
+                    ? "text-slate-400 hover:text-white"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 جدیدترین‌ها
@@ -1286,7 +1324,13 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
               <button
                 onClick={() => setSortBy("popular")}
                 className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                  sortBy === "popular" ? "bg-slate-800 text-white" : "text-slate-400 hover:text-white"
+                  sortBy === "popular"
+                    ? isDark
+                      ? "bg-slate-800 text-white"
+                      : "bg-emerald-700 text-white"
+                    : isDark
+                    ? "text-slate-400 hover:text-white"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 پربازدیدترین‌ها
@@ -1306,8 +1350,10 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
               }}
               className={`px-4 py-2 rounded-xl transition-all font-semibold whitespace-nowrap cursor-pointer ${
                 selectedCategory === cat
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : "bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800"
+                  ? "bg-emerald-700 dark:bg-emerald-600 text-white shadow-sm"
+                  : isDark
+                  ? "bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800"
+                  : "bg-white text-slate-700 hover:text-slate-900 border border-slate-200 shadow-2xs"
               }`}
             >
               {cat}
@@ -1337,13 +1383,17 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
         {featuredPost && selectedCategory === "همه" && !searchQuery && !selectedTag && (
           <div
             onClick={() => openArticlePage(featuredPost)}
-            className="mb-12 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900/90 to-emerald-950/25 border border-slate-800 hover:border-emerald-500/50 p-6 sm:p-10 transition-all duration-200 cursor-pointer group"
+            className={`mb-12 rounded-3xl border p-6 sm:p-10 transition-all duration-200 cursor-pointer group ${
+              isDark
+                ? "bg-gradient-to-br from-slate-900 via-slate-900/90 to-emerald-950/25 border-slate-800 hover:border-emerald-500/50"
+                : "bg-white border-slate-200 hover:border-emerald-600 shadow-sm hover:shadow-md"
+            }`}
           >
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
               <div className="lg:col-span-8 space-y-4">
                 {/* Clean unboxed metadata */}
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                  <span className="text-emerald-400 font-bold">مقاله برگزیده پژوهشی</span>
+                <div className={`flex flex-wrap items-center gap-2 text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  <span className="text-emerald-700 dark:text-emerald-400 font-bold">مقاله برگزیده پژوهشی</span>
                   <span aria-hidden="true">·</span>
                   <span>{featuredPost.category}</span>
                   <span aria-hidden="true">·</span>
@@ -1355,24 +1405,26 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                 </div>
 
                 <h2
-                  className="text-2xl sm:text-3xl font-black text-white group-hover:text-emerald-300 transition-colors leading-snug"
+                  className={`text-2xl sm:text-3xl font-black leading-snug transition-colors ${
+                    isDark ? "text-white group-hover:text-emerald-300" : "text-slate-900 group-hover:text-emerald-700"
+                  }`}
                   style={{ textWrap: "balance" }}
                 >
                   {featuredPost.title}
                 </h2>
 
-                <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+                <p className={`text-sm sm:text-base leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                   {featuredPost.subtitle || featuredPost.summary}
                 </p>
 
-                <div className="pt-2 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400">
+                <div className="pt-2 flex flex-wrap items-center justify-between gap-4 text-xs">
                   <div>
-                    <span className="text-slate-200 font-bold">{featuredPost.author}</span>
+                    <span className={`font-bold ${isDark ? "text-slate-200" : "text-slate-800"}`}>{featuredPost.author}</span>
                     <span className="mx-2">·</span>
-                    <span className="font-mono">{featuredPost.authorRole}</span>
+                    <span className={`font-mono ${isDark ? "text-slate-400" : "text-slate-500"}`}>{featuredPost.authorRole}</span>
                   </div>
 
-                  <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 group-hover:bg-emerald-500 text-white font-bold transition-colors">
+                  <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold transition-colors">
                     <span>ورود به صفحه کامل مقاله</span>
                     <ArrowLeft className="w-4 h-4" />
                   </span>
@@ -1380,17 +1432,25 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
               </div>
 
               {/* Right Column: TL;DR Preview Box */}
-              <div className="lg:col-span-4 rounded-2xl bg-slate-950/90 border border-slate-800/90 p-5 space-y-3">
-                <div className="text-xs font-bold text-emerald-400 flex items-center justify-between">
+              <div
+                className={`lg:col-span-4 rounded-2xl border p-5 space-y-3 ${
+                  isDark ? "bg-slate-950/90 border-slate-800/90" : "bg-slate-50 border-slate-200 text-slate-800"
+                }`}
+              >
+                <div
+                  className={`text-xs font-bold flex items-center justify-between border-b pb-2 ${
+                    isDark ? "border-slate-800 text-emerald-400" : "border-slate-200 text-emerald-800"
+                  }`}
+                >
                   <span>در این مقاله فنی می‌خوانید:</span>
-                  <span className="font-mono text-[11px] text-slate-400 tabular-nums">
+                  <span className="font-mono text-[11px] opacity-75 tabular-nums">
                     {toPersianDigits(featuredPost.content.sections.length)} بخش تخصصی
                   </span>
                 </div>
-                <ul className="space-y-2 text-xs text-slate-300 leading-relaxed">
+                <ul className={`space-y-2 text-xs leading-relaxed ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                   {featuredPost.content.sections.slice(0, 4).map((s, idx) => (
                     <li key={idx} className="flex items-start gap-2">
-                      <span className="text-emerald-400 font-mono">0{idx + 1}.</span>
+                      <span className="text-emerald-700 dark:text-emerald-400 font-mono font-bold">0{idx + 1}.</span>
                       <span className="line-clamp-1">{s.heading.replace(/^[۰-۹0-9]+\.\s*/, "")}</span>
                     </li>
                   ))}
@@ -1410,12 +1470,16 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                 <article
                   key={post.id}
                   onClick={() => openArticlePage(post)}
-                  className="group p-6 sm:p-7 rounded-2xl bg-slate-900/65 border border-slate-800/90 hover:border-emerald-500/50 hover:bg-slate-900 transition-all duration-200 cursor-pointer space-y-4"
+                  className={`group p-6 sm:p-7 rounded-2xl border transition-all duration-200 cursor-pointer space-y-4 ${
+                    isDark
+                      ? "bg-slate-900/65 border-slate-800/90 hover:border-emerald-500/50 hover:bg-slate-900 text-slate-100"
+                      : "bg-white border-slate-200 hover:border-emerald-600 text-slate-900 shadow-sm hover:shadow-md"
+                  }`}
                 >
                   {/* Unboxed Metadata Line (Zero Pill Discipline) */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+                  <div className={`flex flex-wrap items-center justify-between gap-2 text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-emerald-400 font-bold">{post.category}</span>
+                      <span className="text-emerald-700 dark:text-emerald-400 font-bold">{post.category}</span>
                       <span aria-hidden="true">·</span>
                       <span>{post.difficulty || "تخصصی"}</span>
                       <span aria-hidden="true">·</span>
@@ -1427,30 +1491,36 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-[11px] font-mono text-slate-500 tabular-nums">
+                    <div className="flex items-center gap-3 text-[11px] font-mono tabular-nums opacity-80">
                       <span>{toPersianDigits(post.views || 100)} بازدید</span>
                     </div>
                   </div>
 
                   {/* Headline */}
                   <h3
-                    className="text-lg sm:text-xl font-extrabold text-white group-hover:text-emerald-300 transition-colors leading-snug"
+                    className={`text-lg sm:text-xl font-extrabold leading-snug transition-colors ${
+                      isDark ? "text-white group-hover:text-emerald-300" : "text-slate-900 group-hover:text-emerald-700"
+                    }`}
                     style={{ textWrap: "balance" }}
                   >
                     {post.title}
                   </h3>
 
                   {/* Summary */}
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed line-clamp-3">
+                  <p className={`text-xs sm:text-sm leading-relaxed line-clamp-3 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                     {post.summary}
                   </p>
 
                   {/* Footer: Author, Tags, and Full-Page Link */}
-                  <div className="pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-4 text-xs">
-                    <div className="flex items-center gap-2 text-slate-400">
-                      <span className="font-semibold text-slate-200">{post.author}</span>
+                  <div
+                    className={`pt-4 border-t flex flex-wrap items-center justify-between gap-4 text-xs ${
+                      isDark ? "border-slate-800/80" : "border-slate-100"
+                    }`}
+                  >
+                    <div className={`flex items-center gap-2 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                      <span className={`font-semibold ${isDark ? "text-slate-200" : "text-slate-800"}`}>{post.author}</span>
                       <span aria-hidden="true">·</span>
-                      <span className="font-mono text-[11px] text-slate-500">
+                      <span className="font-mono text-[11px] opacity-75">
                         {post.tags.slice(0, 3).map((t) => `#${t}`).join("  ")}
                       </span>
                     </div>
@@ -1458,25 +1528,29 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                     <div className="flex items-center gap-2">
                       <button
                         onClick={(e) => copyArticleLink(post, e)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                        className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                          isDark ? "text-slate-400 hover:text-white hover:bg-slate-800" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                        }`}
                         title="کپی لینک مستقیم"
                       >
                         {copiedId === post.id ? (
-                          <CheckCircle className="w-4 h-4 text-emerald-400" />
+                          <CheckCircle className="w-4 h-4 text-emerald-500" />
                         ) : (
                           <Share2 className="w-4 h-4" />
                         )}
                       </button>
                       <button
                         onClick={(e) => toggleBookmark(post.id, e)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors cursor-pointer"
+                        className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                          isDark ? "text-slate-400 hover:text-amber-400 hover:bg-slate-800" : "text-slate-500 hover:text-amber-500 hover:bg-slate-100"
+                        }`}
                         title="نشان کردن مقاله"
                       >
                         <Bookmark
-                          className={`w-4 h-4 ${isBookmarked ? "fill-amber-400 text-amber-400" : ""}`}
+                          className={`w-4 h-4 ${isBookmarked ? "fill-amber-400 text-amber-500" : ""}`}
                         />
                       </button>
-                      <span className="flex items-center gap-1 text-emerald-400 font-bold pr-2 group-hover:-translate-x-1 transition-transform">
+                      <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-bold pr-2 group-hover:-translate-x-1 transition-transform">
                         <span>مطالعه در صفحه کامل</span>
                         <ChevronLeft className="w-4 h-4" />
                       </span>
@@ -1487,15 +1561,23 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
             })}
 
             {filteredPosts.length === 0 && (
-              <div className="text-center py-16 bg-slate-900/40 rounded-2xl border border-slate-800 p-8 space-y-4">
-                <p className="text-slate-400 text-sm">هیچ مقاله‌ای با فیلتر یا عبارت جستجوی شما یافت نشد.</p>
+              <div
+                className={`text-center py-16 rounded-2xl border p-8 space-y-4 ${
+                  isDark ? "bg-slate-900/40 border-slate-800" : "bg-white border-slate-200 shadow-sm"
+                }`}
+              >
+                <p className={`text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                  هیچ مقاله‌ای با فیلتر یا عبارت جستجوی شما یافت نشد.
+                </p>
                 <button
                   onClick={() => {
                     setSearchQuery("");
                     setSelectedCategory("همه");
                     setSelectedTag(null);
                   }}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-200 text-xs font-semibold hover:bg-slate-700 cursor-pointer"
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
+                    isDark ? "bg-slate-800 text-slate-200 hover:bg-slate-700" : "bg-slate-100 text-slate-800 hover:bg-slate-200"
+                  }`}
                 >
                   نمایش همه مقالات
                 </button>
@@ -1506,8 +1588,16 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
           {/* Right Sidebar (4 Cols): Trending Research, Technical Tags, Book Reader Gateway */}
           <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-24">
             {/* 1. Most Read Research Articles */}
-            <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
-              <h3 className="text-sm font-extrabold text-white border-b border-slate-800 pb-3">
+            <div
+              className={`p-6 rounded-2xl border space-y-4 ${
+                isDark ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200 shadow-sm"
+              }`}
+            >
+              <h3
+                className={`text-sm font-extrabold border-b pb-3 ${
+                  isDark ? "text-white border-slate-800" : "text-slate-900 border-slate-200"
+                }`}
+              >
                 پرمطالعه‌ترین مقالات فنی
               </h3>
               <div className="space-y-4">
@@ -1517,14 +1607,18 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                     onClick={() => openArticlePage(item)}
                     className="group flex items-start gap-3 cursor-pointer"
                   >
-                    <span className="font-mono text-sm font-bold text-emerald-500/80 tabular-nums shrink-0 mt-0.5">
+                    <span className="font-mono text-sm font-bold text-emerald-700 dark:text-emerald-500 tabular-nums shrink-0 mt-0.5">
                       0{idx + 1}.
                     </span>
                     <div className="space-y-1 min-w-0">
-                      <h4 className="text-xs font-bold text-slate-200 group-hover:text-emerald-400 transition-colors leading-relaxed line-clamp-2">
+                      <h4
+                        className={`text-xs font-bold leading-relaxed line-clamp-2 transition-colors ${
+                          isDark ? "text-slate-200 group-hover:text-emerald-400" : "text-slate-800 group-hover:text-emerald-700"
+                        }`}
+                      >
                         {item.title}
                       </h4>
-                      <div className="text-[11px] text-slate-500 font-mono tabular-nums">
+                      <div className="text-[11px] opacity-75 font-mono tabular-nums">
                         {item.category} · {toPersianDigits(item.views || 100)} بازدید
                       </div>
                     </div>
@@ -1534,8 +1628,16 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
             </div>
 
             {/* 2. Interactive Technical Topic Filter */}
-            <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
-              <h3 className="text-sm font-extrabold text-white border-b border-slate-800 pb-3">
+            <div
+              className={`p-6 rounded-2xl border space-y-4 ${
+                isDark ? "bg-slate-900/60 border-slate-800" : "bg-white border-slate-200 shadow-sm"
+              }`}
+            >
+              <h3
+                className={`text-sm font-extrabold border-b pb-3 ${
+                  isDark ? "text-white border-slate-800" : "text-slate-900 border-slate-200"
+                }`}
+              >
                 کلیدواژه‌ها و تگ‌های تخصصی
               </h3>
               <div className="flex flex-wrap gap-1.5">
@@ -1545,8 +1647,10 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                     onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
                     className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-colors cursor-pointer ${
                       selectedTag === tag
-                        ? "bg-emerald-600 text-white"
-                        : "bg-slate-950 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700"
+                        ? "bg-emerald-700 dark:bg-emerald-600 text-white"
+                        : isDark
+                        ? "bg-slate-950 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700"
+                        : "bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-900 hover:border-slate-300"
                     }`}
                   >
                     #{tag}
@@ -1557,20 +1661,26 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
 
             {/* 3. Book Reader Bridge */}
             {onOpenReader && (
-              <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 to-emerald-950/30 border border-emerald-500/30 space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
+              <div
+                className={`p-6 rounded-2xl border space-y-3 ${
+                  isDark
+                    ? "bg-gradient-to-br from-slate-900 to-emerald-950/30 border-emerald-500/30"
+                    : "bg-gradient-to-br from-emerald-50 via-white to-white border-emerald-200 shadow-sm"
+                }`}
+              >
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 dark:text-emerald-400">
                   <BookOpen className="w-4 h-4" />
                   <span>مرجع کامل پژوهش آسیب‌پذیری</span>
                 </div>
-                <h4 className="text-sm font-extrabold text-white">
+                <h4 className={`text-sm font-extrabold ${isDark ? "text-white" : "text-slate-900"}`}>
                   کتاب دوزبانه «از روز صفر تا روز صفر»
                 </h4>
-                <p className="text-xs text-slate-400 leading-relaxed">
+                <p className={`text-xs leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
                   همراه با ترجمه لحظه‌ای، هایلایت ابری و پادکست صوتی فارسی برای تمامی ۱۱ فصل.
                 </p>
                 <button
                   onClick={() => onOpenReader()}
-                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs"
                 >
                   <span>ورود به کتابخوان رهام</span>
                   <ExternalLink className="w-3.5 h-3.5" />
