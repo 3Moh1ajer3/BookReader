@@ -1,10 +1,12 @@
-# Rules for Windsurf/Cascade — see AGENTS.md, docs/AGENT_GUIDE.md and docs/ARCHITECTURE.md for full context.
-
-- Next.js 15 App Router + React 19 + Tailwind CSS v4 + TypeScript strict.
-- DO NOT add output: "export" to next.config.ts; production builds output to .next/ (not out/).
-- Offline-first: all user state in localStorage. Never add remote DBs/auth/telemetry.
-- Persian (RTL) vs English (LTR): code blocks, inline code, tables are ALWAYS LTR/left-aligned; Persian headings/paragraphs RTL/right-aligned.
-- AI calls (Gemini) are server-only via app/api routes; never expose GEMINI_API_KEY client-side; always provide offline fallback.
-- Icons: named imports from lucide-react. Animations: motion/react.
-- New books go through scripts/pipeline (npm run book:*) and MUST be registered in data/sampleBooks.ts.
-- Verification: run npm run lint first (~2s), and npm run build at the end (~40s).
+{
+  "rules": [
+    "This is a Next.js 15+ App Router application with React 19, Tailwind CSS v4, and a pure PHP 8.x + MySQL backend under public/api/.",
+    "Read AGENTS.md before making any architectural or structural changes.",
+    "The frontend compiles via static export (output: 'export' in next.config.ts) for cPanel deployment in public_html.",
+    "Do NOT add Node.js server routes under app/api/; all backend logic lives in public/api/*.php.",
+    "Do NOT add fake local database emulation layers or mock fallbacks; communicate directly with PHP endpoints.",
+    "Ensure all code blocks, tables, and terminal snippets remain LTR with 'font-mono', while Persian text retains RTL orientation.",
+    "When adding new Lucide icons, use named imports from 'lucide-react' directly.",
+    "When adding animations, import from 'motion/react'."
+  ]
+}

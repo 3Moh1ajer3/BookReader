@@ -1,109 +1,99 @@
 # Architecture Reference
 
-> **Agent note:** This is the authoritative map of the codebase. Read this before touching
-> any file. Pair it with `docs/AGENT_GUIDE.md` (workflow rules) and `docs/BOOK_PIPELINE.md`
-> (adding new books).
+> **Authoritative map of the codebase.**
+> Pair this with `docs/AGENT_GUIDE.md` (workflow rules) and `docs/BOOK_PIPELINE.md` (adding new books).
 
-## 1. High-Level Data Flow
+---
 
+## 1. High-Level System Architecture
+
+This application consists of two streamlined, tightly decoupled layers:
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                   Next.js 15+ Frontend (React 19)                      │
+│     Exported Static HTML/JS/CSS (output: 'export' in next.config.ts)   │
+│                                                                        │
+│   ├── Roham Security Portal (Overview, Threat Radar, Blog, Courses)    │
+│   ├── Technical Reader Engine (ChapterViewer, RTL/LTR, Highlights)     │
+│   └── Admin Management Console (Users, Leads, CMS, Settings)           │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ Direct HTTP Fetch (JSON)
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                   PHP 8.x + MySQL Backend (cPanel)                     │
+│                        (public/api/*.php)                              │
+│                                                                        │
+│   ├── auth.php            (Bcrypt auth, JWT/HMAC token, sessions)      │
+│   ├── sync.php            (Cloud reading progress, highlights, vocab)  │
+│   ├── content.php         (Articles, threat radar news, auto-seed)     │
+│   ├── leads.php           (Consultations, enrollments, beta leads)     │
+│   ├── translate.php       (Technical dictionary & translation)         │
+│   ├── admin.php           (Dashboard metrics, user management)         │
+│   ├── config.php & db.php (PDO connection to MySQL `corpel_roham`)     │
+│   └── schema.sql          (Clean relational database schema)           │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. Directory Map & File Relationships
+
+### Frontend Runtime (Client-Side)
+
+| File / Folder | Purpose |
+|---|---|
+| `app/page.tsx` | Main orchestrator: switches views between Roham Cyber Portal, Technical Reader, and Admin Panel. |
+| `app/[section]/page.tsx` | Clean URL routing for portal tabs (`/blog`, `/courses`, `/radar`, `/anti-stealer`, `/services`). |
+| `app/layout.tsx` | Root layout with font imports (Vazirmatn & JetBrains Mono) and metadata. |
+| `components/ChapterViewer.tsx` | Markdown-ish reader rendering engine. Owns RTL/LTR detection, code blocks, tables, quotes, figures. |
+| `components/AdminPanel.tsx` | Administrator console connected directly to `api/admin.php`. |
+| `components/roham/*` | Components of the Roham Enterprise Security Portal. |
+| `lib/authSync.ts` | Pure client API connector for authentication, leads, and reading sync via PHP endpoints. |
+| `lib/contentStore.ts` | Content store connector communicating with `api/content.php` (MySQL-backed). |
+| `lib/exportStandaloneHtml.ts`| Generates self-contained, single-file offline HTML exports of books. |
+| `lib/exportImport.ts` | Portable JSON backup & restore for reader notes, highlights, and vocabulary. |
+| `types/reader.ts` | TypeScript interfaces for `Book`, `Chapter`, `Highlight`, `SavedWord`, etc. |
+
+### Backend API (PHP on cPanel)
+
+| File (`public/api/`) | Responsibility |
+|---|---|
+| `config.php` | MySQL database credentials (`corpel_roham`), token secrets, and default admin configuration. |
+| `db.php` | MySQL PDO connection helper, automatic schema initialization, and auth verification. |
+| `auth.php` | User registration, login, profile update, and active session check (`me`). |
+| `sync.php` | Cloud synchronization of reading progress, highlights, and vocabulary per user account. |
+| `content.php` | CRUD operations for cybersecurity blog posts and threat radar alerts. |
+| `leads.php` | Lead capture for consultation requests, course enrollments, and beta signups. |
+| `translate.php` | Offline technical dictionary lookups and context translation. |
+| `admin.php` | Administrative dashboard metrics, user role management, and site settings. |
+| `public-config.php` | Publicly accessible site settings (announcements, registration flags). |
+| `schema.sql` | SQL table schemas for MySQL database import. |
+
+---
+
+## 3. Data Flow
+
+### Book Pipeline Flow
 ```
 book.pdf
    │  (scripts/pipeline/extractPdf.js — config-driven, pdfjs-dist)
    ▼
-tmp_books/<bookId>/*.md            ← intermediate markdown (gitignored)
+tmp_books/<bookId>/*.md            ← intermediate markdown
    │  (scripts/pipeline/buildBook.js)
    ▼
 data/<bookFolder>/chapterN.ts      ← typed Chapter objects
 data/<bookId>Book.ts               ← Book object (imports all chapters)
-   │  (edit data/sampleBooks.ts — or buildBook.js --register does it)
+   │  (registered in data/sampleBooks.ts)
    ▼
-data/sampleBooks.ts  ──►  app/page.tsx  ──►  components/*
+data/sampleBooks.ts  ──►  app/page.tsx  ──►  components/ChapterViewer.tsx
 ```
 
-Translation flow (English → Persian):
+---
 
-```
-data/<bookFolder>/*.md source
-   │  (scripts/pipeline/translatePrep.js)
-   ▼
-translations/<bookId>/chunks/ch-N-partK.md   + prompts/ch-N-partK.prompt.md
-   │  (LLM/agent translates each chunk, human reviews)
-   ▼
-translations/<bookId>/done/ch-N-partK.md
-   │  (scripts/pipeline/translateBuild.js)
-   ▼
-data/<bookFolder>_fa/chapterN.ts  +  data/<bookId>BookFa.ts  ──► sampleBooks.ts
-```
+## 4. State & Persistence Principles
 
-## 2. Directory Map & File Relationships
-
-### Runtime (shipped to the browser)
-
-| File | Depends on | Depended on by | Purpose |
-|---|---|---|---|
-| `types/reader.ts` | — | everything | Single source of truth for `Book`, `Chapter`, `Highlight`, `SavedWord`, `ReaderPreferences`, `TranslationResult`. |
-| `data/book/chapterN.ts` | `types/reader.ts` | `data/fromDayZeroBook.ts` | One exported `Chapter` per file. Content is markdown in a template literal (see §3). |
-| `data/book/frontMatter.ts`, `resources.ts` | `types/reader.ts` | book index | Special chapters (first / last). |
-| `data/book_fa/…`, `data/book_fa_gemini/…` | same | their indexes | Persian editions. Same shape. |
-| `data/fromDayZeroBook.ts` | `data/book/*` | `data/sampleBooks.ts` | English `Book` object. |
-| `data/fromDayZeroBookFa.ts`, `data/fromDayZeroBookFaGemini.ts` | `data/book_fa*/…` | `data/sampleBooks.ts` | Persian `Book` objects. |
-| `data/sampleBooks.ts` | all book indexes | `app/page.tsx` | **The registry.** Any new book MUST be appended here or it will not appear in the UI. |
-| `app/page.tsx` | `SAMPLE_BOOKS`, Roham components | all components | Root container. Coordinates dual-mode view: **Roham Security Enterprise Portal** (`activeView="portal"`) and **Technical Reader** (`activeView="reader"`), with URL hash sync (`#portal` / `#reader`). |
-| `components/roham/*` | Lucide icons, Next/Image | `page.tsx` | **Roham Security Enterprise Brand Portal components**: `RohamHeader`, `HomeOverview`, `AntiStealerSection`, `ServicesSection`, `CoursesSection`, `BlogSection`, `LibraryShowcaseSection`, `ThreatRadarSection`, `RiskAssessmentTool`, `RohamFooter`, `EarlyAccessModal`, `ConsultationModal`, `CourseEnrollModal`. |
-| `components/ChapterViewer.tsx` | — | `page.tsx` | Rendering engine. Parses `chapter.content` (markdown-ish) into blocks. Owns RTL/LTR detection, code blocks, tables, quotes, figures. |
-| `components/BookSelectorModal.tsx` | `Book` type | `page.tsx` | Library switcher. |
-| `components/BookImporterModal.tsx` | — | `page.tsx` | Client-side PDF/EPUB/TXT import (`pdfjs-dist`). |
-| `components/ReaderNavbar.tsx` | prefs | `page.tsx` | Progress bar, theme, font size, language toggle. |
-| `components/TableOfContentsDrawer.tsx`, `SearchModal.tsx`, `DictionaryDrawer.tsx`, `HighlightsDrawer.tsx` | — | `page.tsx` | Navigation / search / vocabulary / highlights. |
-| `components/LibraryDataModal.tsx` | `lib/exportImport.ts` | `page.tsx` | Export/import of highlights + saved words as a portable JSON backup. |
-| `lib/exportImport.ts` | `types/reader.ts` | `LibraryDataModal.tsx` | Build/parse/merge the backup payload (`buildExportPayload`, `parseImportPayload`, `mergeById`). |
-| `app/api/gemini/translate/route.ts` | `@google/genai`, `GEMINI_API_KEY` | client `fetch` | Server-only AI translation with offline fallback. |
-| `lib/exportStandaloneHtml.ts` | `Book` type | export UI | Self-contained single-file HTML export. |
-| `lib/utils.ts` | — | everywhere | `cn()` class merger. |
-| `hooks/use-mobile.ts` | — | drawers | Responsive hook. |
-
-### Build-time / pipeline (never imported by the app)
-
-| Path | Purpose |
-|---|---|
-| `scripts/pipeline/` | **Reusable, config-driven** book tooling (extract → build → validate → translate). See `docs/BOOK_PIPELINE.md`. |
-| `books.config.json` | Registry of book pipeline configs (PDF path, page ranges, titles, output folders). |
-| `scripts/*.js` (root) | ⚠️ Legacy one-off scripts used for the first book. Kept for reference; do NOT extend them — use `scripts/pipeline/`. |
-| `tmp_chapters/`, `tmp_fa/`, `tmp_books/` | Intermediate markdown. Safe to delete; regenerated by pipeline. |
-| `public/images/` | Figure images referenced as `/images/fig-N-M.png` in chapter content. |
-| `public/api/translate.php` | Legacy static export artifact; the real API is `app/api/gemini/translate/route.ts`. |
-
-## 3. Chapter Content Format (critical for anything touching `data/`)
-
-`Chapter.content` is a plain string parsed by `ChapterViewer.tsx`. Block grammar
-(separated by blank lines):
-
-| Block | Syntax | Direction rule |
-|---|---|---|
-| Heading | `# `, `## `, `### ` | `dir` detected per-heading (Persian → RTL) |
-| Paragraph | plain text | auto RTL/LTR per block |
-| Quote | `> text` | auto |
-| Code block | ` ```lang … ``` ` | **ALWAYS LTR, left-aligned, monospace** |
-| List | `* item` | auto |
-| Table | `| a | b |` rows | **ALWAYS LTR** |
-| Image | `![alt](/images/file.png)` | centered |
-| Separator | `---` | — |
-
-Inline: `` `code` `` (always LTR), `**bold**`, `*italic*`.
-
-## 4. State & Persistence Invariants
-
-- **All user state is `localStorage`-only** (progress, highlights, vocab, prefs). No remote DB. Keys are namespaced per book id — changing a `Book.id` orphans user progress.
-- `Book.language` is `"en" | "fa" | "mixed"`; `ChapterViewer` does per-block unicode-range detection (`/[\u0600-\u06FF]/`) — do not add global `dir` attributes.
-- `GEMINI_API_KEY` is server-only (`app/api/gemini/translate/route.ts`). Client never imports `@google/genai`.
-
-## 5. Extension Points
-
-| Want to… | Touch |
-|---|---|
-| Add a book | `docs/BOOK_PIPELINE.md` → pipeline scripts → `data/sampleBooks.ts` |
-| New markdown feature | `components/ChapterViewer.tsx` (parser + renderer, both LTR & RTL paths) |
-| New reader setting | `types/reader.ts` → `components/ReaderNavbar.tsx` → `app/page.tsx` persistence |
-| New AI feature | new route under `app/api/…` using `@google/genai`, always with offline fallback |
-| New export format | `lib/exportStandaloneHtml.ts` pattern |
-| Library backup / data portability | `lib/exportImport.ts` + `components/LibraryDataModal.tsx` |
+1. **Direct Backend Authority:** All persistent data (accounts, leads, cloud sync, articles) lives in the cPanel MySQL database via PHP endpoints.
+2. **Local Session Caching:** User tokens (`roham_auth_token`) and cached user identities (`roham_auth_user_cache`) are stored in browser `localStorage` to maintain sessions across page reloads.
+3. **No Mock/Emulated DB Layers:** The client does not maintain parallel fake databases. Any server response or error is transparently reported.
+4. **Bilingual RTL/LTR Isolation:** Code blocks, monospace snippets, and tables are strictly `dir="ltr"`. Persian text is strictly `dir="rtl"`.

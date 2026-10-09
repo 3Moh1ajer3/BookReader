@@ -1,93 +1,56 @@
 # Agent Guide — Context & Workflow Rules
 
-> **Read order for any task:** 1) `AGENTS.md` → 2) this file → 3) `docs/ARCHITECTURE.md` →
-> 4) the files you will edit. For book-related tasks also read `docs/BOOK_PIPELINE.md`.
+> **Read order for any task:** 
+> 1) `AGENTS.md` → 2) `docs/AGENT_GUIDE.md` → 3) `docs/ARCHITECTURE.md` → 4) the files you edit.
+> For book-related tasks, also refer to `docs/BOOK_PIPELINE.md`.
 
-## 1. Mandatory Verification Loop (ALWAYS)
+---
 
-Run the fast checks first, and defer heavy builds to the end:
+## 1. Verification Loop (Fast & Reliable)
+
+Always execute checks in this sequence:
 
 ```bash
 npm run lint           # Fast syntax & type check (~2-3s)
 npm run book:validate  # Run only if data/ or chapter content changed (~2s)
-npm run build          # Full Next.js production build (~35-45s) — run at final verification
+npm run build          # Next.js static production export check
 ```
 
-In AI Studio preview, use `compile_applet` at the end of code changes. Avoid running full `next build` inside rapid diagnostic loops as it causes 40+ second delays and context bloat.
+In the AI Studio environment, run `compile_applet` at the conclusion of your code edits.
 
-## 2. Context Loading
+---
 
-- Dual-domain codebase:
-  1. **Roham Cyber Security Portal** (`components/roham/*`, `lib/contentStore.ts`): Anti-stealer, SOC advisory, Threat Radar, Blog, Courses, Smart Publisher panel.
-  2. **Interactive Vulnerability Research Reader** (`components/ChapterViewer.tsx`, `data/book*`): Bilingual reader, highlighting, vocabulary, TOC.
-- Small codebase (< ~25 primary application source files). Read `types/reader.ts` before creating/editing data shapes.
-- Ignore `node_modules/`, `.next/`, `out/`, and root `scripts/*.js` (legacy one-offs — reference only). Active book tooling lives in `scripts/pipeline/`.
-- `data/` files are large. Read the **first ~50 lines** of a chapter file to learn format; never load whole chapters into context unnecessarily.
+## 2. Core Architecture Invariants
 
-## 3. Non-Negotiable Rules
+1. **Static Export Frontend + PHP Backend:**
+   - The Next.js frontend builds as a static export (`output: 'export'` in `next.config.ts`) ready for deployment into cPanel `public_html/`.
+   - All backend APIs reside in `public/api/*.php` and connect to the MySQL database (`corpel_roham`).
+   - Do NOT create `app/api/*` Node.js server routes. The project uses pure PHP on the host for all backend needs.
 
-1. **Next.js 15 App Router Server Architecture:**
-   - Production builds write to `.next/`.
-   - **DO NOT** add `output: "export"` to `next.config.ts`. The application has dynamic server API routes (`app/api/*`). Forcing static export breaks Next.js App Router and causes prerender failures.
-   - The `out/` folder was a historical static export snapshot and is gitignored. Do not expect `npm run build` to output to `out/`.
-2. **localStorage & Offline-first Persistence:**
-   - All client user state (progress, highlights, vocab, prefs, publisher drafts) persists in `localStorage`.
-   - In production cPanel hosting, client interacts with PHP backend in `public/api/*.php` with transparent fallback to `localStorage`.
-   - Never add Firebase, Supabase, or external databases unless explicitly requested.
-3. **RTL/LTR contract:** Code blocks, inline code, terminal snippets, and tables are
-   ALWAYS `dir="ltr"`, left-aligned. Persian headings/paragraphs are `dir="rtl"`,
-   right-aligned. Any parser/renderer change must preserve both paths.
-4. **Server-only AI:** `@google/genai` and `process.env.GEMINI_API_KEY` only inside
-   `app/api/…/route.ts`. Every AI route needs a graceful offline fallback.
-5. **Icons:** named imports from `lucide-react`. No custom SVG icons.
-6. **Animations:** import from `motion/react` (never `framer-motion`).
-7. **Registry:** a book that is not in `data/sampleBooks.ts` does not exist in the UI.
-8. **Stable IDs.** `Book.id` and `Chapter.id` keys persist user progress in localStorage;
-   renaming them destroys user data. Never rename existing ids.
-9. **No comments** in code unless the file already uses them; match surrounding style.
-10. **Environment:** When in Linux bash environments, use standard bash syntax (`&&`). In Windows PowerShell, use PowerShell syntax (`cmd1; if ($?) { cmd2 }`).
+2. **Clean Direct API Calls (`lib/authSync.ts` & `lib/contentStore.ts`):**
+   - The frontend communicates directly with `/api/*.php` endpoints using standard `fetch` with Bearer tokens.
+   - Do NOT introduce fake local database emulation layers or mock data fallbacks in the client.
 
-## 4. Pre-Flight Checklist (before declaring a task done)
+3. **Bilingual RTL/LTR Strict Contract:**
+   - In `components/ChapterViewer.tsx`:
+     - Persian text, titles, and paragraphs **MUST** render with `dir="rtl"` and proper Persian font (`Vazirmatn`).
+     - Technical code blocks (```` ```...``` ````), inline code (`` `...` ``), terminal commands, and markdown tables **MUST ALWAYS** render with `dir="ltr"` and `font-mono`.
+     - Boundary punctuation must stay in the outer RTL context.
 
-- [ ] `npm run lint` clean
-- [ ] `npm run build` passes
-- [ ] `npm run book:validate` passes (if `data/` touched)
-- [ ] RTL rendering still correct (visually or by inspecting `ChapterViewer` logic)
-- [ ] No secrets in code; `GEMINI_API_KEY` only read server-side
-- [ ] New components follow existing patterns (client components, `motion/react`, `cn()`)
+4. **Icons & Animations:**
+   - Import icons exclusively from `lucide-react` using named imports. Never write inline SVG icons.
+   - Import animations exclusively from `motion/react`.
 
-## 5. Common Tasks — Recipes
+5. **Stability of IDs:**
+   - `Book.id` and `Chapter.id` keys map directly to user reading progress. Never rename existing IDs without an explicit migration path.
 
-### Add a new book (English + Persian)
-→ `docs/BOOK_PIPELINE.md`. Summary: put PDF in repo root → add entry in
-`books.config.json` → `npm run book:extract -- --book <id>` → fix markdown →
-`npm run book:build -- --book <id>` → `npm run book:validate` → translation loop with
-`book:translate:prep` / `book:translate:build`.
+---
 
-### Modify reader rendering
-Read `components/ChapterViewer.tsx` fully first. The parser splits on double newlines;
-block prefixes: `#`, `##`, `###`, `> `, ` ``` `, `| … |`, `* `. Keep every block type
-working for both `language: "en"` and `"fa"` books.
+## 3. Pre-Flight Checklist
 
-### Change UI / add component
-Copy the closest existing component's structure (modal vs drawer vs navbar), use
-`cn()` from `lib/utils.ts`, `motion/react` for animation, `lucide-react` named icons.
-
-### Debugging data issues
-`npm run book:validate` reports: unbalanced code fences, broken inline code, empty
-chapters, missing images referenced by `/images/...`, and reading-time mismatches.
-
-## 6. Known Gotchas
-
-- **Bidi mixed-script & punctuation handling:** `ChapterViewer` isolates embedded English phrases (`dir="ltr"` + `unicode-bidi: isolate`) within Persian RTL blocks so multi-word English phrases ("the book is") are never scrambled. Crucially, sentence punctuation (parentheses `()`, quotes `""`, brackets `[]`, colons, Persian commas) is kept in the base RTL context rather than swallowed into the LTR isolate; this allows the browser's Unicode Bidi Brackets Algorithm (BBA) to properly pair brackets and prevent inverted punctuation like `("(" why`. Never absorb boundary punctuation into directional isolates.
-- `pdfjs-dist` is used **both** client-side (BookImporterModal) and in pipeline scripts
-  (legacy build via `pdfjs-dist/legacy/build/pdf.mjs`). Don't mix import styles.
-- Persian chapter files must escape backticks and `${` inside template literals — the
-  build script handles this; hand-edits must too.
-- `public/api/translate.php` is dead legacy from static export; the live API is the
-  Next.js route. Don't "fix" the PHP file.
-- `out/` is a stale static export; `npm run build` writes `.next/`. Neither is source.
-- Book `description` fields are written in Persian even for English books (intentional —
-  matches the library UI). Keep that convention.
-- Library backups (`lib/exportImport.ts`) merge by `id` and never overwrite existing
-  items; the format is versioned, so bump `LIBRARY_EXPORT_VERSION` when the shape changes.
+Before completing any task, ensure:
+- [ ] `npm run lint` finishes with 0 errors.
+- [ ] `npm run build` or `compile_applet` succeeds cleanly.
+- [ ] No server-side Node.js assumptions or `app/api` routes are introduced.
+- [ ] RTL and LTR formatting remains intact across reader components.
+- [ ] All API communication goes through `public/api/*.php`.
