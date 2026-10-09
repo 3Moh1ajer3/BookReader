@@ -133,9 +133,9 @@ function roham_resolve_server_api_key(string $envKeyName, array $db): string {
 }
 
 /**
- * دریافت محتوای HTML یک آدرس اینترنتی و حذف کامل هدر، فوتر، منو، تبلیغات و اسکریپت‌ها
+ * دریافت محتوای HTML یک آدرس اینترنتی با cURL بهینه‌شده برای IPv4 و سرورهای هاست
  */
-function roham_fetch_and_clean_url(string $url): array {
+function roham_fetch_and_clean_url(string $url, ?string $proxy = null): array {
     $parsedUrl = parse_url($url);
     if (!$parsedUrl || empty($parsedUrl['scheme']) || empty($parsedUrl['host'])) {
         return ['ok' => false, 'error' => 'آدرس اینترنتی (URL) وارد شده معتبر نیست.'];
@@ -146,47 +146,80 @@ function roham_fetch_and_clean_url(string $url): array {
     }
 
     $baseOrigin = $scheme . '://' . $parsedUrl['host'] . (isset($parsedUrl['port']) ? ':' . $parsedUrl['port'] : '');
-    $userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
-
     $html = null;
+    $httpCode = 0;
+    $curlErrNo = 0;
+    $curlError = '';
+    $totalTime = 0.0;
+
     if (function_exists('curl_init')) {
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
+        $ch = curl_init();
+        $options = [
+            CURLOPT_URL            => $url,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS => 5,
-            CURLOPT_TIMEOUT => 20,
-            CURLOPT_CONNECTTIMEOUT => 8,
+            CURLOPT_MAXREDIRS      => 5,
+            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_CONNECTTIMEOUT => 15,
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_SSL_VERIFYHOST => false,
-            CURLOPT_USERAGENT => $userAgent,
-            CURLOPT_HTTPHEADER => [
+
+            // ۱. حل مشکل اصلی: اجبار cURL به استفاده از IPv4 (از اتلاف وقت و تایم‌اوت IPv6 جلوگیری می‌کند)
+            CURLOPT_IPRESOLVE      => CURL_IPRESOLVE_V4,
+
+            // ذخیره موقت کش DNS برای سرعت بالاتر
+            CURLOPT_DNS_CACHE_TIMEOUT => 3600,
+
+            CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            CURLOPT_HTTPHEADER     => [
                 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'Accept-Language: en-US,en;q=0.9,fa;q=0.8',
             ],
-        ]);
-        $html = curl_exec($ch);
-        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        if ($code < 200 || $code >= 400) {
-            $html = null;
-        }
-    }
+        ];
 
-    if (!$html) {
+        // پراکسی اختیاری (در صورت نیاز به عبور از فیلترینگ یا محدودیت)
+        $proxyToUse = $proxy ?: getenv('HTTP_PROXY') ?: getenv('CURL_PROXY') ?: null;
+        if ($proxyToUse && trim($proxyToUse) !== '') {
+            $options[CURLOPT_PROXY] = trim($proxyToUse);
+        }
+
+        curl_setopt_array($ch, $options);
+        $html      = curl_exec($ch);
+        $httpCode  = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErrNo = (int)curl_errno($ch);
+        $curlError = (string)curl_error($ch);
+        $totalTime = (float)curl_getinfo($ch, CURLINFO_TOTAL_TIME);
+        curl_close($ch);
+    } else {
         $ctx = stream_context_create([
             'http' => [
                 'method' => 'GET',
-                'header' => "User-Agent: {$userAgent}\r\n",
-                'timeout' => 15,
+                'header' => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36\r\n",
+                'timeout' => 20,
             ],
             'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
         ]);
         $html = @file_get_contents($url, false, $ctx);
+        $httpCode = $html ? 200 : 0;
     }
 
-    if (!$html || !is_string($html)) {
-        return ['ok' => false, 'error' => 'عدم امکان دریافت محتوا از لینک مورد نظر. ممکن است سایت مبدأ دسترسی ربات را مسدود کرده باشد (در این حالت از فایل Markdown استفاده کنید).'];
+    if ($curlErrNo !== 0) {
+        return [
+            'ok' => false,
+            'error' => "خطای cURL شماره {$curlErrNo}: " . ($curlError ?: 'عدم برقراری ارتباط با سرور مقصد'),
+            'curlErrNo' => $curlErrNo,
+            'httpCode' => $httpCode,
+            'totalTime' => round($totalTime, 2),
+        ];
+    }
+
+    if ($httpCode >= 400 || empty($html) || !is_string($html)) {
+        return [
+            'ok' => false,
+            'error' => "سایت مبدأ کد خطای {$httpCode} بازگرداند یا محتوا خالی بود.",
+            'httpCode' => $httpCode,
+            'totalTime' => round($totalTime, 2),
+        ];
     }
 
     // استخراج متادیتای اولیه (عنوان، توضیحات، تصویر شاخص og:image)
@@ -554,6 +587,19 @@ if ($action === 'save_config') {
         'config' => $merged,
         'message' => 'تنظیمات مدل سبک، مدل قوی و پوشه ذخیره رسانه با موفقیت در دیتابیس ذخیره شد.',
     ]);
+}
+
+if ($action === 'fetch_url') {
+    $url = trim((string)($input['url'] ?? $_GET['url'] ?? ''));
+    if ($url === '') {
+        roham_respond(['ok' => false, 'error' => 'لطفاً آدرس لینک مقاله (URL) را ارسال کنید.'], 400);
+    }
+    $proxy = !empty($input['proxy']) ? trim((string)$input['proxy']) : (!empty($_GET['proxy']) ? trim((string)$_GET['proxy']) : null);
+    $res = roham_fetch_and_clean_url($url, $proxy);
+    if (empty($res['ok'])) {
+        roham_respond($res, 400);
+    }
+    roham_respond($res, 200);
 }
 
 if ($action === 'process_pipeline') {

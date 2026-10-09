@@ -1543,7 +1543,7 @@ function convertHtmlToCleanMarkdown(html: string): { title: string; markdown: st
 }
 
 /**
- * واکشی چندمرحله‌ای و پایدار محتوای لینک با تایم‌اوت و پروکسی‌های کمکی
+ * واکشی مستقیم و پرسرعت محتوای لینک از طریق اندپوینت PHP سرور (cURL با IPv4 بهینه‌شده)
  */
 async function fetchArticleFromUrlWithFallback(
   url: string,
@@ -1552,114 +1552,63 @@ async function fetchArticleFromUrlWithFallback(
   ok: boolean;
   title: string;
   markdown: string;
+  sourceDomain?: string;
+  coverImage?: string;
+  images?: { url: string; alt: string }[];
   methodUsed?: string;
   error?: string;
 }> {
-  // روش ۰: سرور پرسرعت داخلی Next.js (/api/fetch-url) - دور زدن کامل CORS و فایروال کلاینت
+  // روش اصلی: واکشی از طریق سرور PHP هاست با cURL IPv4
   try {
-    onProgress?.("روش سرور: در حال واکشی ساختار متنی از طریق سرور اختصاصی رهام (/api/fetch-url)...");
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 18000);
+    onProgress?.("در حال ارسال درخواست به سرور PHP هاست جهت واکشی مستقیم با cURL IPv4...");
+    const token = getStoredToken();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
 
-    const apiRes = await fetch(`/api/fetch-url?url=${encodeURIComponent(url)}`, {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 35000);
+
+    const res = await fetch("/api/auto-publisher.php?action=fetch_url", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ url }),
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
 
-    if (apiRes.ok) {
-      const data = await apiRes.json();
-      if (data && data.ok && data.markdown && data.markdown.length > 80) {
+    const text = await res.text();
+    if (text.trim().startsWith("{")) {
+      const data = JSON.parse(text);
+      if (data && data.ok && data.extractedMarkdown && data.extractedMarkdown.length > 50) {
         return {
           ok: true,
           title: data.title || "",
-          markdown: data.markdown,
-          methodUsed: data.methodUsed || "سرور پرسرعت رهام (Server-Side Reader)",
+          markdown: data.extractedMarkdown,
+          sourceDomain: data.sourceDomain || "",
+          coverImage: data.coverImage || "",
+          images: Array.isArray(data.images) ? data.images : [],
+          methodUsed: `سرور PHP هاست (زمان: ${data.totalTime || 0}s - کد ${data.httpCode || 200})`,
+        };
+      }
+      if (data && data.error) {
+        return {
+          ok: false,
+          title: "",
+          markdown: "",
+          error: data.error,
         };
       }
     }
-  } catch (serverErr) {
-    console.warn("Server route /api/fetch-url warning:", serverErr);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "خطای ارتباط با سرور";
+    console.warn("PHP fetch_url error:", msg);
   }
 
-  // روش ۱: خوانشگر استاندارد Jina Reader با تایم‌اوت ۱۲ ثانیه‌ای (کلاینت)
-  try {
-    onProgress?.("روش ۱: در حال واکشی مستقیم ساختار متنی از خوانشگر استاندارد Jina Reader...");
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
-
-    const jinaRes = await fetch(`https://r.jina.ai/${url}`, {
-      headers: { Accept: "text/plain" },
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    if (jinaRes.ok) {
-      const text = await jinaRes.text();
-      if (text.trim().length > 120 && !text.includes("403 Forbidden") && !text.includes("Cloudflare Ray ID")) {
-        const titleMatch = text.match(/^Title:\s*(.+)$/m) || text.match(/^#\s+(.+)$/m);
-        const title = titleMatch ? titleMatch[1].trim() : "";
-        const cleaned = cleanWebScrapedMarkdown(text);
-        if (cleaned.length > 80) {
-          return { ok: true, title, markdown: cleaned, methodUsed: "Jina Reader (Client Direct)" };
-        }
-      }
-    }
-  } catch {}
-
-  // روش ۲: پروکسی فوق‌سریع CodeTabs با تایم‌اوت ۶ ثانیه‌ای
-  try {
-    onProgress?.("روش ۲: در حال دریافت سورس صفحه از طریق پروکسی کمکی CodeTabs...");
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-    const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
-    const proxyRes = await fetch(proxyUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    if (proxyRes.ok) {
-      const htmlText = await proxyRes.text();
-      if (htmlText.length > 200 && !htmlText.includes("Just a moment...") && !htmlText.includes("Cloudflare")) {
-        const converted = convertHtmlToCleanMarkdown(htmlText);
-        if (converted.markdown.length > 100) {
-          return {
-            ok: true,
-            title: converted.title,
-            markdown: converted.markdown,
-            methodUsed: "CodeTabs Fast Proxy",
-          };
-        }
-      }
-    }
-  } catch {}
-
-  // روش ۳: AllOrigins JSON API با تایم‌اوت ۶ ثانیه‌ای
-  try {
-    onProgress?.("روش ۳: در حال دریافت از درگاه کمکی AllOrigins...");
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-    const proxyRes = await fetch(proxyUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    if (proxyRes.ok) {
-      const jsonData = await proxyRes.json();
-      const htmlText = jsonData?.contents;
-      if (typeof htmlText === "string" && htmlText.length > 200) {
-        const converted = convertHtmlToCleanMarkdown(htmlText);
-        if (converted.markdown.length > 100) {
-          return {
-            ok: true,
-            title: converted.title,
-            markdown: converted.markdown,
-            methodUsed: "AllOrigins Engine",
-          };
-        }
-      }
-    }
-  } catch {}
-
-  // در صورت مسدود بودن تمام روش‌ها به دلیل فایروال سایت مبدأ
   let parsedHost = "";
   try {
     parsedHost = new URL(url).hostname;
@@ -1669,7 +1618,7 @@ async function fetchArticleFromUrlWithFallback(
     ok: false,
     title: "",
     markdown: "",
-    error: `سایت مبدأ (${parsedHost || "لینک"}) دارای فایروال ضدبات قوی (Cloudflare WAF / Anti-Bot) است و دسترسی ربات‌های واکشی را محدود کرده است.`,
+    error: `عدم امکان دریافت محتوا از سایت مبدأ (${parsedHost || "لینک"}). لطفا اتصال اینترنت سرور یا لینک را بررسی کنید.`,
   };
 }
 
@@ -1967,6 +1916,13 @@ export async function runSmartAutoPublisher(params: {
     if (fetchRes.ok && fetchRes.markdown.trim().length > 60) {
       rawTitle = fetchRes.title || `گزارش فنی از ${parsedHost}`;
       rawMarkdown = fetchRes.markdown;
+      if (fetchRes.images && fetchRes.images.length > 0) {
+        for (const img of fetchRes.images) {
+          if (!candidateImages.some((c) => c.url === img.url)) {
+            candidateImages.push(img);
+          }
+        }
+      }
       logs.push(
         `متن کامل مقاله از دامنه ${parsedHost} با روش «${fetchRes.methodUsed}» دریافت شد و هدر، فوتر و منوها حذف گردید (حفظ ۱۰۰٪ متن اصلی).`
       );
