@@ -497,7 +497,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="flex justify-between">
                 <span>موتور ذخیره‌سازی:</span>
                 <span className="text-slate-200 font-mono">
-                  {dashboard?.serverInfo?.storageEngine || "SQLite / JSON"}
+                  {dashboard?.serverInfo?.storageEngine || "MySQL (cPanel)"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>نسخه PHP:</span>
+                <span className="text-slate-200 font-mono">
+                  {dashboard?.serverInfo?.phpVersion || "8.x"}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -578,7 +584,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <code className="px-1.5 py-0.5 rounded bg-slate-950 text-emerald-400 font-mono">
                     public/api/
                   </code>{" "}
-                  در دیتابیس SQLite/JSON هاست شما ذخیره می‌شوند و پوشه دیتابیس با{" "}
+                  در دیتابیس MySQL هاست شما ذخیره می‌شوند و پوشه اندپوینت‌ها با{" "}
                   <code className="px-1.5 py-0.5 rounded bg-slate-950 text-amber-300 font-mono">
                     .htaccess (Deny from all)
                   </code>{" "}

@@ -73,19 +73,8 @@ export interface AdminDashboardData {
 
 const TOKEN_STORAGE_KEY = "roham_auth_token";
 const USER_CACHE_KEY = "roham_auth_user_cache";
-const EMULATED_DB_KEY = "roham_cpanel_db_emulation_v1";
 
-interface EmulatedUserRecord extends RohamUser {
-  passwordPlain: string;
-}
-
-interface EmulatedDb {
-  users: EmulatedUserRecord[];
-  leads: PortalLead[];
-  settings: SiteSettings;
-}
-
-function getDefaultSettings(): SiteSettings {
+export function getDefaultSettings(): SiteSettings {
   return {
     announcementEnabled: false,
     announcementText: "نسخه جدید کتابخوان دوزبانه رهام به همراه پادکست صوتی فصل‌ها منتشر شد.",
@@ -97,129 +86,6 @@ function getDefaultSettings(): SiteSettings {
     geminiApiKey: "",
     podcastOverrides: {},
     updatedAt: new Date().toISOString(),
-  };
-}
-
-function loadEmulatedDb(): EmulatedDb {
-  if (typeof window === "undefined") {
-    return { users: [], leads: [], settings: getDefaultSettings() };
-  }
-  try {
-    const raw = localStorage.getItem(EMULATED_DB_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed.users)) {
-        return parsed;
-      }
-    }
-  } catch {}
-
-  const now = new Date().toISOString();
-  const initialDb: EmulatedDb = {
-    users: [
-      {
-        id: "usr_admin_1",
-        username: "admin",
-        email: "admin@roham.sec",
-        name: "مدیر ارشد رهام",
-        passwordPlain: "Admin@1234",
-        role: "admin",
-        status: "active",
-        createdAt: now,
-        lastLoginAt: now,
-        syncData: {
-          preferences: null,
-          highlights: [],
-          savedWords: [],
-          readingProgress: [],
-          updatedAt: now,
-        },
-      },
-    ],
-    leads: [],
-    settings: getDefaultSettings(),
-  };
-
-  try {
-    // Migrate any existing local waitlist/consultations/enrollments into leads so Admin sees them immediately
-    const betaWaitlist = JSON.parse(localStorage.getItem("roham_beta_waitlist") || "[]");
-    for (const item of betaWaitlist) {
-      initialDb.leads.push({
-        id: `lead_beta_${Math.random().toString(36).slice(2, 9)}`,
-        type: "early_access",
-        name: item.name || "کاربر بتا",
-        contact: item.email || "",
-        email: item.email || "",
-        organization: item.organization || "",
-        subject: `بتای آنتی‌استیلر (${item.os || "windows"})`,
-        details: `سیستم‌عامل: ${item.os || "windows"}`,
-        trackingCode: item.code || "",
-        status: "new",
-        adminNote: "",
-        createdAt: item.date || now,
-      });
-    }
-
-    const consultations = JSON.parse(localStorage.getItem("roham_consultation_requests") || "[]");
-    for (const item of consultations) {
-      initialDb.leads.push({
-        id: `lead_cons_${Math.random().toString(36).slice(2, 9)}`,
-        type: "consultation",
-        name: item.name || "متقاضی مشاوره",
-        contact: item.contact || "",
-        organization: item.organization || "",
-        subject: `مشاوره سازمانی (${item.service || "hardening"})`,
-        details: item.details || "",
-        trackingCode: item.ticketId || "",
-        status: "new",
-        adminNote: "",
-        createdAt: item.date || now,
-      });
-    }
-
-    const enrollments = JSON.parse(localStorage.getItem("roham_course_enrollments") || "[]");
-    for (const item of enrollments) {
-      initialDb.leads.push({
-        id: `lead_crs_${Math.random().toString(36).slice(2, 9)}`,
-        type: "course_enroll",
-        name: item.fullName || "متقاضی دوره",
-        contact: item.email || item.phone || "",
-        email: item.email || "",
-        phone: item.phone || "",
-        organization: item.organization || "",
-        subject: item.courseTitle || item.courseId || "دوره آموزشی",
-        details: item.notes || `نوع ثبت‌نام: ${item.enrollType === "corporate" ? "سازمانی" : "فردی"}`,
-        trackingCode: item.trackingCode || "",
-        status: "new",
-        adminNote: "",
-        createdAt: item.submittedAt || now,
-      });
-    }
-
-    localStorage.setItem(EMULATED_DB_KEY, JSON.stringify(initialDb));
-  } catch {}
-
-  return initialDb;
-}
-
-function saveEmulatedDb(db: EmulatedDb): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(EMULATED_DB_KEY, JSON.stringify(db));
-  } catch {}
-}
-
-function sanitizeEmulatedUser(u: EmulatedUserRecord): RohamUser {
-  return {
-    id: u.id,
-    username: u.username,
-    email: u.email,
-    name: u.name,
-    role: u.role,
-    status: u.status,
-    createdAt: u.createdAt,
-    lastLoginAt: u.lastLoginAt,
-    syncData: u.syncData,
   };
 }
 
@@ -259,17 +125,17 @@ export function clearAuthSession(): void {
 }
 
 /**
- * فراخوانی اندپوینت PHP روی هاست سی‌پنل.
- * اگر پاسخ JSON معتبر نباشد (مثلاً در محیط پیش‌نمایش استاتیک که مفسر PHP فعال نیست)، `null` برمی‌گرداند تا موتور شبیه‌ساز اجرا شود.
+ * برقراری ارتباط مستقیم با اندپوینت‌های PHP سرور و هاست
  */
-async function tryCallPhp<T>(
+async function callPhpApi<T>(
   path: string,
   options: RequestInit = {}
-): Promise<{ status: number; data: T } | null> {
+): Promise<{ ok: boolean; status: number; data?: T; error?: string }> {
   try {
     const token = getStoredToken();
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      Accept: "application/json",
       ...(options.headers as Record<string, string>),
     };
     if (token) {
@@ -283,25 +149,39 @@ async function tryCallPhp<T>(
 
     const text = await res.text();
     const trimmed = text.trim();
-    // اگر فایل PHP خام برگشته باشد یا HTML خطا باشد، یعنی روی هاست PHP نیستیم
-    if (!trimmed.startsWith("{") || trimmed.startsWith("<?php")) {
-      return null;
+    if (trimmed.startsWith("<?php") || trimmed.startsWith("<!DOCTYPE") || !trimmed.startsWith("{")) {
+      return {
+        ok: false,
+        status: res.status,
+        error: "سرور PHP پاسخ معتبر بازنگرداند.",
+      };
     }
 
-    const parsed = JSON.parse(trimmed) as T;
-    return { status: res.status, data: parsed };
-  } catch {
-    return null;
+    const data = JSON.parse(trimmed) as T & { ok?: boolean; error?: string };
+    const isOk = res.ok && data.ok !== false;
+    return {
+      ok: isOk,
+      status: res.status,
+      data,
+      error: data.error,
+    };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "خطای نامشخص";
+    return {
+      ok: false,
+      status: 0,
+      error: `خطا در ارتباط با سرور PHP: ${message}`,
+    };
   }
 }
 
-// ==================== AUTHENTICATION ====================
+// ==================== AUTHENTICATION (PHP) ====================
 
 export async function loginUser(
   identifier: string,
   password: string
 ): Promise<{ ok: boolean; user?: RohamUser; token?: string; error?: string }> {
-  const phpRes = await tryCallPhp<{ ok: boolean; user?: RohamUser; token?: string; error?: string }>(
+  const res = await callPhpApi<{ ok: boolean; user?: RohamUser; token?: string; error?: string }>(
     "/api/auth.php?action=login",
     {
       method: "POST",
@@ -309,40 +189,15 @@ export async function loginUser(
     }
   );
 
-  if (phpRes) {
-    if (phpRes.data.ok && phpRes.data.token && phpRes.data.user) {
-      setAuthSession(phpRes.data.token, phpRes.data.user);
-    }
-    return phpRes.data;
+  if (res.ok && res.data?.token && res.data?.user) {
+    setAuthSession(res.data.token, res.data.user);
+    return { ok: true, user: res.data.user, token: res.data.token };
   }
 
-  // Fallback for preview / non-PHP dev server
-  const db = loadEmulatedDb();
-  const cleanId = identifier.trim().toLowerCase();
-  const foundIdx = db.users.findIndex(
-    (u) => u.email.toLowerCase() === cleanId || u.username.toLowerCase() === cleanId
-  );
-
-  if (foundIdx === -1) {
-    return { ok: false, error: "حساب کاربری با این ایمیل یا نام کاربری یافت نشد." };
-  }
-
-  const user = db.users[foundIdx];
-  if (user.passwordPlain !== password) {
-    return { ok: false, error: "ایمیل/نام کاربری یا رمز عبور اشتباه است." };
-  }
-
-  if (user.status === "suspended") {
-    return { ok: false, error: "این حساب کاربری توسط مدیریت مسدود شده است." };
-  }
-
-  user.lastLoginAt = new Date().toISOString();
-  saveEmulatedDb(db);
-
-  const sanitized = sanitizeEmulatedUser(user);
-  const token = `emu_tok_${user.id}_${Date.now()}`;
-  setAuthSession(token, sanitized);
-  return { ok: true, token, user: sanitized };
+  return {
+    ok: false,
+    error: res.error || res.data?.error || "نام کاربری یا رمز عبور اشتباه است.",
+  };
 }
 
 export async function registerUser(params: {
@@ -351,7 +206,7 @@ export async function registerUser(params: {
   password: string;
   syncData?: Partial<UserSyncData>;
 }): Promise<{ ok: boolean; user?: RohamUser; token?: string; error?: string }> {
-  const phpRes = await tryCallPhp<{ ok: boolean; user?: RohamUser; token?: string; error?: string }>(
+  const res = await callPhpApi<{ ok: boolean; user?: RohamUser; token?: string; error?: string }>(
     "/api/auth.php?action=register",
     {
       method: "POST",
@@ -359,86 +214,37 @@ export async function registerUser(params: {
     }
   );
 
-  if (phpRes) {
-    if (phpRes.data.ok && phpRes.data.token && phpRes.data.user) {
-      setAuthSession(phpRes.data.token, phpRes.data.user);
-    }
-    return phpRes.data;
+  if (res.ok && res.data?.token && res.data?.user) {
+    setAuthSession(res.data.token, res.data.user);
+    return { ok: true, user: res.data.user, token: res.data.token };
   }
 
-  const db = loadEmulatedDb();
-  if (!db.settings.allowRegistration) {
-    return { ok: false, error: "ثبت‌نام کاربران جدید در حال حاضر توسط مدیر سایت غیرفعال شده است." };
-  }
-
-  const cleanEmail = params.email.trim().toLowerCase();
-  if (!params.name.trim() || !cleanEmail || params.password.length < 6) {
-    return { ok: false, error: "لطفاً نام، ایمیل معتبر و رمز عبور (حداقل ۶ کاراکتر) را وارد کنید." };
-  }
-
-  if (db.users.some((u) => u.email.toLowerCase() === cleanEmail)) {
-    return { ok: false, error: "این آدرس ایمیل قبلاً ثبت شده است. لطفاً وارد شوید." };
-  }
-
-  const now = new Date().toISOString();
-  const newUser: EmulatedUserRecord = {
-    id: `usr_${Math.random().toString(36).slice(2, 10)}`,
-    username: cleanEmail.split("@")[0],
-    email: cleanEmail,
-    name: params.name.trim(),
-    passwordPlain: params.password,
-    role: "user",
-    status: "active",
-    createdAt: now,
-    lastLoginAt: now,
-    syncData: {
-      preferences: params.syncData?.preferences || null,
-      highlights: params.syncData?.highlights || [],
-      savedWords: params.syncData?.savedWords || [],
-      readingProgress: params.syncData?.readingProgress || [],
-      updatedAt: now,
-    },
+  return {
+    ok: false,
+    error: res.error || res.data?.error || "خطا در ثبت‌نام کاربر در سیستم.",
   };
-
-  db.users.push(newUser);
-  saveEmulatedDb(db);
-
-  const sanitized = sanitizeEmulatedUser(newUser);
-  const token = `emu_tok_${newUser.id}_${Date.now()}`;
-  setAuthSession(token, sanitized);
-  return { ok: true, token, user: sanitized };
 }
 
 export async function fetchCurrentUser(): Promise<RohamUser | null> {
   const token = getStoredToken();
   if (!token) return null;
 
-  const phpRes = await tryCallPhp<{ ok: boolean; user?: RohamUser }>("/api/auth.php?action=me", {
+  const res = await callPhpApi<{ ok: boolean; user?: RohamUser }>("/api/auth.php?action=me", {
     method: "GET",
   });
 
-  if (phpRes) {
-    if (phpRes.data.ok && phpRes.data.user) {
-      setAuthSession(token, phpRes.data.user);
-      return phpRes.data.user;
-    }
-    if (phpRes.status === 401 || phpRes.status === 403) {
-      clearAuthSession();
-      return null;
-    }
+  if (res.ok && res.data?.user) {
+    setAuthSession(token, res.data.user);
+    return res.data.user;
   }
 
-  const db = loadEmulatedDb();
-  const cached = getCachedUser();
-  if (!cached) return null;
-  const found = db.users.find((u) => u.id === cached.id);
-  if (!found || found.status === "suspended") {
+  if (res.status === 401 || res.status === 403) {
     clearAuthSession();
     return null;
   }
-  const sanitized = sanitizeEmulatedUser(found);
-  setAuthSession(token, sanitized);
-  return sanitized;
+
+  // در صورت بروز قطعی موقت شبکه، از کش مرورگر استفاده می‌کنیم تا کاربر بی‌دلیل لاگ‌اوت نشود
+  return getCachedUser();
 }
 
 export async function updateUserProfile(params: {
@@ -447,7 +253,7 @@ export async function updateUserProfile(params: {
   currentPassword?: string;
   newPassword?: string;
 }): Promise<{ ok: boolean; user?: RohamUser; message?: string; error?: string }> {
-  const phpRes = await tryCallPhp<{ ok: boolean; user?: RohamUser; message?: string; error?: string }>(
+  const res = await callPhpApi<{ ok: boolean; user?: RohamUser; message?: string; error?: string }>(
     "/api/auth.php?action=update_profile",
     {
       method: "POST",
@@ -455,49 +261,23 @@ export async function updateUserProfile(params: {
     }
   );
 
-  if (phpRes) {
-    if (phpRes.data.ok && phpRes.data.user) {
-      const tok = getStoredToken();
-      if (tok) setAuthSession(tok, phpRes.data.user);
-    }
-    return phpRes.data;
+  if (res.ok && res.data?.user) {
+    const token = getStoredToken();
+    if (token) setAuthSession(token, res.data.user);
+    return {
+      ok: true,
+      user: res.data.user,
+      message: res.data.message || "اطلاعات حساب با موفقیت بروزرسانی شد.",
+    };
   }
 
-  const db = loadEmulatedDb();
-  const cached = getCachedUser();
-  if (!cached) return { ok: false, error: "ابتدا وارد حساب کاربری شوید." };
-
-  const idx = db.users.findIndex((u) => u.id === cached.id);
-  if (idx === -1) return { ok: false, error: "کاربر یافت نشد." };
-
-  if (params.name && params.name.trim()) {
-    db.users[idx].name = params.name.trim();
-  }
-  if (params.email && params.email.trim()) {
-    const cleanEmail = params.email.trim().toLowerCase();
-    if (db.users.some((u, i) => i !== idx && u.email.toLowerCase() === cleanEmail)) {
-      return { ok: false, error: "این ایمیل متعلق به کاربر دیگری است." };
-    }
-    db.users[idx].email = cleanEmail;
-  }
-  if (params.newPassword) {
-    if (params.newPassword.length < 6) {
-      return { ok: false, error: "رمز عبور جدید باید حداقل ۶ کاراکتر باشد." };
-    }
-    if (params.currentPassword && db.users[idx].passwordPlain !== params.currentPassword) {
-      return { ok: false, error: "رمز عبور فعلی اشتباه است." };
-    }
-    db.users[idx].passwordPlain = params.newPassword;
-  }
-
-  saveEmulatedDb(db);
-  const sanitized = sanitizeEmulatedUser(db.users[idx]);
-  const tok = getStoredToken();
-  if (tok) setAuthSession(tok, sanitized);
-  return { ok: true, user: sanitized, message: "اطلاعات حساب کاربری با موفقیت بروزرسانی شد." };
+  return {
+    ok: false,
+    error: res.error || res.data?.error || "خطا در بروزرسانی پروفایل کاربر.",
+  };
 }
 
-// ==================== CLOUD READING SYNC ====================
+// ==================== CLOUD READING SYNC (PHP) ====================
 
 export async function pushCloudSync(payload: {
   mode?: "merge" | "overwrite";
@@ -509,7 +289,7 @@ export async function pushCloudSync(payload: {
   const token = getStoredToken();
   if (!token) return { ok: false };
 
-  const phpRes = await tryCallPhp<{ ok: boolean; syncData?: UserSyncData; message?: string }>(
+  const res = await callPhpApi<{ ok: boolean; syncData?: UserSyncData; message?: string }>(
     "/api/sync.php",
     {
       method: "POST",
@@ -517,75 +297,22 @@ export async function pushCloudSync(payload: {
     }
   );
 
-  if (phpRes) {
-    if (phpRes.data.ok && phpRes.data.syncData) {
-      const cached = getCachedUser();
-      if (cached) {
-        setAuthSession(token, { ...cached, syncData: phpRes.data.syncData });
-      }
+  if (res.ok && res.data?.syncData) {
+    const cached = getCachedUser();
+    if (cached) {
+      setAuthSession(token, { ...cached, syncData: res.data.syncData });
     }
-    return phpRes.data;
+    return {
+      ok: true,
+      syncData: res.data.syncData,
+      message: res.data.message || "همگام‌سازی ابری انجام شد.",
+    };
   }
 
-  const db = loadEmulatedDb();
-  const cached = getCachedUser();
-  if (!cached) return { ok: false };
-
-  const idx = db.users.findIndex((u) => u.id === cached.id);
-  if (idx === -1) return { ok: false };
-
-  const current = db.users[idx].syncData || {
-    preferences: null,
-    highlights: [],
-    savedWords: [],
-    readingProgress: [],
-    updatedAt: new Date().toISOString(),
-  };
-
-  const mode = payload.mode || "merge";
-
-  if (payload.preferences) {
-    current.preferences = payload.preferences;
-  }
-  if (payload.readingProgress) {
-    current.readingProgress = payload.readingProgress;
-  }
-  if (payload.highlights) {
-    if (mode === "overwrite") {
-      current.highlights = payload.highlights;
-    } else {
-      const map = new Map<string, Highlight>();
-      for (const h of current.highlights || []) map.set(h.id, h);
-      for (const h of payload.highlights) map.set(h.id, h);
-      current.highlights = Array.from(map.values());
-    }
-  }
-  if (payload.savedWords) {
-    if (mode === "overwrite") {
-      current.savedWords = payload.savedWords;
-    } else {
-      const map = new Map<string, SavedWord>();
-      for (const w of current.savedWords || []) map.set(w.word.toLowerCase(), w);
-      for (const w of payload.savedWords) map.set(w.word.toLowerCase(), w);
-      current.savedWords = Array.from(map.values());
-    }
-  }
-
-  current.updatedAt = new Date().toISOString();
-  db.users[idx].syncData = current;
-  saveEmulatedDb(db);
-
-  const sanitized = sanitizeEmulatedUser(db.users[idx]);
-  setAuthSession(token, sanitized);
-
-  return {
-    ok: true,
-    syncData: current,
-    message: "اطلاعات مطالعه شما با موفقیت همگام‌سازی شد.",
-  };
+  return { ok: false };
 }
 
-// ==================== PORTAL LEADS SUBMISSION ====================
+// ==================== PORTAL LEADS (PHP) ====================
 
 export async function submitPortalLead(params: {
   type: "early_access" | "consultation" | "course_enroll";
@@ -598,98 +325,65 @@ export async function submitPortalLead(params: {
   details?: string;
   trackingCode?: string;
   meta?: Record<string, unknown>;
-}): Promise<{ ok: boolean }> {
-  const phpRes = await tryCallPhp<{ ok: boolean }>("/api/leads.php", {
+}): Promise<{ ok: boolean; error?: string }> {
+  const res = await callPhpApi<{ ok: boolean; error?: string }>("/api/leads.php", {
     method: "POST",
     body: JSON.stringify(params),
   });
 
-  if (phpRes && phpRes.data.ok) {
-    return { ok: true };
-  }
-
-  const db = loadEmulatedDb();
-  db.leads.unshift({
-    id: `lead_${Math.random().toString(36).slice(2, 10)}`,
-    type: params.type,
-    name: params.name,
-    contact: params.contact,
-    email: params.email,
-    phone: params.phone,
-    organization: params.organization,
-    subject: params.subject,
-    details: params.details,
-    trackingCode: params.trackingCode,
-    meta: params.meta,
-    status: "new",
-    adminNote: "",
-    createdAt: new Date().toISOString(),
-  });
-  saveEmulatedDb(db);
-  return { ok: true };
+  return {
+    ok: res.ok,
+    error: res.error || res.data?.error,
+  };
 }
 
-// ==================== PUBLIC SITE CONFIG ====================
+// ==================== PUBLIC SITE CONFIG (PHP) ====================
 
 export async function fetchPublicSiteConfig(): Promise<SiteSettings> {
-  const phpRes = await tryCallPhp<{ ok: boolean; config?: SiteSettings }>("/api/public-config.php", {
+  const res = await callPhpApi<{ ok: boolean; config?: SiteSettings }>("/api/public-config.php", {
     method: "GET",
   });
 
-  if (phpRes && phpRes.data.ok && phpRes.data.config) {
-    return phpRes.data.config;
+  if (res.ok && res.data?.config) {
+    return res.data.config;
   }
 
-  const db = loadEmulatedDb();
-  return db.settings || getDefaultSettings();
+  return getDefaultSettings();
 }
 
-// ==================== ADMIN PANEL API ====================
+// ==================== ADMIN PANEL (PHP) ====================
 
 export async function fetchAdminDashboard(): Promise<{
   ok: boolean;
   data?: AdminDashboardData;
   error?: string;
 }> {
-  const phpRes = await tryCallPhp<{ ok: boolean; error?: string } & AdminDashboardData>(
+  const res = await callPhpApi<{ ok: boolean; error?: string } & AdminDashboardData>(
     "/api/admin.php?action=dashboard",
     { method: "GET" }
   );
 
-  if (phpRes) {
-    if (!phpRes.data.ok) return { ok: false, error: phpRes.data.error };
+  if (res.ok && res.data) {
     return {
       ok: true,
       data: {
-        users: phpRes.data.users,
-        leads: phpRes.data.leads,
-        settings: phpRes.data.settings,
-        serverInfo: phpRes.data.serverInfo,
+        users: res.data.users || [],
+        leads: res.data.leads || [],
+        settings: res.data.settings || getDefaultSettings(),
+        serverInfo: res.data.serverInfo || {
+          phpVersion: "PHP 8.x",
+          storageEngine: "MySQL (cPanel)",
+          hasGeminiKey: false,
+          podcastFilesStatus: {},
+          serverTime: new Date().toISOString(),
+        },
       },
     };
   }
 
-  const db = loadEmulatedDb();
-  const cached = getCachedUser();
-  if (!cached || cached.role !== "admin") {
-    return { ok: false, error: "دسترسی غیرمجاز: فقط مدیر ارشد به این بخش دسترسی دارد." };
-  }
-
   return {
-    ok: true,
-    data: {
-      users: db.users.map(sanitizeEmulatedUser),
-      leads: db.leads,
-      settings: db.settings,
-      serverInfo: {
-        phpVersion: "PHP 8.2 (cPanel Ready)",
-        storageEngine: "SQLite3 / JSON Hybrid Store",
-        hasGeminiKey: Boolean(db.settings.geminiApiKey),
-        podcastFilesStatus: {},
-        serverTime: new Date().toISOString(),
-        isPreviewFallback: true,
-      },
-    },
+    ok: false,
+    error: res.error || res.data?.error || "خطا در دریافت اطلاعات داشبورد از سرور PHP.",
   };
 }
 
@@ -699,49 +393,19 @@ export async function adminCreateUser(params: {
   password: string;
   role: "user" | "admin";
 }): Promise<{ ok: boolean; user?: RohamUser; message?: string; error?: string }> {
-  const phpRes = await tryCallPhp<{ ok: boolean; user?: RohamUser; message?: string; error?: string }>(
+  const res = await callPhpApi<{ ok: boolean; user?: RohamUser; message?: string; error?: string }>(
     "/api/admin.php?action=create_user",
     {
       method: "POST",
       body: JSON.stringify({ action: "create_user", ...params }),
     }
   );
-  if (phpRes) return phpRes.data;
 
-  const db = loadEmulatedDb();
-  const cleanEmail = params.email.trim().toLowerCase();
-  if (!params.name.trim() || !cleanEmail || params.password.length < 6) {
-    return { ok: false, error: "نام، ایمیل و رمز عبور (حداقل ۶ کاراکتر) الزامی است." };
-  }
-  if (db.users.some((u) => u.email.toLowerCase() === cleanEmail)) {
-    return { ok: false, error: "کاربری با این ایمیل از قبل وجود دارد." };
-  }
-
-  const now = new Date().toISOString();
-  const newUser: EmulatedUserRecord = {
-    id: `usr_${Math.random().toString(36).slice(2, 10)}`,
-    username: cleanEmail.split("@")[0],
-    email: cleanEmail,
-    name: params.name.trim(),
-    passwordPlain: params.password,
-    role: params.role,
-    status: "active",
-    createdAt: now,
-    lastLoginAt: now,
-    syncData: {
-      preferences: null,
-      highlights: [],
-      savedWords: [],
-      readingProgress: [],
-      updatedAt: now,
-    },
-  };
-  db.users.push(newUser);
-  saveEmulatedDb(db);
   return {
-    ok: true,
-    user: sanitizeEmulatedUser(newUser),
-    message: "کاربر جدید با موفقیت ایجاد شد.",
+    ok: res.ok,
+    user: res.data?.user,
+    message: res.data?.message || "کاربر با موفقیت ایجاد شد.",
+    error: res.error || res.data?.error,
   };
 }
 
@@ -752,64 +416,38 @@ export async function adminUpdateUser(params: {
   name?: string;
   newPassword?: string;
 }): Promise<{ ok: boolean; user?: RohamUser; message?: string; error?: string }> {
-  const phpRes = await tryCallPhp<{ ok: boolean; user?: RohamUser; message?: string; error?: string }>(
+  const res = await callPhpApi<{ ok: boolean; user?: RohamUser; message?: string; error?: string }>(
     "/api/admin.php?action=update_user",
     {
       method: "POST",
       body: JSON.stringify({ action: "update_user", ...params }),
     }
   );
-  if (phpRes) return phpRes.data;
 
-  const db = loadEmulatedDb();
-  const cached = getCachedUser();
-  const idx = db.users.findIndex((u) => u.id === params.userId);
-  if (idx === -1) return { ok: false, error: "کاربر یافت نشد." };
-
-  if (cached && cached.id === params.userId) {
-    if (params.role && params.role !== "admin") {
-      return { ok: false, error: "نمی‌توانید نقش مدیریت حساب فعلی خودتان را لغو کنید." };
-    }
-    if (params.status === "suspended") {
-      return { ok: false, error: "نمی‌توانید حساب خودتان را مسدود کنید." };
-    }
-  }
-
-  if (params.role) db.users[idx].role = params.role;
-  if (params.status) db.users[idx].status = params.status;
-  if (params.name && params.name.trim()) db.users[idx].name = params.name.trim();
-  if (params.newPassword && params.newPassword.length >= 6) {
-    db.users[idx].passwordPlain = params.newPassword;
-  }
-
-  saveEmulatedDb(db);
   return {
-    ok: true,
-    user: sanitizeEmulatedUser(db.users[idx]),
-    message: "مشخصات کاربر بروزرسانی شد.",
+    ok: res.ok,
+    user: res.data?.user,
+    message: res.data?.message || "مشخصات کاربر بروزرسانی شد.",
+    error: res.error || res.data?.error,
   };
 }
 
 export async function adminDeleteUser(
   userId: string
 ): Promise<{ ok: boolean; message?: string; error?: string }> {
-  const phpRes = await tryCallPhp<{ ok: boolean; message?: string; error?: string }>(
+  const res = await callPhpApi<{ ok: boolean; message?: string; error?: string }>(
     "/api/admin.php?action=delete_user",
     {
       method: "POST",
       body: JSON.stringify({ action: "delete_user", userId }),
     }
   );
-  if (phpRes) return phpRes.data;
 
-  const db = loadEmulatedDb();
-  const cached = getCachedUser();
-  if (cached && cached.id === userId) {
-    return { ok: false, error: "حذف حساب کاربری فعلی خودتان مجاز نیست." };
-  }
-  db.users = db.users.filter((u) => u.id !== userId);
-  saveEmulatedDb(db);
-  return { ok: true, message: "کاربر با موفقیت حذف شد." };
+  return {
+    ok: res.ok,
+    message: res.data?.message || "کاربر با موفقیت حذف شد.",
+    error: res.error || res.data?.error,
+  };
 }
 
 export async function adminUpdateLead(params: {
@@ -817,41 +455,37 @@ export async function adminUpdateLead(params: {
   status?: PortalLead["status"];
   adminNote?: string;
 }): Promise<{ ok: boolean; lead?: PortalLead; error?: string }> {
-  const phpRes = await tryCallPhp<{ ok: boolean; lead?: PortalLead; error?: string }>(
+  const res = await callPhpApi<{ ok: boolean; lead?: PortalLead; error?: string }>(
     "/api/admin.php?action=update_lead",
     {
       method: "POST",
       body: JSON.stringify({ action: "update_lead", ...params }),
     }
   );
-  if (phpRes) return phpRes.data;
 
-  const db = loadEmulatedDb();
-  const idx = db.leads.findIndex((l) => l.id === params.leadId);
-  if (idx === -1) return { ok: false, error: "درخواست یافت نشد." };
-  if (params.status) db.leads[idx].status = params.status;
-  if (typeof params.adminNote === "string") db.leads[idx].adminNote = params.adminNote;
-  saveEmulatedDb(db);
-  return { ok: true, lead: db.leads[idx] };
+  return {
+    ok: res.ok,
+    lead: res.data?.lead,
+    error: res.error || res.data?.error,
+  };
 }
 
-export async function adminDeleteLead(leadId: string): Promise<{ ok: boolean }> {
-  const phpRes = await tryCallPhp<{ ok: boolean }>("/api/admin.php?action=delete_lead", {
+export async function adminDeleteLead(leadId: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await callPhpApi<{ ok: boolean; error?: string }>("/api/admin.php?action=delete_lead", {
     method: "POST",
     body: JSON.stringify({ action: "delete_lead", leadId }),
   });
-  if (phpRes) return phpRes.data;
 
-  const db = loadEmulatedDb();
-  db.leads = db.leads.filter((l) => l.id !== leadId);
-  saveEmulatedDb(db);
-  return { ok: true };
+  return {
+    ok: res.ok,
+    error: res.error || res.data?.error,
+  };
 }
 
 export async function adminUpdateSettings(
   settings: Partial<SiteSettings>
 ): Promise<{ ok: boolean; settings?: SiteSettings; message?: string; error?: string }> {
-  const phpRes = await tryCallPhp<{
+  const res = await callPhpApi<{
     ok: boolean;
     settings?: SiteSettings;
     message?: string;
@@ -860,18 +494,11 @@ export async function adminUpdateSettings(
     method: "POST",
     body: JSON.stringify({ action: "update_settings", settings }),
   });
-  if (phpRes) return phpRes.data;
 
-  const db = loadEmulatedDb();
-  db.settings = {
-    ...db.settings,
-    ...settings,
-    updatedAt: new Date().toISOString(),
-  };
-  saveEmulatedDb(db);
   return {
-    ok: true,
-    settings: db.settings,
-    message: "تنظیمات سایت با موفقیت ذخیره شد.",
+    ok: res.ok,
+    settings: res.data?.settings,
+    message: res.data?.message || "تنظیمات سایت با موفقیت در دیتابیس ذخیره شد.",
+    error: res.error || res.data?.error,
   };
 }

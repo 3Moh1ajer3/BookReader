@@ -391,24 +391,20 @@ export default function Home() {
     setPreferences((prev) => ({ ...prev, ...newPrefs }));
   };
 
-  // Translation request handler (PHP backend with direct Google Translate client fallback)
+  // Translation request handler (PHP backend on host)
   const fetchTranslation = useCallback(async (textToTranslate: string, contextString: string) => {
     setTranslationLoading(true);
     setLastSelectedText(textToTranslate);
 
     try {
-      // اول تلاش برای دریافت از اندپوینت هاست PHP
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_TRANSLATE_ENDPOINT || "api/translate.php",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text: textToTranslate,
-            context: contextString,
-          }),
-        }
-      );
+      const res = await fetch("/api/translate.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: textToTranslate,
+          context: contextString,
+        }),
+      });
 
       if (res.ok) {
         const data: TranslationResult = await res.json();
@@ -417,74 +413,12 @@ export default function Home() {
           return;
         }
       }
-      throw new Error("PHP endpoint unreachable or returned empty");
+      throw new Error("پاسخ نامعتبر از سرور ترجمه PHP");
     } catch {
-      // در صورت عدم پاسخ هاست یا حالت پیش‌نمایش لوکال، مستقیماً از Google Translate کلاینت دریافت می‌شود
-      try {
-        const gUrl = `https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=auto&tl=fa&dt=t&dt=bd&dt=rm&q=${encodeURIComponent(textToTranslate)}`;
-        const gRes = await fetch(gUrl);
-        if (gRes.ok) {
-          const json = await gRes.json();
-          if (Array.isArray(json) && Array.isArray(json[0])) {
-            let translated = "";
-            for (const part of json[0]) {
-              if (typeof part[0] === "string") translated += part[0];
-            }
-
-            let phonetic: string | undefined = undefined;
-            if (json[0].length > 0) {
-              const last = json[0][json[0].length - 1];
-              if (last && typeof last[3] === "string") phonetic = last[3];
-              else if (last && typeof last[2] === "string") phonetic = last[2];
-            }
-
-            const synonyms: string[] = [];
-            let partOfSpeech: string | undefined = undefined;
-            if (Array.isArray(json[1])) {
-              const posMap: Record<string, string> = {
-                noun: "اسم (Noun)",
-                verb: "فعل (Verb)",
-                adjective: "صفت (Adjective)",
-                adverb: "قید (Adverb)",
-                preposition: "حرف اضافه",
-                conjunction: "حرف ربط",
-                pronoun: "ضمیر",
-                phrase: "اصطلاح / عبارت",
-              };
-              const posList: string[] = [];
-              for (const item of json[1]) {
-                const enPos = (item[0] || "").toLowerCase();
-                if (posMap[enPos]) posList.push(posMap[enPos]);
-                if (Array.isArray(item[1])) {
-                  for (const s of item[1]) {
-                    if (typeof s === "string" && !synonyms.includes(s)) {
-                      synonyms.push(s);
-                    }
-                  }
-                }
-              }
-              if (posList.length > 0) partOfSpeech = posList.slice(0, 2).join("، ");
-            }
-
-            setActiveTranslation({
-              text: textToTranslate,
-              persianTranslation: translated || textToTranslate,
-              phonetic,
-              partOfSpeech,
-              explanation: synonyms.length > 0 ? `سایر معانی در دیکشنری: ${synonyms.slice(0, 5).join("، ")}` : "ترجمه Google Translate",
-              synonyms: synonyms.slice(0, 6),
-              examples: [],
-            });
-            return;
-          }
-        }
-      } catch {}
-
-      // فال‌بک نهایی
       setActiveTranslation({
         text: textToTranslate,
         persianTranslation: `ترجمه «${textToTranslate}»`,
-        explanation: "سرویس ترجمه در دسترس نیست. لطفاً اتصال اینترنت خود را بررسی نمایید.",
+        explanation: "سرویس ترجمه PHP در دسترس نیست یا خطایی رخ داده است.",
         examples: [],
       });
     } finally {
