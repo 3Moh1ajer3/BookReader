@@ -5,40 +5,47 @@
 
 ## 1. Mandatory Verification Loop (ALWAYS)
 
-After **any** code change:
+Run the fast checks first, and defer heavy builds to the end:
 
-```
-npm run lint
-npm run build
-npm run book:validate     # if data/ or chapter content changed
+```bash
+npm run lint           # Fast syntax & type check (~2-3s)
+npm run book:validate  # Run only if data/ or chapter content changed (~2s)
+npm run build          # Full Next.js production build (~35-45s) — run at final verification
 ```
 
-All three must pass. There is no test suite; lint + build + validate are the safety net.
+In AI Studio preview, use `compile_applet` at the end of code changes. Avoid running full `next build` inside rapid diagnostic loops as it causes 40+ second delays and context bloat.
 
 ## 2. Context Loading
 
-- Small codebase (< ~25 source files). It is usually cheaper to read the whole relevant
-  area than to guess. Always read `types/reader.ts` before creating/editing data shapes.
-- Ignore `node_modules/`, `.next/`, `out/`, and root `scripts/*.js` (legacy one-offs —
-  reference only). The active tooling lives in `scripts/pipeline/`.
-- `data/` files are large. Read the **first ~50 lines** of a chapter file to learn the
-  format; never paste whole chapters into context unnecessarily.
+- Dual-domain codebase:
+  1. **Roham Cyber Security Portal** (`components/roham/*`, `lib/contentStore.ts`): Anti-stealer, SOC advisory, Threat Radar, Blog, Courses, Smart Publisher panel.
+  2. **Interactive Vulnerability Research Reader** (`components/ChapterViewer.tsx`, `data/book*`): Bilingual reader, highlighting, vocabulary, TOC.
+- Small codebase (< ~25 primary application source files). Read `types/reader.ts` before creating/editing data shapes.
+- Ignore `node_modules/`, `.next/`, `out/`, and root `scripts/*.js` (legacy one-offs — reference only). Active book tooling lives in `scripts/pipeline/`.
+- `data/` files are large. Read the **first ~50 lines** of a chapter file to learn format; never load whole chapters into context unnecessarily.
 
 ## 3. Non-Negotiable Rules
 
-1. **localStorage only.** Never add a remote database, auth service, or telemetry.
-2. **RTL/LTR contract.** Code blocks, inline code, terminal snippets, and tables are
+1. **Next.js 15 App Router Server Architecture:**
+   - Production builds write to `.next/`.
+   - **DO NOT** add `output: "export"` to `next.config.ts`. The application has dynamic server API routes (`app/api/*`). Forcing static export breaks Next.js App Router and causes prerender failures.
+   - The `out/` folder was a historical static export snapshot and is gitignored. Do not expect `npm run build` to output to `out/`.
+2. **localStorage & Offline-first Persistence:**
+   - All client user state (progress, highlights, vocab, prefs, publisher drafts) persists in `localStorage`.
+   - In production cPanel hosting, client interacts with PHP backend in `public/api/*.php` with transparent fallback to `localStorage`.
+   - Never add Firebase, Supabase, or external databases unless explicitly requested.
+3. **RTL/LTR contract:** Code blocks, inline code, terminal snippets, and tables are
    ALWAYS `dir="ltr"`, left-aligned. Persian headings/paragraphs are `dir="rtl"`,
    right-aligned. Any parser/renderer change must preserve both paths.
-3. **Server-only AI.** `@google/genai` and `process.env.GEMINI_API_KEY` only inside
+4. **Server-only AI:** `@google/genai` and `process.env.GEMINI_API_KEY` only inside
    `app/api/…/route.ts`. Every AI route needs a graceful offline fallback.
-4. **Icons:** named imports from `lucide-react`. No custom SVG icons.
-5. **Animations:** import from `motion/react` (never `framer-motion`).
-6. **Registry:** a book that is not in `data/sampleBooks.ts` does not exist in the UI.
-7. **Stable IDs.** `Book.id` and `Chapter.id` keys persist user progress in localStorage;
+5. **Icons:** named imports from `lucide-react`. No custom SVG icons.
+6. **Animations:** import from `motion/react` (never `framer-motion`).
+7. **Registry:** a book that is not in `data/sampleBooks.ts` does not exist in the UI.
+8. **Stable IDs.** `Book.id` and `Chapter.id` keys persist user progress in localStorage;
    renaming them destroys user data. Never rename existing ids.
-8. **No comments** in code unless the file already uses them; match surrounding style.
-9. Windows + PowerShell 5.1 environment. Use `cmd1; if ($?) { cmd2 }`, not `&&`.
+9. **No comments** in code unless the file already uses them; match surrounding style.
+10. **Environment:** When in Linux bash environments, use standard bash syntax (`&&`). In Windows PowerShell, use PowerShell syntax (`cmd1; if ($?) { cmd2 }`).
 
 ## 4. Pre-Flight Checklist (before declaring a task done)
 

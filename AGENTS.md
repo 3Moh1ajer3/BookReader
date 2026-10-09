@@ -100,7 +100,9 @@ When editing or extending this codebase, agents **MUST** follow these rules:
 - Always provide a resilient offline fallback if `GEMINI_API_KEY` is not present or if the network request fails.
 
 ### 4. Code Quality & Build Verification
-- Always run `npm run lint` and `npm run build` after changes to confirm that TypeScript types, JSX elements, and imports are valid.
+- Always run `npm run lint` first for fast syntax & type verification (~2s).
+- Run `npm run build` at the end of changes to verify the Next.js production build (`.next/`).
+- **NEVER** add `output: "export"` to `next.config.ts`. The codebase includes dynamic Next.js server API routes (`app/api/*`). The `out/` folder was an old static export snapshot and is gitignored.
 - When importing from Lucide, use named imports: `import { BookOpen, Search } from "lucide-react";`.
 - For animations, import from `motion/react`, never legacy `framer-motion`.
 
