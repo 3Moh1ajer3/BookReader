@@ -8,6 +8,67 @@ export interface DownloadedMediaItem {
   status?: "downloaded" | "remote_fallback" | string;
 }
 
+export interface ContentCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  targetType: "all" | "blog" | "news";
+  updatedAt?: string;
+}
+
+export const DEFAULT_CATEGORIES: ContentCategory[] = [
+  {
+    id: "cat-supply-chain",
+    name: "حملات زنجیره تامین (Supply Chain)",
+    slug: "supply-chain",
+    description: "تحلیل نفوذ به مخازن کد، پکیج‌های مسموم NPM/PyPI و وابستگی‌های نرم‌افزاری",
+    targetType: "all",
+  },
+  {
+    id: "cat-social-eng",
+    name: "مهندسی اجتماعی و فیشینگ",
+    slug: "social-engineering",
+    description: "تکنیک‌های ClickFix، صفحات جعلی، فیشینگ پیشرفته و سرقت اطلاعات با دستکاری کاربر",
+    targetType: "all",
+  },
+  {
+    id: "cat-vulnerabilities",
+    name: "تحلیل آسیب‌پذیری و اکسپلویت",
+    slug: "vulnerabilities-exploits",
+    description: "تحلیل فنی زیرودی‌های فعال (0-Day)، آسیب‌پذیری‌های RCE و بایپس‌های امنیتی",
+    targetType: "all",
+  },
+  {
+    id: "cat-writeups",
+    name: "گزارش‌های فنی و رایت‌آپ",
+    slug: "writeups-research",
+    description: "تحقیقات عمیق باینری، کالبدشکافی ساختار فایل‌ها، دیس‌اسمبل و گزارش‌های آزمایشگاهی",
+    targetType: "all",
+  },
+  {
+    id: "cat-malware",
+    name: "بدافزارها و استیلرها",
+    slug: "malware-infostealers",
+    description: "رهگیری استیلرهای مدرن (Lumma، RedLine، StealC)، باج‌افزارها و تکنیک‌های بدافزاری",
+    targetType: "all",
+  },
+  {
+    id: "cat-cloud",
+    name: "امنیت ابری و زیرساخت",
+    slug: "cloud-infrastructure",
+    description: "امن‌سازی کانتینرها، کوبرنتیز، سرویس‌های ابری و زیرساخت‌های سازمانی",
+    targetType: "all",
+  },
+  {
+    id: "cat-alerts",
+    name: "اخبار و هشدارهای فوری",
+    slug: "security-alerts",
+    description: "هشدارهای لحظه‌ای، افشای داده‌ها، حوادث امنیتی جاری و توصیه‌های پدافندی فوری",
+    targetType: "all",
+  },
+];
+
 export interface BlogSectionItem {
   id: string;
   heading: string;
@@ -30,14 +91,16 @@ export interface BlogPost {
   subtitle: string;
   slug: string;
   summary: string;
-  category: "استیلر و بدافزار" | "دفاع و هاردنینگ" | "هویت و سشن‌ها" | "تحقیقات زیرودی" | string;
+  category: string;
+  categoryId?: string;
   readTime: string;
   date: string;
   updatedAt?: string;
   author: string;
   authorRole: string;
-  difficulty: "مقدماتی" | "متوسط" | "پیشرفته" | "تخصصی (Deep-Dive)";
-  tags: string[];
+  difficulty: "مقدماتی" | "متوسط" | "پیشرفته" | "تخصصی (Deep-Dive)" | string;
+  keywords: string[]; // کلیدواژه‌ها
+  tags?: string[]; // پشتیبانی گذشته‌نگر
   status: "published" | "draft";
   isFeatured: boolean;
   views: number;
@@ -46,22 +109,24 @@ export interface BlogPost {
   source?: string;
   sourceUrl?: string;
   downloadedImages?: DownloadedMediaItem[];
-  tldr: string[];
+  tldr: string[]; // خلاصه مدیریتی و نکات کلیدی
   content: {
     intro: string;
     sections: BlogSectionItem[];
     conclusion: string;
-    actionableTakeaways: string[];
+    actionableTakeaways: string[]; // چک‌لیست عملیاتی دفاع (تنها در بلاگ)
     references?: { title: string; url: string }[];
   };
 }
 
 export interface NewsSectionItem {
+  id?: string;
   heading: string;
   paragraphs: string[];
   codeSnippet?: string;
   codeLanguage?: string;
   callout?: string;
+  calloutType?: "warning" | "info" | "tip";
   imageUrl?: string;
   imageAlt?: string;
   table?: {
@@ -81,30 +146,40 @@ export interface NewsArticle {
   slug: string;
   title: string;
   subtitle: string;
-  category: "urgent" | "malware" | "zeroday" | "apt" | "cloud";
-  categoryLabel: string;
-  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "INFO";
+  category: string;
+  categoryId?: string;
+  categoryLabel?: string;
+  severity?: "CRITICAL" | "HIGH" | "MEDIUM" | "INFO";
   status: "published" | "draft";
-  isBreaking: boolean;
+  isBreaking?: boolean;
   date: string;
   readTime: string;
   author: string;
+  authorRole?: string;
   source: string;
   sourceUrl?: string;
   coverImage?: string;
   downloadedImages?: DownloadedMediaItem[];
   views: number;
-  cveIds: string[];
+  cveIds?: string[];
   cvssScore?: string;
-  affectedProducts: string[];
-  exploitStatus: string;
+  affectedProducts?: string[];
+  exploitStatus?: string;
   summary: string;
-  keyHighlights: string[];
+  keywords: string[]; // کلیدواژه‌ها (جایگزین برچسب‌ها در انتها)
+  tags?: string[]; // پشتیبانی گذشته‌نگر
+  tldr?: string[]; // خلاصه خبر و یافته‌های کلیدی (عین ساختار بلاگ)
+  keyHighlights?: string[]; // پشتیبانی گذشته‌نگر
+  content?: {
+    intro: string;
+    sections: BlogSectionItem[];
+    conclusion: string;
+    references?: { title: string; url: string }[];
+  };
   sections: NewsSectionItem[];
-  iocs: NewsIoC[];
-  mitigationSteps: string[];
-  timeline: { time: string; event: string }[];
-  tags: string[];
+  iocs?: NewsIoC[];
+  mitigationSteps?: string[];
+  timeline?: { time: string; event: string }[];
 }
 
 export const DEFAULT_BLOG_POSTS: BlogPost[] = [
@@ -1020,56 +1095,138 @@ async function callContentApi<T>(
   }
 }
 
+const LOCAL_CATEGORIES_KEY = "roham_local_categories_v1";
+
+function getLocalCategories(): ContentCategory[] {
+  if (typeof window === "undefined") return DEFAULT_CATEGORIES;
+  try {
+    const raw = localStorage.getItem(LOCAL_CATEGORIES_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return DEFAULT_CATEGORIES;
+}
+
+function saveLocalCategories(categories: ContentCategory[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(LOCAL_CATEGORIES_KEY, JSON.stringify(categories));
+  } catch {}
+}
+
 /**
- * بارگذاری همزمان مقالات وبلاگ و اخبار رادار از دیتابیس MySQL هاست (یا حافظه محلی در پیش‌نمایش)
- * اگر دیتابیس MySQL روی هاست تازه ساخته شده و جدول محتوا خالی باشد، به‌طور خودکار مقالات پایه را در MySQL Seed می‌کند.
+ * بارگذاری همزمان مقالات وبلاگ، اخبار امنیت و دسته‌بندی‌ها از دیتابیس MySQL هاست (یا حافظه محلی)
  */
 export async function fetchContentStore(): Promise<{
   blogPosts: BlogPost[];
   newsArticles: NewsArticle[];
+  categories: ContentCategory[];
   source: "mysql" | "local";
 }> {
   const local = getLocalContentStore();
+  const localCats = getLocalCategories();
 
   const res = await callContentApi<{
     ok?: boolean;
     blogPosts?: BlogPost[];
     newsArticles?: NewsArticle[];
+    categories?: ContentCategory[];
     needsSeed?: boolean;
   }>("list", "GET");
 
   if (res.isPhpAvailable && res.ok && res.data) {
     const serverBlogs = Array.isArray(res.data.blogPosts) ? res.data.blogPosts : [];
     const serverNews = Array.isArray(res.data.newsArticles) ? res.data.newsArticles : [];
+    const serverCats = Array.isArray(res.data.categories) ? res.data.categories : [];
 
-    // اگر جدول MySQL تازه ایجاد شده و خالی است، مقالات اولیه را به سرور ارسال می‌کنیم تا در دیتابیس ذخیره شوند
-    if (serverBlogs.length === 0 && serverNews.length === 0) {
-      await callContentApi("seed_if_empty", "POST", {
-        blogPosts: DEFAULT_BLOG_POSTS,
-        newsArticles: DEFAULT_NEWS_ARTICLES,
-      });
-      saveLocalContentStore(DEFAULT_BLOG_POSTS, DEFAULT_NEWS_ARTICLES);
-      return {
-        blogPosts: DEFAULT_BLOG_POSTS,
-        newsArticles: DEFAULT_NEWS_ARTICLES,
-        source: "mysql",
-      };
-    }
+    // نرمال‌سازی فیلد keywords
+    const normalizedBlogs = (serverBlogs.length > 0 ? serverBlogs : local.blogPosts).map((b) => ({
+      ...b,
+      keywords: b.keywords && b.keywords.length > 0 ? b.keywords : b.tags || [],
+    }));
+    const normalizedNews = (serverNews.length > 0 ? serverNews : local.newsArticles).map((n) => ({
+      ...n,
+      keywords: n.keywords && n.keywords.length > 0 ? n.keywords : n.tags || [],
+    }));
+    const finalCats = serverCats.length > 0 ? serverCats : localCats;
 
-    const finalBlogs = serverBlogs.length > 0 ? serverBlogs : local.blogPosts;
-    const finalNews = serverNews.length > 0 ? serverNews : local.newsArticles;
-    saveLocalContentStore(finalBlogs, finalNews);
+    saveLocalContentStore(normalizedBlogs, normalizedNews);
+    saveLocalCategories(finalCats);
+
     return {
-      blogPosts: finalBlogs,
-      newsArticles: finalNews,
+      blogPosts: normalizedBlogs,
+      newsArticles: normalizedNews,
+      categories: finalCats,
       source: "mysql",
     };
   }
 
+  // حالت لوکال
+  const normalizedBlogs = local.blogPosts.map((b) => ({
+    ...b,
+    keywords: b.keywords && b.keywords.length > 0 ? b.keywords : b.tags || [],
+  }));
+  const normalizedNews = local.newsArticles.map((n) => ({
+    ...n,
+    keywords: n.keywords && n.keywords.length > 0 ? n.keywords : n.tags || [],
+  }));
+
   return {
-    blogPosts: local.blogPosts,
-    newsArticles: local.newsArticles,
+    blogPosts: normalizedBlogs,
+    newsArticles: normalizedNews,
+    categories: localCats,
     source: "local",
+  };
+}
+
+export async function adminSaveCategory(category: ContentCategory): Promise<{
+  ok: boolean;
+  message: string;
+  error?: string;
+  categories: ContentCategory[];
+}> {
+  const localCats = getLocalCategories();
+  const updatedList = [...localCats];
+  const existsIdx = updatedList.findIndex((c) => c.id === category.id || c.slug === category.slug);
+  if (existsIdx >= 0) {
+    updatedList[existsIdx] = category;
+  } else {
+    updatedList.push(category);
+  }
+  saveLocalCategories(updatedList);
+
+  const res = await callContentApi<{ ok?: boolean; message?: string; error?: string }>("save_category", "POST", {
+    category,
+  });
+
+  if (res.isPhpAvailable && !res.ok) {
+    const errMsg = res.data?.error || "خطا در ذخیره دسته‌بندی در دیتابیس";
+    return { ok: false, message: errMsg, error: errMsg, categories: updatedList };
+  }
+
+  return {
+    ok: true,
+    message: res.data?.message || "دسته‌بندی با موفقیت ذخیره شد.",
+    categories: updatedList,
+  };
+}
+
+export async function adminDeleteCategory(categoryId: string): Promise<{
+  ok: boolean;
+  message: string;
+  categories: ContentCategory[];
+}> {
+  const localCats = getLocalCategories();
+  const updatedList = localCats.filter((c) => c.id !== categoryId);
+  saveLocalCategories(updatedList);
+
+  await callContentApi("delete_category", "POST", { id: categoryId });
+  return {
+    ok: true,
+    message: "دسته‌بندی حذف شد.",
+    categories: updatedList,
   };
 }
 

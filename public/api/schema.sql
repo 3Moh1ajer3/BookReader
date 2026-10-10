@@ -52,3 +52,14 @@ CREATE TABLE IF NOT EXISTS `roham_content` (
   PRIMARY KEY (`id`),
   KEY `idx_roham_content_type` (`content_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `roham_categories` (
+  `id` VARCHAR(64) NOT NULL,
+  `name` VARCHAR(190) NOT NULL,
+  `slug` VARCHAR(190) NOT NULL,
+  `description` TEXT NULL,
+  `target_type` VARCHAR(32) NOT NULL DEFAULT 'all',
+  `updated_at` VARCHAR(64) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_roham_categories_slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

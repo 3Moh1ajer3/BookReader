@@ -23,3 +23,5 @@ define('ROHAM_DEFAULT_ADMIN_NAME',  'مدیر ارشد رهام');
 define('ROHAM_DEFAULT_ADMIN_EMAIL', 'admin@roham.sec');
 define('ROHAM_DEFAULT_ADMIN_USER',  'admin');
 define('ROHAM_DEFAULT_ADMIN_PASS',  'Admin@1234');
+// کلید اختصاصی انتشار خودکار پست‌ها توسط بات و هوش مصنوعی (AI Posting API Key)
+define('ROHAM_AI_POSTING_KEY', 'roham_ai_publisher_secret_key_2026_xyz');

@@ -46,10 +46,11 @@ function roham_upsert_content_row(?PDO $pdo, ?string $driver, string $id, string
     return false;
 }
 
-// ۱. دریافت لیست مقالات وبلاگ و اخبار
+// ۱. دریافت لیست مقالات وبلاگ، اخبار و دسته‌بندی‌ها
 if ($action === 'list') {
     $blogPosts = [];
     $newsArticles = [];
+    $categories = [];
 
     if ($pdo !== null) {
         try {
@@ -63,6 +64,19 @@ if ($action === 'list') {
                     $newsArticles[] = $decoded;
                 }
             }
+
+            // واکشی دسته‌بندی‌ها
+            $catRows = $pdo->query("SELECT * FROM roham_categories ORDER BY updated_at DESC")->fetchAll();
+            foreach ($catRows as $cr) {
+                $categories[] = [
+                    'id' => (string)$cr['id'],
+                    'name' => (string)$cr['name'],
+                    'slug' => (string)$cr['slug'],
+                    'description' => (string)($cr['description'] ?? ''),
+                    'targetType' => (string)($cr['target_type'] ?? 'all'),
+                    'updatedAt' => (string)($cr['updated_at'] ?? ''),
+                ];
+            }
         } catch (Throwable $e) {
             error_log('Roham content list error: ' . $e->getMessage());
         }
@@ -72,6 +86,7 @@ if ($action === 'list') {
         'ok' => true,
         'blogPosts' => $blogPosts,
         'newsArticles' => $newsArticles,
+        'categories' => $categories,
     ]);
 }
 
@@ -125,13 +140,18 @@ if ($action === 'view') {
     roham_respond(['ok' => true]);
 }
 
-// از اینجا به بعد نیازمند احراز هویت مدیر ارشد (Admin) است
-$db = roham_load_db();
-$auth = roham_require_auth($db);
-$currentUser = $auth['user'];
+// از اینجا به بعد نیازمند احراز هویت مدیر ارشد (Admin) یا کلید اختصاصی انتشار هوش مصنوعی است
+$providedApiKey = $_SERVER['HTTP_X_API_KEY'] ?? ($input['api_key'] ?? ($_GET['api_key'] ?? ''));
+$isAiKeyValid = (defined('ROHAM_AI_POSTING_KEY') && !empty($providedApiKey) && hash_equals(ROHAM_AI_POSTING_KEY, $providedApiKey));
 
-if (($currentUser['role'] ?? 'user') !== 'admin') {
-    roham_respond(['ok' => false, 'error' => 'دسترسی غیرمجاز: فقط مدیر ارشد مجاز به مدیریت محتوای وبلاگ و اخبار است.'], 403);
+if (!$isAiKeyValid) {
+    $db = roham_load_db();
+    $auth = roham_require_auth($db);
+    $currentUser = $auth['user'];
+
+    if (($currentUser['role'] ?? 'user') !== 'admin') {
+        roham_respond(['ok' => false, 'error' => 'دسترسی غیرمجاز: فقط مدیر ارشد یا ربات‌های مجاز با کلید API می‌توانند محتوا منتشر کنند.'], 403);
+    }
 }
 
 // ۴. ذخیره یا ویرایش مقاله وبلاگ فنی
@@ -197,7 +217,75 @@ if ($action === 'delete_news') {
     roham_respond(['ok' => true, 'message' => 'گزارش خبری از دیتابیس حذف شد.']);
 }
 
-// ۸. بازنشانی مقالات پیش‌فرض
+// ۸. ذخیره یا ویرایش دسته‌بندی
+if ($action === 'save_category') {
+    $category = $input['category'] ?? null;
+    if (!is_array($category) || empty($category['name'])) {
+        roham_respond(['ok' => false, 'error' => 'نام دسته‌بندی الزامی است.'], 400);
+    }
+
+    $id = trim((string)($category['id'] ?? 'cat-' . substr(md5(uniqid()), 0, 8)));
+    $name = trim((string)$category['name']);
+    $slug = trim((string)($category['slug'] ?? ''));
+    if ($slug === '') {
+        $slug = preg_replace('/[^\p{L}\p{Nd}\-]+/u', '-', mb_strtolower($name));
+        $slug = trim($slug, '-');
+    }
+    $description = trim((string)($category['description'] ?? ''));
+    $targetType = trim((string)($category['targetType'] ?? 'all'));
+    $now = gmdate('c');
+
+    if ($pdo !== null) {
+        try {
+            if ($driver === 'mysql') {
+                $stmt = $pdo->prepare("
+                    INSERT INTO roham_categories (id, name, slug, description, target_type, updated_at)
+                    VALUES (:id, :name, :slug, :description, :target_type, :updated_at)
+                    ON DUPLICATE KEY UPDATE
+                        name = VALUES(name),
+                        slug = VALUES(slug),
+                        description = VALUES(description),
+                        target_type = VALUES(target_type),
+                        updated_at = VALUES(updated_at)
+                ");
+            } else {
+                $stmt = $pdo->prepare("
+                    INSERT OR REPLACE INTO roham_categories (id, name, slug, description, target_type, updated_at)
+                    VALUES (:id, :name, :slug, :description, :target_type, :updated_at)
+                ");
+            }
+            $stmt->execute([
+                ':id' => $id,
+                ':name' => $name,
+                ':slug' => $slug,
+                ':description' => $description,
+                ':target_type' => $targetType,
+                ':updated_at' => $now,
+            ]);
+        } catch (Throwable $e) {
+            error_log('Roham category save error: ' . $e->getMessage());
+            roham_respond(['ok' => false, 'error' => 'خطا در ذخیره دسته‌بندی در دیتابیس'], 500);
+        }
+    }
+
+    roham_respond(['ok' => true, 'message' => 'دسته‌بندی با موفقیت ذخیره شد.']);
+}
+
+// ۹. حذف دسته‌بندی
+if ($action === 'delete_category') {
+    $id = trim((string)($input['id'] ?? ''));
+    if ($id !== '' && $pdo !== null) {
+        try {
+            $stmt = $pdo->prepare("DELETE FROM roham_categories WHERE id = :id");
+            $stmt->execute([':id' => $id]);
+        } catch (Throwable $e) {
+            error_log('Roham category delete error: ' . $e->getMessage());
+        }
+    }
+    roham_respond(['ok' => true, 'message' => 'دسته‌بندی حذف شد.']);
+}
+
+// ۱۰. بازنشانی مقالات پیش‌فرض
 if ($action === 'reset_defaults') {
     if ($pdo !== null) {
         $pdo->exec("DELETE FROM roham_content");

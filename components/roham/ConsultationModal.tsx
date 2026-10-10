@@ -68,23 +68,23 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({ isOpen, on
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6 text-slate-200 shadow-2xl animate-in zoom-in-95 duration-200"
+        className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6 text-slate-800 dark:text-slate-200 shadow-2xl animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
         style={{ direction: "rtl" }}
       >
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-950/80 border border-emerald-800/50 flex items-center justify-center text-emerald-400">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800/50 flex items-center justify-center text-emerald-700 dark:text-emerald-400">
               <Building2 className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-white text-base">درخواست مشاوره و خدمات سازمانی رهام</h3>
-              <p className="text-[11px] text-slate-400">Roham Advisory & Security Services</p>
+              <h3 className="font-bold text-slate-900 dark:text-white text-base">درخواست مشاوره و خدمات سازمانی رهام</h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Roham Advisory & Security Services</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -92,22 +92,22 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({ isOpen, on
 
         {submitted ? (
           <div className="space-y-4 py-4 text-center">
-            <div className="w-14 h-14 rounded-full bg-emerald-950/80 border border-emerald-800/60 flex items-center justify-center text-emerald-400 mx-auto">
+            <div className="w-14 h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mx-auto">
               <CheckCircle2 className="w-8 h-8" />
             </div>
-            <h4 className="text-lg font-bold text-white">درخواست جلسه با موفقیت ثبت شد</h4>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-sm mx-auto leading-relaxed">
+            <h4 className="text-lg font-bold text-slate-900 dark:text-white">درخواست جلسه با موفقیت ثبت شد</h4>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-sm mx-auto leading-relaxed">
               تیم مشاوره راهبردی رهام ظرف حداکثر ۲۴ ساعت کاری جهت هماهنگی جلسه محرمانه و بررسی جزئیات با شما تماس خواهد گرفت.
             </p>
 
-            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs">
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 font-mono text-xs">
               <span className="text-slate-500 block mb-1 font-sans">شماره پیگیری درخواست:</span>
-              <span className="text-emerald-400 font-bold text-sm tracking-widest">{ticketId}</span>
+              <span className="text-emerald-700 dark:text-emerald-400 font-bold text-sm tracking-widest">{ticketId}</span>
             </div>
 
             <button
               onClick={handleReset}
-              className="mt-2 w-full py-2.5 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors cursor-pointer"
+              className="mt-2 w-full py-2.5 text-xs font-semibold text-slate-700 dark:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors cursor-pointer"
             >
               بستن پنجره
             </button>
@@ -115,48 +115,49 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({ isOpen, on
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1 text-right">
-              <label className="text-xs font-medium text-slate-300">نام و نام خانوادگی / سمت سازمانی *</label>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">نام و نام خانوادگی / سمت سازمانی *</label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="مثلاً: علی رضایی - مدیر امنیت اطلاعات"
-                className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1 text-right">
-                <label className="text-xs font-medium text-slate-300">شماره تماس یا آیدی تلگرام *</label>
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">شماره تماس یا آیدی تلگرام *</label>
                 <input
                   type="text"
                   required
                   value={contact}
                   onChange={(e) => setContact(e.target.value)}
                   placeholder="0912xxxxxxx یا @username"
-                  className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 dir-ltr text-left"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 text-left"
+                  style={{ direction: "ltr" }}
                 />
               </div>
 
               <div className="space-y-1 text-right">
-                <label className="text-xs font-medium text-slate-300">نام شرکت / سازمان</label>
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">نام شرکت / سازمان</label>
                 <input
                   type="text"
                   value={organization}
                   onChange={(e) => setOrganization(e.target.value)}
                   placeholder="نام شرکت یا کسب‌وکار"
-                  className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
 
             <div className="space-y-1 text-right">
-              <label className="text-xs font-medium text-slate-300">نوع خدمت مورد نظر</label>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">نوع خدمت مورد نظر</label>
               <select
                 value={service}
                 onChange={(e) => setService(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
               >
                 <option value="hardening">مشاوره و معماری هاردنینگ زیرساخت</option>
                 <option value="training">آموزش‌های سازمانی، Zero-Day و تحلیل بدافزار</option>
@@ -166,20 +167,20 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({ isOpen, on
             </div>
 
             <div className="space-y-1 text-right">
-              <label className="text-xs font-medium text-slate-300">توضیحات یا نیازهای ویژه (اختیاری)</label>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">توضیحات یا نیازهای ویژه (اختیاری)</label>
               <textarea
                 rows={3}
                 value={details}
                 onChange={(e) => setDetails(e.target.value)}
                 placeholder="توضیح مختصری درباره چالش‌های امنیتی یا بازه زمانی مد نظر..."
-                className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 resize-none"
+                className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 resize-none"
               />
             </div>
 
             <div className="pt-2">
               <button
                 type="submit"
-                className="w-full py-3 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all shadow-md shadow-emerald-950 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>ارسال درخواست محرمانه</span>
                 <ArrowLeft className="w-4 h-4" />

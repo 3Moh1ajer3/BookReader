@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Shield, BookOpen, Menu, X, ArrowLeft, User, ShieldCheck, Sun, Moon } from "lucide-react";
+import { Shield, BookOpen, Menu, X, ArrowLeft, User, ShieldCheck, Sun, Moon, Send } from "lucide-react";
 import { RohamUser } from "@/lib/authSync";
 
 export type RohamTab = "home" | "anti-stealer" | "courses" | "blog" | "radar" | "services";
@@ -44,7 +44,7 @@ export const RohamHeader: React.FC<RohamHeaderProps> = ({
 
   const navItems: { id: RohamTab; label: string }[] = [
     { id: "home", label: "صفحه اصلی" },
-    { id: "radar", label: "رادار تهدیدات" },
+    { id: "radar", label: "اخبار امنیت" },
     { id: "blog", label: "وبلاگ و تحقیقات" },
     { id: "anti-stealer", label: "آنتی‌استیلر هوشمند" },
     { id: "courses", label: "دوره‌های آموزشی" },
@@ -164,6 +164,22 @@ export const RohamHeader: React.FC<RohamHeaderProps> = ({
             </button>
           )}
 
+          {/* Telegram Channel Button */}
+          <a
+            href="https://t.me/RohamSec"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border transition-all whitespace-nowrap cursor-pointer ${
+              isDark
+                ? "bg-sky-950/60 border-sky-800/60 text-sky-300 hover:bg-sky-900/60 hover:text-white"
+                : "bg-sky-50 border-sky-200 text-sky-700 hover:bg-sky-100 hover:text-sky-900"
+            }`}
+            title="عضویت در کانال تلگرام امنیت رهام (@RohamSec)"
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">کانال تلگرام</span>
+          </a>
+
           <button
             onClick={onOpenReader}
             className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border transition-all whitespace-nowrap cursor-pointer ${
@@ -276,6 +292,15 @@ export const RohamHeader: React.FC<RohamHeaderProps> = ({
           ))}
 
           <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-2">
+            <a
+              href="https://t.me/RohamSec"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 px-3 rounded-xl text-center text-xs font-bold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800/60 flex items-center justify-center gap-2"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>کانال تلگرام رهام (@RohamSec)</span>
+            </a>
             <button
               onClick={() => {
                 setMobileMenuOpen(false);

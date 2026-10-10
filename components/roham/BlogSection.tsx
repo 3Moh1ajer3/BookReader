@@ -25,10 +25,13 @@ import {
   X,
   Sparkles,
   FileText,
+  Tag,
 } from "lucide-react";
 import {
   BlogPost,
+  ContentCategory,
   DEFAULT_BLOG_POSTS,
+  DEFAULT_CATEGORIES,
   fetchContentStore,
   incrementContentView,
 } from "@/lib/contentStore";
@@ -63,6 +66,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
 }) => {
   const isDark = portalTheme === "dark";
   const [posts, setPosts] = useState<BlogPost[]>(DEFAULT_BLOG_POSTS);
+  const [availableCategories, setAvailableCategories] = useState<ContentCategory[]>(DEFAULT_CATEGORIES);
   const [selectedCategory, setSelectedCategory] = useState<string>("همه");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"latest" | "popular">("latest");
@@ -120,11 +124,16 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
   useEffect(() => {
     let cancelled = false;
     fetchContentStore().then((res) => {
-      if (!cancelled && res.blogPosts.length > 0) {
-        const visible = isAdmin
-          ? res.blogPosts
-          : res.blogPosts.filter((p) => p.status !== "draft");
-        setPosts(visible.length > 0 ? visible : DEFAULT_BLOG_POSTS);
+      if (!cancelled) {
+        if (res.blogPosts && res.blogPosts.length > 0) {
+          const visible = isAdmin
+            ? res.blogPosts
+            : res.blogPosts.filter((p) => p.status !== "draft");
+          setPosts(visible.length > 0 ? visible : DEFAULT_BLOG_POSTS);
+        }
+        if (res.categories && res.categories.length > 0) {
+          setAvailableCategories(res.categories);
+        }
       }
     });
 
@@ -148,6 +157,15 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
     () => posts.find((p) => p.slug === activePostSlug || p.id === activePostSlug) || null,
     [posts, activePostSlug]
   );
+
+  const postKeywords = useMemo(() => {
+    if (!activeArticle) return [];
+    const list =
+      activeArticle.keywords && activeArticle.keywords.length > 0
+        ? activeArticle.keywords
+        : activeArticle.tags || [];
+    return list.filter(Boolean);
+  }, [activeArticle]);
 
   // Track reading progress & active section in Full-Page Article mode
   useEffect(() => {
@@ -262,14 +280,12 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
     }
   };
 
-  const categories = [
-    "همه",
-    "استیلر و بدافزار",
-    "دفاع و هاردنینگ",
-    "هویت و سشن‌ها",
-    "تحقیقات زیرودی",
-    "نشان‌شده‌ها",
-  ];
+  const categories = useMemo(() => {
+    const dynamicNames = availableCategories
+      .filter((c) => c.targetType === "all" || c.targetType === "blog")
+      .map((c) => c.name);
+    return Array.from(new Set(["همه", ...dynamicNames, "نشان‌شده‌ها"]));
+  }, [availableCategories]);
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -976,6 +992,32 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                       ))}
                     </ul>
                   )}
+                </section>
+              )}
+
+              {/* Prominent Keywords Section (کلیدواژه‌های مقاله) - Identical to News format */}
+              {postKeywords.length > 0 && (
+                <section className={`p-6 sm:p-7 rounded-2xl border ${tc.surface} ${tc.border} space-y-3.5`}>
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <h4 className={`text-xs sm:text-sm font-extrabold ${tc.heading}`}>
+                      کلیدواژه‌های این مقاله:
+                    </h4>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {postKeywords.map((kw) => (
+                      <span
+                        key={kw}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+                          isDark
+                            ? "bg-slate-900 border-slate-800 text-emerald-300 hover:border-emerald-500/50"
+                            : "bg-white border-slate-200 text-emerald-800 shadow-2xs hover:border-emerald-300"
+                        }`}
+                      >
+                        #{kw}
+                      </span>
+                    ))}
+                  </div>
                 </section>
               )}
 

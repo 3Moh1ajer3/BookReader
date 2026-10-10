@@ -711,6 +711,8 @@ export default function Home() {
           initialTab={adminInitialTab}
           onOpenBlogPost={handleOpenBlogPostFromCms}
           onOpenNewsArticle={handleOpenNewsFromCms}
+          portalTheme={portalTheme}
+          onToggleTheme={handleTogglePortalTheme}
         />
         {globalAuthModal}
       </>

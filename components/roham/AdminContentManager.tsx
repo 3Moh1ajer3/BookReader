@@ -19,7 +19,9 @@ import {
   PlusCircle,
   MinusCircle,
   ExternalLink,
-  Sparkles,
+  FolderTree,
+  Tag,
+  Layers,
 } from "lucide-react";
 import {
   BlogPost,
@@ -27,27 +29,33 @@ import {
   NewsArticle,
   NewsSectionItem,
   NewsIoC,
+  ContentCategory,
+  DEFAULT_CATEGORIES,
   fetchContentStore,
   adminSaveBlogPost,
   adminDeleteBlogPost,
   adminSaveNewsArticle,
   adminDeleteNewsArticle,
+  adminSaveCategory,
+  adminDeleteCategory,
   adminResetDefaultContent,
 } from "@/lib/contentStore";
-import { SmartAutoPublisherPanel } from "./SmartAutoPublisherPanel";
 
 interface AdminContentManagerProps {
   onOpenBlogPost?: (slug: string) => void;
   onOpenNewsArticle?: (slug: string) => void;
+  portalTheme?: "light" | "dark";
 }
 
 export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
   onOpenBlogPost,
   onOpenNewsArticle,
+  portalTheme = "light",
 }) => {
-  const [cmsSubTab, setCmsSubTab] = useState<"blog" | "news" | "auto_publisher">("auto_publisher");
+  const [cmsSubTab, setCmsSubTab] = useState<"blog" | "news" | "categories">("blog");
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
+  const [categories, setCategories] = useState<ContentCategory[]>(DEFAULT_CATEGORIES);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(
@@ -57,13 +65,18 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
   // Editor state
   const [editingBlog, setEditingBlog] = useState<BlogPost | null>(null);
   const [editingNews, setEditingNews] = useState<NewsArticle | null>(null);
+  const [editingCategory, setEditingCategory] = useState<ContentCategory | null>(null);
+  const [isNewCategoryModal, setIsNewCategoryModal] = useState<boolean>(false);
 
   useEffect(() => {
     let cancelled = false;
     fetchContentStore().then((res) => {
       if (!cancelled) {
-        setBlogPosts(res.blogPosts);
-        setNewsArticles(res.newsArticles);
+        setBlogPosts(res.blogPosts || []);
+        setNewsArticles(res.newsArticles || []);
+        if (res.categories && res.categories.length > 0) {
+          setCategories(res.categories);
+        }
         setLoading(false);
       }
     });
@@ -75,6 +88,74 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
   const showToast = (type: "success" | "error", text: string) => {
     setFeedback({ type, text });
     setTimeout(() => setFeedback(null), 4000);
+  };
+
+  // ============================================================================
+  // CATEGORIES CRUD HANDLERS
+  // ============================================================================
+  const handleStartNewCategory = () => {
+    setEditingCategory({
+      id: `cat-${Date.now()}`,
+      name: "",
+      slug: "",
+      description: "",
+      targetType: "all",
+    });
+    setIsNewCategoryModal(true);
+  };
+
+  const handleSaveCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory || !editingCategory.name.trim()) {
+      showToast("error", "لطفاً نام دسته‌بندی را وارد نمایید.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const slug =
+        editingCategory.slug.trim() ||
+        editingCategory.name
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, "-")
+          .replace(/[^a-z0-9-]/g, "") ||
+        `cat-${Date.now().toString().slice(-4)}`;
+
+      const cleanCat: ContentCategory = {
+        ...editingCategory,
+        slug,
+        targetType: editingCategory.targetType || "all",
+      };
+
+      const res = await adminSaveCategory(cleanCat);
+      if (res.ok) {
+        setCategories(res.categories);
+        setEditingCategory(null);
+        setIsNewCategoryModal(false);
+        showToast("success", res.message || "دسته‌بندی با موفقیت ذخیره شد.");
+      } else {
+        showToast("error", res.error || "خطا در ذخیره دسته‌بندی.");
+      }
+    } catch {
+      showToast("error", "خطای شبکه هنگام ارتباط با سرور.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteCategory = async (catId: string) => {
+    if (!confirm("آیا از حذف این دسته‌بندی اطمینان دارید؟")) return;
+    setSaving(true);
+    try {
+      const res = await adminDeleteCategory(catId);
+      setCategories(res.categories);
+      showToast("success", "دسته‌بندی با موفقیت حذف شد.");
+    } catch {
+      showToast("error", "خطا در حذف دسته‌بندی.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ============================================================================
@@ -370,16 +451,26 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
             </div>
 
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-300 block">دسته‌بندی تخصصی</label>
+              <label className="font-bold text-slate-300 block">دسته‌بندی تخصصی *</label>
               <select
                 value={editingBlog.category}
-                onChange={(e) => setEditingBlog({ ...editingBlog, category: e.target.value })}
+                onChange={(e) => {
+                  const selCat = categories.find((c) => c.name === e.target.value);
+                  setEditingBlog({
+                    ...editingBlog,
+                    category: e.target.value,
+                    categoryId: selCat?.slug || editingBlog.categoryId,
+                  });
+                }}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:border-emerald-500 focus:outline-none"
               >
-                <option value="استیلر و بدافزار">استیلر و بدافزار</option>
-                <option value="دفاع و هاردنینگ">دفاع و هاردنینگ</option>
-                <option value="هویت و سشن‌ها">هویت و سشن‌ها</option>
-                <option value="تحقیقات زیرودی">تحقیقات زیرودی</option>
+                {categories
+                  .filter((c) => c.targetType === "all" || c.targetType === "blog")
+                  .map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
               </select>
             </div>
 
@@ -446,19 +537,21 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
 
             <div className="space-y-1.5">
               <label className="font-bold text-slate-300 block">
-                برچسب‌ها (جداشده با کاما انگلیسی ,)
+                کلیدواژه‌ها (جداشده با کاما انگلیسی ,)
               </label>
               <input
                 type="text"
-                value={editingBlog.tags.join(", ")}
-                onChange={(e) =>
+                value={(editingBlog.keywords && editingBlog.keywords.length > 0 ? editingBlog.keywords : editingBlog.tags || []).join(", ")}
+                onChange={(e) => {
+                  const items = e.target.value.split(",").map((s) => s.trim()).filter(Boolean);
                   setEditingBlog({
                     ...editingBlog,
-                    tags: e.target.value.split(",").map((s) => s.trim()),
-                  })
-                }
+                    keywords: items,
+                    tags: items,
+                  });
+                }}
                 style={{ direction: "ltr", textAlign: "left" }}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-200 font-mono"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-emerald-400 font-mono"
               />
             </div>
           </div>
@@ -800,22 +893,27 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
             </div>
 
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-300 block">دسته‌بندی رادار خبری</label>
+              <label className="font-bold text-slate-300 block">دسته‌بندی خبر امنیت *</label>
               <select
                 value={editingNews.category}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const selCat = categories.find((c) => c.name === e.target.value);
                   setEditingNews({
                     ...editingNews,
-                    category: e.target.value as NewsArticle["category"],
-                  })
-                }
+                    category: e.target.value,
+                    categoryLabel: e.target.value,
+                    categoryId: selCat?.slug || editingNews.categoryId,
+                  });
+                }}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white"
               >
-                <option value="urgent">هشدار فوری و فعال (Urgent)</option>
-                <option value="zeroday">آسیب‌پذیری روز صفر (0-Day)</option>
-                <option value="malware">بدافزار و استیلر (Malware)</option>
-                <option value="apt">حملات هدفمند و APT</option>
-                <option value="cloud">امنیت ابری و زنجیره تامین</option>
+                {categories
+                  .filter((c) => c.targetType === "all" || c.targetType === "news")
+                  .map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
               </select>
             </div>
 
@@ -906,6 +1004,26 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
                 }
                 style={{ direction: "ltr", textAlign: "left" }}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-200 font-mono"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-300 block">
+                کلیدواژه‌ها (جداشده با کاما انگلیسی ,)
+              </label>
+              <input
+                type="text"
+                value={(editingNews.keywords && editingNews.keywords.length > 0 ? editingNews.keywords : editingNews.tags || []).join(", ")}
+                onChange={(e) => {
+                  const items = e.target.value.split(",").map((s) => s.trim()).filter(Boolean);
+                  setEditingNews({
+                    ...editingNews,
+                    keywords: items,
+                    tags: items,
+                  });
+                }}
+                style={{ direction: "ltr", textAlign: "left" }}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-emerald-400 font-mono"
               />
             </div>
           </div>
@@ -1138,18 +1256,23 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
             </div>
 
             <div className="space-y-1.5">
-              <label className="font-bold text-emerald-400 block">
-                گام‌های مهار و امن‌سازی (هر خط یک اقدام عملیاتی)
+              <label className="font-bold text-slate-300 block">
+                جمع‌بندی و نتیجه‌گیری نهایی خبر (عین ساختار بلاگ)
               </label>
               <textarea
-                rows={6}
-                value={editingNews.mitigationSteps.join("\n")}
+                rows={4}
+                value={editingNews.content?.conclusion || ""}
                 onChange={(e) =>
                   setEditingNews({
                     ...editingNews,
-                    mitigationSteps: e.target.value.split("\n"),
+                    content: {
+                      intro: editingNews.content?.intro || "",
+                      sections: editingNews.content?.sections || [],
+                      conclusion: e.target.value,
+                    },
                   })
                 }
+                placeholder="دیدگاه تحلیلی و جمع‌بندی نهایی درباره این رویداد یا آسیب‌پذیری..."
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-slate-200 leading-relaxed"
               />
             </div>
@@ -1205,36 +1328,25 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
       )}
 
       {/* CMS Header & Sub-tab Switcher */}
-      <div className="rounded-2xl bg-slate-900 border border-slate-800 p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-xs">
         <div className="space-y-1">
-          <h2 className="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
-            <FileText className="w-5 h-5 text-emerald-400" />
-            <span>سیستم مدیریت محتوای پویا (CMS) — وبلاگ تخصصی و رادار اخبار</span>
+          <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+            <FileText className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            <span>مدیریت محتوا (CMS) — مقالات تخصصی، اخبار امنیت و دسته‌بندی‌ها</span>
           </h2>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            تمامی مقالات وبلاگ و اخبار امنیتی در جدول <code className="text-emerald-400 font-mono">roham_content</code> دیتابیس MySQL هاست شما ذخیره می‌شوند و به صورت تمام‌صفحه قابل مطالعه و اشتراک‌گذاری هستند.
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            تمامی مقالات، اخبار و دسته‌بندی‌ها در دیتابیس MySQL هاست ذخیره و مستقیماً در بخش‌های عمومی سایت همگام‌سازی می‌شوند.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <div className="flex flex-wrap items-center p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs gap-1">
-            <button
-              onClick={() => setCmsSubTab("auto_publisher")}
-              className={`px-3.5 py-2 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
-                cmsSubTab === "auto_publisher"
-                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-900/30"
-                  : "text-emerald-300 hover:text-white"
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>پست‌گذار هوشمند (AI Auto-Publisher)</span>
-            </button>
+          <div className="flex flex-wrap items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs gap-1">
             <button
               onClick={() => setCmsSubTab("blog")}
               className={`px-3.5 py-2 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
                 cmsSubTab === "blog"
-                  ? "bg-emerald-600 text-white"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
@@ -1244,81 +1356,288 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
               onClick={() => setCmsSubTab("news")}
               className={`px-3.5 py-2 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
                 cmsSubTab === "news"
-                  ? "bg-rose-600 text-white"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               <Radio className="w-3.5 h-3.5" />
-              <span>اخبار و رادار تهدیدات ({newsArticles.length})</span>
+              <span>اخبار امنیت ({newsArticles.length})</span>
+            </button>
+            <button
+              onClick={() => setCmsSubTab("categories")}
+              className={`px-3.5 py-2 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                cmsSubTab === "categories"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              <FolderTree className="w-3.5 h-3.5" />
+              <span>دسته‌بندی‌ها ({categories.length})</span>
             </button>
           </div>
 
-          {cmsSubTab === "blog" ? (
+          {cmsSubTab === "blog" && (
             <button
               onClick={handleStartNewBlog}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
             >
               <Plus className="w-4 h-4" />
               <span>نوشتن مقاله جدید</span>
             </button>
-          ) : (
+          )}
+
+          {cmsSubTab === "news" && (
             <button
               onClick={handleStartNewNews}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
             >
               <Plus className="w-4 h-4" />
-              <span>انتشار خبر امنیتی جدید</span>
+              <span>انتشار خبر امنیت جدید</span>
+            </button>
+          )}
+
+          {cmsSubTab === "categories" && (
+            <button
+              onClick={handleStartNewCategory}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+            >
+              <Plus className="w-4 h-4" />
+              <span>ایجاد دسته‌بندی جدید</span>
             </button>
           )}
 
           <button
             onClick={handleResetAllDefaults}
-            className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white text-xs cursor-pointer"
-            title="بازنشانی مقالات پیش‌فرض"
+            className="p-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs cursor-pointer"
+            title="بازنشانی محتوای پیش‌فرض"
           >
             <RotateCcw className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Sub-tab 0: Smart Dual-Model AI Auto-Publisher */}
-      {cmsSubTab === "auto_publisher" && (
-        <SmartAutoPublisherPanel
-          onPublishBlog={async (post, openInEditor) => {
-            if (openInEditor) {
-              setEditingBlog(post);
-              return;
-            }
-            const res = await adminSaveBlogPost(post);
-            if (res.ok) {
-              setBlogPosts(res.blogPosts);
-              setCmsSubTab("blog");
-              showToast(
-                "success",
-                "مقاله هوشمند با موفقیت در دیتابیس ذخیره و در بخش وبلاگ (/blog) منتشر شد."
+      {/* Sub-tab 0: Categories Management */}
+      {cmsSubTab === "categories" && (
+        <div className="space-y-4">
+          {/* Header Banner */}
+          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <FolderTree className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>لیست دسته‌بندی‌های رسمی مقالات و اخبار</span>
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                دسته‌بندی‌های زیر در تمام فرم‌های ثبت پست و فیلترهای وبلاگ و اخبار امنیت نمایش داده می‌شوند.
+              </p>
+            </div>
+            <button
+              onClick={handleStartNewCategory}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+            >
+              <Plus className="w-4 h-4" />
+              <span>افزودن دسته‌بندی جدید</span>
+            </button>
+          </div>
+
+          {/* Categories Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {categories.map((cat) => {
+              const blogCount = blogPosts.filter(
+                (p) => p.category === cat.name || p.categoryId === cat.slug
+              ).length;
+              const newsCount = newsArticles.filter(
+                (n) => n.category === cat.name || n.categoryId === cat.slug
+              ).length;
+
+              return (
+                <div
+                  key={cat.id}
+                  className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3 shadow-xs"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-extrabold text-sm text-slate-900 dark:text-white">
+                          {cat.name}
+                        </span>
+                        <span className="font-mono text-[11px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                          {cat.slug}
+                        </span>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${
+                            cat.targetType === "blog"
+                              ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30"
+                              : cat.targetType === "news"
+                              ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30"
+                              : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+                          }`}
+                        >
+                          {cat.targetType === "blog"
+                            ? "فقط وبلاگ"
+                            : cat.targetType === "news"
+                            ? "فقط اخبار"
+                            : "عمومی (وبلاگ + اخبار)"}
+                        </span>
+                      </div>
+                      {cat.description && (
+                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                          {cat.description}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => {
+                          setEditingCategory(cat);
+                          setIsNewCategoryModal(true);
+                        }}
+                        className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                        title="ویرایش دسته‌بندی"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCategory(cat.id)}
+                        className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer border border-rose-200 dark:border-rose-900/40"
+                        title="حذف دسته‌بندی"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                    <div className="flex items-center gap-3">
+                      <span>مقالات وبلاگ: <strong className="text-slate-900 dark:text-white font-bold">{blogCount}</strong></span>
+                      <span>·</span>
+                      <span>اخبار امنیت: <strong className="text-slate-900 dark:text-white font-bold">{newsCount}</strong></span>
+                    </div>
+                    <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
+                      فعال در سیستم
+                    </span>
+                  </div>
+                </div>
               );
-            } else {
-              showToast("error", res.error || "خطا در ذخیره مقاله");
-            }
-          }}
-          onPublishNews={async (article, openInEditor) => {
-            if (openInEditor) {
-              setEditingNews(article);
-              return;
-            }
-            const res = await adminSaveNewsArticle(article);
-            if (res.ok) {
-              setNewsArticles(res.newsArticles);
-              setCmsSubTab("news");
-              showToast(
-                "success",
-                "گزارش خبری هوشمند با موفقیت در دیتابیس ذخیره و در رادار تهدیدات (/radar) منتشر شد."
-              );
-            } else {
-              showToast("error", res.error || "خطا در ذخیره خبر");
-            }
-          }}
-        />
+            })}
+          </div>
+
+          {/* Edit/Create Category Modal */}
+          {isNewCategoryModal && editingCategory && (
+            <div
+              className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+              onClick={() => setIsNewCategoryModal(false)}
+            >
+              <div
+                className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-5 text-slate-800 dark:text-slate-200 shadow-2xl animate-in zoom-in-95 duration-200"
+                onClick={(e) => e.stopPropagation()}
+                style={{ direction: "rtl" }}
+              >
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <FolderTree className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                    <h3 className="font-extrabold text-slate-900 dark:text-white text-base">
+                      {editingCategory.name ? "ویرایش دسته‌بندی" : "افزودن دسته‌بندی جدید"}
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setIsNewCategoryModal(false)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveCategory} className="space-y-4 text-xs">
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-700 dark:text-slate-300 block">
+                      نام دسته‌بندی (فارسی) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editingCategory.name}
+                      onChange={(e) =>
+                        setEditingCategory({ ...editingCategory, name: e.target.value })
+                      }
+                      placeholder="مثال: حملات زنجیره تامین (Supply Chain)"
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-700 dark:text-slate-300 block">
+                      شناسه یکتا یا نامک انگلیسی (Slug)
+                    </label>
+                    <input
+                      type="text"
+                      value={editingCategory.slug}
+                      onChange={(e) =>
+                        setEditingCategory({ ...editingCategory, slug: e.target.value })
+                      }
+                      placeholder="مثال: supply-chain"
+                      style={{ direction: "ltr", textAlign: "left" }}
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-emerald-700 dark:text-emerald-400 font-mono focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-700 dark:text-slate-300 block">
+                      بخش مجاز استفاده (دامنه دسته‌بندی)
+                    </label>
+                    <select
+                      value={editingCategory.targetType || "all"}
+                      onChange={(e) =>
+                        setEditingCategory({
+                          ...editingCategory,
+                          targetType: e.target.value as "all" | "blog" | "news",
+                        })
+                      }
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white"
+                    >
+                      <option value="all">عمومی (هم وبلاگ و هم اخبار امنیت)</option>
+                      <option value="blog">فقط مقالات وبلاگ تخصصی</option>
+                      <option value="news">فقط اخبار امنیت</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-700 dark:text-slate-300 block">
+                      توضیحات کوتاه دسته‌بندی
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={editingCategory.description || ""}
+                      onChange={(e) =>
+                        setEditingCategory({ ...editingCategory, description: e.target.value })
+                      }
+                      placeholder="شرح کوتاه درباره مقالات و اخباری که در این بخش منتشر می‌شوند..."
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setIsNewCategoryModal(false)}
+                      className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold cursor-pointer"
+                    >
+                      انصراف
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{saving ? "در حال ذخیره..." : "ذخیره دسته‌بندی"}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Sub-tab 1: Blog Posts List */}

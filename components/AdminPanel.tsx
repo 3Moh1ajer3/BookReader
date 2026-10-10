@@ -41,6 +41,10 @@ import {
   Check,
   Save,
   FileText,
+  Menu,
+  X,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { AdminContentManager } from "./roham/AdminContentManager";
 
@@ -54,6 +58,8 @@ interface AdminPanelProps {
   initialTab?: AdminTab;
   onOpenBlogPost?: (slug: string) => void;
   onOpenNewsArticle?: (slug: string) => void;
+  portalTheme?: "light" | "dark";
+  onToggleTheme?: () => void;
 }
 
 export type AdminTab = "overview" | "cms" | "leads" | "users" | "podcasts" | "settings";
@@ -73,8 +79,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   initialTab,
   onOpenBlogPost,
   onOpenNewsArticle,
+  portalTheme,
+  onToggleTheme,
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>(initialTab || "overview");
+  const [localTheme, setLocalTheme] = useState<"light" | "dark">("light");
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+
+  const theme = portalTheme || localTheme;
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setLocalTheme(next);
+    if (onToggleTheme) onToggleTheme();
+    try {
+      localStorage.setItem("roham_portal_theme", next);
+    } catch {}
+  };
+
+  const isDark = theme === "dark";
   const [dashboard, setDashboard] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -350,41 +373,80 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const mainBook = books[0];
   const chaptersForPodcasts = mainBook.chapters.filter((c) => c.id !== "front-matter");
 
+  const navItems = [
+    { id: "overview", label: "داشبورد و آمار کلی", icon: LayoutDashboard },
+    {
+      id: "cms",
+      label: "مدیریت مقالات و اخبار",
+      icon: FileText,
+      badge: "CMS",
+    },
+    {
+      id: "leads",
+      label: "درخواست‌ها و ثبت‌نام‌ها",
+      icon: Inbox,
+      badge: newLeadsCount > 0 ? toPersianDigits(newLeadsCount) : undefined,
+    },
+    {
+      id: "users",
+      label: "مدیریت کاربران و مطالعه",
+      icon: Users,
+      badge: toPersianDigits(users.length),
+    },
+    { id: "podcasts", label: "مدیریت کتاب و پادکست‌ها", icon: Headphones },
+    { id: "settings", label: "تنظیمات سایت و اطلاعیه", icon: Settings },
+  ];
+
+  const currentNavItem = navItems.find((n) => n.id === activeTab) || navItems[0];
+  const CurrentTabIcon = currentNavItem.icon;
+
   return (
     <div
       id="roham-admin-panel"
-      className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans"
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-200 ${
+        isDark ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-800"
+      }`}
       style={{ direction: "rtl" }}
     >
       {/* Top Admin Header */}
-      <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/95 backdrop-blur-md">
+      <header className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${
+        isDark ? "border-slate-800 bg-slate-950/95" : "border-slate-200 bg-white/95 shadow-xs"
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
               onClick={onBackToPortal}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 text-xs font-bold text-slate-200 cursor-pointer"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer transition-colors ${
+                isDark
+                  ? "bg-slate-900 border-slate-800 hover:border-emerald-500/50 text-slate-200"
+                  : "bg-slate-100 border-slate-200 hover:border-emerald-600/50 text-slate-700"
+              }`}
             >
-              <ArrowRight className="w-3.5 h-3.5 text-emerald-400" />
+              <ArrowRight className="w-3.5 h-3.5 text-emerald-500" />
               <span>سایت اصلی</span>
             </button>
             <button
               onClick={onOpenReader}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 text-xs font-bold text-slate-200 cursor-pointer"
+              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer transition-colors ${
+                isDark
+                  ? "bg-slate-900 border-slate-800 hover:border-emerald-500/50 text-slate-200"
+                  : "bg-slate-100 border-slate-200 hover:border-emerald-600/50 text-slate-700"
+              }`}
             >
-              <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+              <BookOpen className="w-3.5 h-3.5 text-emerald-500" />
               <span>کتابخوان</span>
             </button>
-            <div className="h-5 w-px bg-slate-800 hidden sm:block" />
+            <div className={`h-5 w-px hidden sm:block ${isDark ? "bg-slate-800" : "bg-slate-200"}`} />
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500">
                 <ShieldCheck className="w-4 h-4" />
               </div>
               <div>
-                <h1 className="text-xs sm:text-sm font-extrabold text-white">
+                <h1 className={`text-xs sm:text-sm font-extrabold ${isDark ? "text-white" : "text-slate-900"}`}>
                   پنل مدیریت جامع رهام (cPanel PHP)
                 </h1>
-                <p className="text-[10px] text-slate-400 hidden sm:block">
-                  مدیریت کاربران، همگام‌سازی ابری، درخواست‌های سازمانی و تنظیمات کتابخوان
+                <p className={`text-[10px] hidden sm:block ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  مدیریت کاربران، همگام‌سازی ابری، درخواست‌های سازمانی و مقالات
                 </p>
               </div>
             </div>
@@ -392,18 +454,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           <div className="flex items-center gap-2">
             <button
+              onClick={toggleTheme}
+              className={`p-2 rounded-xl border cursor-pointer transition-colors ${
+                isDark
+                  ? "bg-slate-900 border-slate-800 hover:border-slate-700 text-amber-400"
+                  : "bg-slate-100 border-slate-200 hover:border-slate-300 text-indigo-600"
+              }`}
+              title={isDark ? "تغییر به حالت روشن (Light)" : "تغییر به حالت تاریک (Dark)"}
+            >
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+            <button
               onClick={loadDashboard}
-              className="p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 cursor-pointer"
+              className={`p-2 rounded-xl border cursor-pointer transition-colors ${
+                isDark
+                  ? "bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-300"
+                  : "bg-slate-100 border-slate-200 hover:border-slate-300 text-slate-700"
+              }`}
               title="بروزرسانی اطلاعات"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-emerald-400" : ""}`} />
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-emerald-500" : ""}`} />
             </button>
             <button
               onClick={handleDownloadFullBackup}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/20 border border-emerald-500/40 hover:bg-emerald-600/30 text-emerald-300 text-xs font-bold cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/15 border border-emerald-500/30 hover:bg-emerald-600/25 text-emerald-700 dark:text-emerald-300 text-xs font-bold cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">پشتیبان کامل دیتابیس</span>
+              <span className="hidden sm:inline">پشتیبان دیتابیس</span>
             </button>
           </div>
         </div>
@@ -415,48 +492,144 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div
             className={`p-3.5 rounded-2xl border text-xs font-semibold flex items-center gap-2.5 shadow-lg ${
               toast.type === "ok"
-                ? "bg-emerald-950/80 border-emerald-700/70 text-emerald-200"
-                : "bg-rose-950/80 border-rose-700/70 text-rose-200"
+                ? "bg-emerald-50 dark:bg-emerald-950/80 border-emerald-200 dark:border-emerald-700/70 text-emerald-800 dark:text-emerald-200"
+                : "bg-rose-50 dark:bg-rose-950/80 border-rose-200 dark:border-rose-700/70 text-rose-800 dark:text-rose-200"
             }`}
           >
             {toast.type === "ok" ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
             ) : (
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
             )}
             <span>{toast.text}</span>
           </div>
         </div>
       )}
 
+      {/* Mobile Drawer (Slide-over side menu) */}
+      {isMobileDrawerOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-200 lg:hidden"
+          onClick={() => setIsMobileDrawerOpen(false)}
+          style={{ direction: "rtl" }}
+        >
+          <div
+            className={`w-72 max-w-[85vw] h-full p-4 flex flex-col justify-between shadow-2xl animate-in slide-in-from-right duration-200 ${
+              isDark ? "bg-slate-900 text-slate-100 border-l border-slate-800" : "bg-white text-slate-800 border-l border-slate-200"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-amber-500" />
+                  <span className="font-bold text-sm text-slate-900 dark:text-white">بخش‌های پنل ادمین</span>
+                </div>
+                <button
+                  onClick={() => setIsMobileDrawerOpen(false)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <nav className="space-y-1.5">
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveTab(item.id as AdminTab);
+                        setIsMobileDrawerOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all text-right cursor-pointer ${
+                        isActive
+                          ? "bg-emerald-600 text-white shadow-sm"
+                          : isDark
+                          ? "text-slate-300 hover:text-white hover:bg-slate-800/80"
+                          : "text-slate-700 hover:text-slate-900 hover:bg-slate-100"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon className="w-4 h-4 shrink-0" />
+                        <span>{item.label}</span>
+                      </div>
+                      {item.badge && (
+                        <span
+                          className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono ${
+                            isActive
+                              ? "bg-white/20 text-white"
+                              : isDark
+                              ? "bg-slate-800 text-emerald-400"
+                              : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          }`}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
+              <button
+                onClick={toggleTheme}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-500" />}
+                  <span>حالت نمایش ({isDark ? "تاریک" : "روشن"})</span>
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">تغییر</span>
+              </button>
+              <button
+                onClick={onBackToPortal}
+                className="w-full py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-white text-xs font-bold cursor-pointer"
+              >
+                بازگشت به سایت اصلی
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Layout */}
       <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 flex-1 flex flex-col lg:flex-row gap-6">
-        {/* Sidebar Navigation */}
-        <aside className="lg:w-64 shrink-0 space-y-2">
-          <div className="p-2 rounded-2xl bg-slate-900/90 border border-slate-800 flex lg:flex-col gap-1 overflow-x-auto">
-            {[
-              { id: "overview", label: "داشبورد و آمار کلی", icon: LayoutDashboard },
-              {
-                id: "cms",
-                label: "پست‌گذار هوشمند و CMS",
-                icon: FileText,
-                badge: "AI",
-              },
-              {
-                id: "leads",
-                label: "درخواست‌ها و ثبت‌نام‌ها",
-                icon: Inbox,
-                badge: newLeadsCount > 0 ? toPersianDigits(newLeadsCount) : undefined,
-              },
-              {
-                id: "users",
-                label: "مدیریت کاربران و مطالعه",
-                icon: Users,
-                badge: toPersianDigits(users.length),
-              },
-              { id: "podcasts", label: "مدیریت کتاب و پادکست‌ها", icon: Headphones },
-              { id: "settings", label: "تنظیمات سایت و اطلاعیه", icon: Settings },
-            ].map((item) => {
+        {/* Mobile Navigation Trigger Card */}
+        <div className={`lg:hidden w-full p-3 rounded-2xl border flex items-center justify-between gap-3 ${
+          isDark ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-900 shadow-xs"
+        }`}>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+              <CurrentTabIcon className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">بخش در حال مشاهده:</div>
+              <div className="text-xs font-bold truncate">
+                {currentNavItem.label}
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsMobileDrawerOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer shrink-0 shadow-xs"
+          >
+            <Menu className="w-4 h-4" />
+            <span>منوی بخش‌ها</span>
+          </button>
+        </div>
+
+        {/* Desktop Sidebar Navigation */}
+        <aside className="hidden lg:block lg:w-64 shrink-0 space-y-2">
+          <div className={`p-2 rounded-2xl border flex flex-col gap-1 ${
+            isDark ? "bg-slate-900/90 border-slate-800" : "bg-white border-slate-200 shadow-xs"
+          }`}>
+            {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
               return (
@@ -466,7 +639,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   className={`flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                     isActive
                       ? "bg-emerald-600 text-white shadow-sm"
-                      : "text-slate-400 hover:text-white hover:bg-slate-800/70"
+                      : isDark
+                      ? "text-slate-400 hover:text-white hover:bg-slate-800/70"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
                   <span className="flex items-center gap-2">
@@ -476,7 +651,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   {item.badge && (
                     <span
                       className={`px-1.5 py-0.5 rounded-md text-[10px] ${
-                        isActive ? "bg-white/20 text-white" : "bg-slate-800 text-emerald-400"
+                        isActive
+                          ? "bg-white/20 text-white"
+                          : isDark
+                          ? "bg-slate-800 text-emerald-400"
+                          : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                       }`}
                     >
                       {item.badge}
@@ -488,31 +667,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           {/* Server Status Card */}
-          <div className="hidden lg:block p-4 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-2.5 text-xs">
-            <div className="flex items-center gap-2 font-bold text-emerald-400">
+          <div className={`p-4 rounded-2xl border space-y-2.5 text-xs ${
+            isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200 shadow-xs"
+          }`}>
+            <div className="flex items-center gap-2 font-bold text-emerald-600 dark:text-emerald-400">
               <Server className="w-4 h-4" />
               <span>وضعیت بک‌اند هاست PHP</span>
             </div>
-            <div className="space-y-1.5 text-[11px] text-slate-400">
+            <div className="space-y-1.5 text-[11px] text-slate-500 dark:text-slate-400">
               <div className="flex justify-between">
                 <span>موتور ذخیره‌سازی:</span>
-                <span className="text-slate-200 font-mono">
+                <span className="text-slate-800 dark:text-slate-200 font-mono font-medium">
                   {dashboard?.serverInfo?.storageEngine || "MySQL (cPanel)"}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>نسخه PHP:</span>
-                <span className="text-slate-200 font-mono">
+                <span className="text-slate-800 dark:text-slate-200 font-mono font-medium">
                   {dashboard?.serverInfo?.phpVersion || "8.x"}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>محافظت فایل‌ها:</span>
-                <span className="text-emerald-400">.htaccess Active</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">.htaccess Active</span>
               </div>
               <div className="flex justify-between">
                 <span>کلید Gemini AI:</span>
-                <span className={dashboard?.serverInfo?.hasGeminiKey ? "text-emerald-400" : "text-amber-400"}>
+                <span className={dashboard?.serverInfo?.hasGeminiKey ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-amber-600 dark:text-amber-400 font-semibold"}>
                   {dashboard?.serverInfo?.hasGeminiKey ? "تنظیم شده" : "پیش‌فرض (گوگل)"}
                 </span>
               </div>
@@ -1229,32 +1410,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </div>
                 </div>
               </div>
-
-              {/* Dual-Model AI Pipeline & Server Env Info */}
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="text-xs sm:text-sm font-bold text-emerald-400 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4" />
-                    <span>معماری دو-مدله هوش مصنوعی (مدل سبک + مدل قوی) و دانلودر تصاویر</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed">
-                    تنظیمات <code className="font-mono text-slate-300">Base URL</code>، نام مدل‌های سبک و قوی، متغیر محیطی سرور و مسیر پوشه ذخیره تصاویر (<code className="font-mono text-emerald-400">/uploads/media/</code>) در بخش پست‌گذار هوشمند قرار دارد.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("cms")}
-                  className="px-4 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold shrink-0 cursor-pointer"
-                >
-                  باز کردن پست‌گذار هوشمند
-                </button>
-              </div>
             </form>
           )}
 
           {/* 6. DYNAMIC BLOG & SECURITY NEWS CMS TAB */}
           {activeTab === "cms" && (
             <AdminContentManager
+              portalTheme={theme}
               onOpenBlogPost={onOpenBlogPost}
               onOpenNewsArticle={onOpenNewsArticle}
             />

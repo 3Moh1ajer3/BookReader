@@ -217,6 +217,19 @@ function roham_init_sql_tables(PDO $pdo, string $driver): void {
                 KEY `idx_roham_content_type` (`content_type`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         ");
+
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `roham_categories` (
+                `id` VARCHAR(64) NOT NULL,
+                `name` VARCHAR(190) NOT NULL,
+                `slug` VARCHAR(190) NOT NULL,
+                `description` TEXT NULL,
+                `target_type` VARCHAR(32) NOT NULL DEFAULT 'all',
+                `updated_at` VARCHAR(64) NOT NULL,
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uniq_roham_categories_slug` (`slug`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
     } else {
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS roham_users (
@@ -258,6 +271,49 @@ function roham_init_sql_tables(PDO $pdo, string $driver): void {
                 payload_json TEXT NOT NULL
             );
         ");
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS roham_categories (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                slug TEXT NOT NULL UNIQUE,
+                description TEXT,
+                target_type TEXT NOT NULL DEFAULT 'all',
+                updated_at TEXT NOT NULL
+            );
+        ");
+    }
+
+    // ایجاد خودکار دسته‌بندی‌های پیش‌فرض در صورت خالی بودن جدول
+    try {
+        $catCount = (int)$pdo->query("SELECT COUNT(*) FROM roham_categories")->fetchColumn();
+        if ($catCount === 0) {
+            $defaultCategories = [
+                ['id' => 'cat-supply-chain', 'name' => 'حملات زنجیره تامین (Supply Chain)', 'slug' => 'supply-chain', 'description' => 'تحلیل نفوذ به مخازن کد، پکیج‌های مسموم NPM/PyPI و وابستگی‌های نرم‌افزاری', 'target_type' => 'all'],
+                ['id' => 'cat-social-eng', 'name' => 'مهندسی اجتماعی و فیشینگ', 'slug' => 'social-engineering', 'description' => 'تکنیک‌های ClickFix، صفحات جعلی، فیشینگ پیشرفته و سرقت اطلاعات با دستکاری کاربر', 'target_type' => 'all'],
+                ['id' => 'cat-vulnerabilities', 'name' => 'تحلیل آسیب‌پذیری و اکسپلویت', 'slug' => 'vulnerabilities-exploits', 'description' => 'تحلیل فنی زیرودی‌های فعال (0-Day)، آسیب‌پذیری‌های RCE و بایپس‌های امنیتی', 'target_type' => 'all'],
+                ['id' => 'cat-writeups', 'name' => 'گزارش‌های فنی و رایت‌آپ', 'slug' => 'writeups-research', 'description' => 'تحقیقات عمیق باینری، کالبدشکافی ساختار فایل‌ها، دیس‌اسمبل و گزارش‌های آزمایشگاهی', 'target_type' => 'all'],
+                ['id' => 'cat-malware', 'name' => 'بدافزارها و استیلرها', 'slug' => 'malware-infostealers', 'description' => 'رهگیری استیلرهای مدرن (Lumma، RedLine، StealC)، باج‌افزارها و تکنیک‌های بدافزاری', 'target_type' => 'all'],
+                ['id' => 'cat-cloud', 'name' => 'امنیت ابری و زیرساخت', 'slug' => 'cloud-infrastructure', 'description' => 'امن‌سازی کانتینرها، کوبرنتیز، سرویس‌های ابری و زیرساخت‌های سازمانی', 'target_type' => 'all'],
+                ['id' => 'cat-alerts', 'name' => 'اخبار و هشدارهای فوری', 'slug' => 'security-alerts', 'description' => 'هشدارهای لحظه‌ای، افشای داده‌ها، حوادث امنیتی جاری و توصیه‌های پدافندی فوری', 'target_type' => 'all'],
+            ];
+            $catStmt = $pdo->prepare("
+                INSERT INTO roham_categories (id, name, slug, description, target_type, updated_at)
+                VALUES (:id, :name, :slug, :description, :target_type, :updated_at)
+            ");
+            $nowCat = gmdate('c');
+            foreach ($defaultCategories as $c) {
+                $catStmt->execute([
+                    ':id' => $c['id'],
+                    ':name' => $c['name'],
+                    ':slug' => $c['slug'],
+                    ':description' => $c['description'],
+                    ':target_type' => $c['target_type'],
+                    ':updated_at' => $nowCat,
+                ]);
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('Roham categories init error: ' . $e->getMessage());
     }
 
     // ایجاد خودکار اکانت مدیر ارشد پیش‌فرض در صورت خالی بودن جدول کاربران

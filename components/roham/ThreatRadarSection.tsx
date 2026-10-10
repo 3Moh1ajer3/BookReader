@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import {
-  ShieldAlert,
   Radio,
   Clock,
   Search,
@@ -14,24 +13,21 @@ import {
   Share2,
   Printer,
   Terminal,
-  CheckCircle2,
-  AlertTriangle,
-  Flame,
   Eye,
   Sliders,
-  PlusCircle,
   Edit3,
-  Layers,
-  Cpu,
-  Activity,
-  FileWarning,
   ChevronLeft,
   ExternalLink,
   X,
+  Sparkles,
+  Tag,
+  List,
 } from "lucide-react";
 import {
   NewsArticle,
+  ContentCategory,
   DEFAULT_NEWS_ARTICLES,
+  DEFAULT_CATEGORIES,
   fetchContentStore,
   incrementContentView,
 } from "@/lib/contentStore";
@@ -49,8 +45,6 @@ interface ThreatRadarSectionProps {
   portalTheme?: "light" | "dark";
 }
 
-type NewsCategoryFilter = "all" | "urgent" | "zeroday" | "malware" | "apt" | "cloud";
-type SeverityFilter = "ALL" | "CRITICAL" | "HIGH" | "MEDIUM";
 type ReaderCanvasTheme = "slate" | "oled" | "sepia" | "light";
 
 const toPersianDigits = (num: number | string): string => {
@@ -60,7 +54,6 @@ const toPersianDigits = (num: number | string): string => {
 
 export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
   onBackToHome,
-  onOpenConsultation,
   isAdmin,
   onOpenAdminCms,
   initialNewsSlug,
@@ -68,10 +61,9 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
 }) => {
   const isDark = portalTheme === "dark";
   const [articles, setArticles] = useState<NewsArticle[]>(DEFAULT_NEWS_ARTICLES);
-  const [categoryFilter, setCategoryFilter] = useState<NewsCategoryFilter>("all");
-  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("ALL");
+  const [categories, setCategories] = useState<ContentCategory[]>(DEFAULT_CATEGORIES);
+  const [selectedCategory, setSelectedCategory] = useState<string>("همه");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [onlySaved, setOnlySaved] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [activeNewsSlug, setActiveNewsSlug] = useState<string | null>(() => {
     if (initialNewsSlug) return initialNewsSlug;
@@ -84,7 +76,7 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
     return null;
   });
 
-  // Professional Reader & SOC Analyst tools (default to light/editorial unless portal is explicitly dark)
+  // Reader Canvas Themes (Identical to Blog Reader)
   const [canvasTheme, setCanvasTheme] = useState<ReaderCanvasTheme>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -96,6 +88,7 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
     }
     return portalTheme === "dark" ? "slate" : "light";
   });
+
   const [fontSize, setFontSize] = useState<number>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -105,29 +98,38 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
     }
     return 17;
   });
+
   const [savedIds, setSavedIds] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
       try {
-        const saved = JSON.parse(localStorage.getItem("roham_radar_saved_news") || "[]");
+        const saved = JSON.parse(localStorage.getItem("roham_saved_news_articles") || "[]");
         if (Array.isArray(saved)) return saved;
       } catch {}
     }
     return [];
   });
-  const [checkedMitigations, setCheckedMitigations] = useState<Record<string, boolean>>({});
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedCodeKey, setCopiedCodeKey] = useState<string | null>(null);
   const [scrollProgress, setScrollProgress] = useState<number>(0);
+  const [activeSectionId, setActiveSectionId] = useState<string>("");
+  const [mobileTocOpen, setMobileTocOpen] = useState<boolean>(false);
   const [mobileSettingsOpen, setMobileSettingsOpen] = useState<boolean>(false);
 
-  // Load dynamic news articles from MySQL / contentStore
+  // Load content & categories
   useEffect(() => {
     let cancelled = false;
     fetchContentStore().then((res) => {
-      if (!cancelled && res.newsArticles.length > 0) {
-        const visible = isAdmin
-          ? res.newsArticles
-          : res.newsArticles.filter((n) => n.status !== "draft");
-        setArticles(visible.length > 0 ? visible : DEFAULT_NEWS_ARTICLES);
+      if (!cancelled) {
+        if (res.newsArticles && res.newsArticles.length > 0) {
+          const visible = isAdmin
+            ? res.newsArticles
+            : res.newsArticles.filter((n) => n.status !== "draft");
+          setArticles(visible.length > 0 ? visible : DEFAULT_NEWS_ARTICLES);
+        }
+        if (res.categories && res.categories.length > 0) {
+          setCategories(res.categories);
+        }
       }
     });
 
@@ -136,13 +138,12 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
     };
   }, [isAdmin]);
 
-  // Browser back/forward support for full-page news reports
+  // Sync browser URL
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const handlePopState = () => {
-      if (typeof window === "undefined") return;
       const params = new URLSearchParams(window.location.search);
-      const urlNews = params.get("news");
-      setActiveNewsSlug(urlNews || null);
+      setActiveNewsSlug(params.get("news"));
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -150,35 +151,54 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
 
   const activeArticle = useMemo(() => {
     if (!activeNewsSlug) return null;
-    return (
-      articles.find((a) => a.slug === activeNewsSlug || a.id === activeNewsSlug) || null
-    );
+    return articles.find((a) => a.slug === activeNewsSlug || a.id === activeNewsSlug) || null;
   }, [articles, activeNewsSlug]);
 
-  // Reading progress listener when viewing a full news report
+  // Reading scroll listener
   useEffect(() => {
-    if (!activeArticle) return;
-    const onScroll = () => {
+    if (!activeArticle || typeof window === "undefined") return;
+
+    const handleScroll = () => {
       const scrollTop = window.scrollY;
       const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-      if (docHeight > 0) {
-        setScrollProgress(Math.min(100, Math.max(0, (scrollTop / docHeight) * 100)));
+      const pct = docHeight > 0 ? Math.min(100, Math.max(0, (scrollTop / docHeight) * 100)) : 0;
+      setScrollProgress(pct);
+
+      const secs = activeArticle.content?.sections || activeArticle.sections || [];
+      for (let i = secs.length - 1; i >= 0; i--) {
+        const secId = secs[i].id || `sec-${i}`;
+        const el = document.getElementById(secId);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= 180) {
+            setActiveSectionId(secId);
+            break;
+          }
+        }
       }
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, [activeArticle]);
 
-  const handleOpenArticle = (article: NewsArticle) => {
-    setActiveNewsSlug(article.slug);
-    incrementContentView("news", article.id);
-    setArticles((prev) =>
-      prev.map((item) => (item.id === article.id ? { ...item, views: (item.views || 0) + 1 } : item))
-    );
+  // Record view count
+  useEffect(() => {
+    if (!activeArticle) return;
+    try {
+      const viewedKey = `roham_viewed_news_${activeArticle.id}`;
+      if (!sessionStorage.getItem(viewedKey)) {
+        sessionStorage.setItem(viewedKey, "1");
+        incrementContentView("news", activeArticle.id);
+      }
+    } catch {}
+  }, [activeArticle]);
+
+  const handleOpenArticle = (slug: string) => {
+    setActiveNewsSlug(slug);
     if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("news", article.slug);
-      window.history.pushState({}, "", url.toString());
+      const cleanPath = `/radar?news=${encodeURIComponent(slug)}`;
+      window.history.pushState(null, "", cleanPath);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
@@ -186,1185 +206,709 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
   const handleCloseArticle = () => {
     setActiveNewsSlug(null);
     if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("news");
-      window.history.pushState({}, "", url.toString());
+      window.history.pushState(null, "", "/radar");
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
-  const toggleSaveArticle = (id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
+  const handleToggleSave = (articleId: string) => {
     setSavedIds((prev) => {
-      const next = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
+      const exists = prev.includes(articleId);
+      const next = exists ? prev.filter((id) => id !== articleId) : [...prev, articleId];
       try {
-        localStorage.setItem("roham_radar_saved_news", JSON.stringify(next));
+        localStorage.setItem("roham_saved_news_articles", JSON.stringify(next));
       } catch {}
       return next;
     });
   };
 
-  const handleCopyText = (key: string, text: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText(text);
-      setCopiedKey(key);
-      setTimeout(() => {
-        setCopiedKey((prev) => (prev === key ? null : prev));
-      }, 2200);
+  const handleCopyLink = () => {
+    if (typeof window === "undefined" || !activeArticle) return;
+    const url = `${window.location.origin}/radar?news=${encodeURIComponent(activeArticle.slug)}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(activeArticle.id);
+      setTimeout(() => setCopiedId(null), 2500);
+    });
+  };
+
+  const copyCodeBlock = (key: string, code: string) => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopiedCodeKey(key);
+      setTimeout(() => setCopiedCodeKey(null), 2500);
+    });
+  };
+
+  const handlePrint = () => {
+    if (typeof window !== "undefined") window.print();
+  };
+
+  const handleShare = async () => {
+    if (!activeArticle || typeof window === "undefined") return;
+    const url = `${window.location.origin}/radar?news=${encodeURIComponent(activeArticle.slug)}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: activeArticle.title,
+          text: activeArticle.summary,
+          url,
+        });
+      } catch {}
+    } else {
+      handleCopyLink();
     }
   };
 
-  const handleShareArticle = (article: NewsArticle, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (typeof window === "undefined") return;
-    const shareUrl = `${window.location.origin}/radar?news=${encodeURIComponent(article.slug)}`;
-    handleCopyText(`share-${article.id}`, `${article.title}\n${shareUrl}`);
+  // Canvas Theme styling tokens (identically aligned with Blog)
+  const themeClasses: Record<
+    ReaderCanvasTheme,
+    {
+      bg: string;
+      surface: string;
+      body: string;
+      heading: string;
+      muted: string;
+      border: string;
+      accent: string;
+      callout: string;
+    }
+  > = {
+    light: {
+      bg: "bg-[#FDFCFB] text-slate-800",
+      surface: "bg-white",
+      body: "text-[#2B3545] leading-[2.05]",
+      heading: "text-[#0F172A]",
+      muted: "text-slate-500",
+      border: "border-slate-200/90",
+      accent: "text-emerald-700",
+      callout: "bg-emerald-50/80 border-emerald-300 text-emerald-950",
+    },
+    slate: {
+      bg: "bg-[#090D16] text-slate-200",
+      surface: "bg-[#0E1526]",
+      body: "text-slate-300 leading-[2.05]",
+      heading: "text-white",
+      muted: "text-slate-400",
+      border: "border-slate-800",
+      accent: "text-emerald-400",
+      callout: "bg-emerald-950/40 border-emerald-800/80 text-emerald-200",
+    },
+    oled: {
+      bg: "bg-black text-zinc-200",
+      surface: "bg-zinc-950",
+      body: "text-zinc-300 leading-[2.05]",
+      heading: "text-white",
+      muted: "text-zinc-500",
+      border: "border-zinc-800",
+      accent: "text-emerald-400",
+      callout: "bg-zinc-900 border-zinc-700 text-zinc-100",
+    },
+    sepia: {
+      bg: "bg-[#FAF4EB] text-[#2C241B]",
+      surface: "bg-[#F4ECE0]",
+      body: "text-[#3D3226] leading-[2.05]",
+      heading: "text-[#1C150C]",
+      muted: "text-[#7A6B58]",
+      border: "border-[#E3D6C3]",
+      accent: "text-[#A05C1C]",
+      callout: "bg-[#EFE4D2] border-[#D4C3A9] text-[#2C241B]",
+    },
   };
 
-  const updateTheme = (theme: ReaderCanvasTheme) => {
-    setCanvasTheme(theme);
-    try {
-      localStorage.setItem("roham_blog_reader_theme", theme);
-    } catch {}
-  };
+  const tc = themeClasses[canvasTheme];
 
-  const updateFontSize = (size: number) => {
-    const clamped = Math.min(22, Math.max(14, size));
-    setFontSize(clamped);
-    try {
-      localStorage.setItem("roham_blog_reader_fontsize", String(clamped));
-    } catch {}
-  };
-
-  // Filtered news list
+  // Filter articles
   const filteredArticles = useMemo(() => {
-    return articles.filter((item) => {
-      if (categoryFilter !== "all" && item.category !== categoryFilter) return false;
-      if (severityFilter !== "ALL" && item.severity !== severityFilter) return false;
-      if (selectedTag && !(item.tags || []).includes(selectedTag)) return false;
-      if (onlySaved && !savedIds.includes(item.id)) return false;
-
+    return articles.filter((a) => {
+      // Category filter
+      if (selectedCategory !== "همه") {
+        const catMatch =
+          a.category === selectedCategory ||
+          a.categoryLabel === selectedCategory ||
+          a.categoryId === selectedCategory;
+        if (!catMatch) return false;
+      }
+      // Tag filter
+      if (selectedTag) {
+        const kws = a.keywords || a.tags || [];
+        if (!kws.some((k) => k.toLowerCase() === selectedTag.toLowerCase())) return false;
+      }
+      // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const inTitle = item.title.toLowerCase().includes(q);
-        const inSub = (item.subtitle || "").toLowerCase().includes(q);
-        const inSum = item.summary.toLowerCase().includes(q);
-        const inCve = (item.cveIds || []).some((c) => c.toLowerCase().includes(q));
-        const inTags = (item.tags || []).some((t) => t.toLowerCase().includes(q));
-        const inProds = (item.affectedProducts || []).some((p) => p.toLowerCase().includes(q));
-        return inTitle || inSub || inSum || inCve || inTags || inProds;
+        const inTitle = a.title.toLowerCase().includes(q);
+        const inSummary = a.summary.toLowerCase().includes(q);
+        const inSub = (a.subtitle || "").toLowerCase().includes(q);
+        const inKws = (a.keywords || a.tags || []).some((k) => k.toLowerCase().includes(q));
+        if (!inTitle && !inSummary && !inSub && !inKws) return false;
       }
       return true;
     });
-  }, [articles, categoryFilter, severityFilter, selectedTag, onlySaved, savedIds, searchQuery]);
+  }, [articles, selectedCategory, selectedTag, searchQuery]);
 
-  const leadBreakingArticle = useMemo(() => {
-    return (
-      filteredArticles.find((a) => a.isBreaking) ||
-      filteredArticles[0] ||
-      articles[0] ||
-      null
-    );
-  }, [filteredArticles, articles]);
-
-  const streamArticles = useMemo(() => {
-    if (!leadBreakingArticle) return filteredArticles;
-    // When filters or search are active, show all matching in stream; otherwise exclude lead hero from duplicate top position
-    if (
-      categoryFilter !== "all" ||
-      severityFilter !== "ALL" ||
-      selectedTag !== null ||
-      onlySaved ||
-      searchQuery.trim() !== ""
-    ) {
-      return filteredArticles;
-    }
-    return filteredArticles.filter((a) => a.id !== leadBreakingArticle.id);
-  }, [
-    filteredArticles,
-    leadBreakingArticle,
-    categoryFilter,
-    severityFilter,
-    selectedTag,
-    onlySaved,
-    searchQuery,
-  ]);
-
-  const allTags = useMemo(() => {
-    const counts: Record<string, number> = {};
+  // Extract all unique keywords for filter chips
+  const allKeywords = useMemo(() => {
+    const set = new Set<string>();
     articles.forEach((a) => {
-      (a.tags || []).forEach((t) => {
-        counts[t] = (counts[t] || 0) + 1;
-      });
+      (a.keywords || a.tags || []).forEach((k) => set.add(k));
     });
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 12)
-      .map(([t]) => t);
+    return Array.from(set).slice(0, 14);
   }, [articles]);
 
-  const getSeverityBadgeStyle = (severity: NewsArticle["severity"]) => {
-    switch (severity) {
-      case "CRITICAL":
-        return "bg-rose-950/90 text-rose-300 border-rose-700/70";
-      case "HIGH":
-        return "bg-amber-950/90 text-amber-300 border-amber-700/70";
-      default:
-        return "bg-blue-950/90 text-blue-300 border-blue-700/70";
-    }
-  };
-
-  const getSeverityPersianLabel = (severity: NewsArticle["severity"]) => {
-    switch (severity) {
-      case "CRITICAL":
-        return "بحرانی (CRITICAL)";
-      case "HIGH":
-        return "شدت بالا (HIGH)";
-      default:
-        return "متوسط (MEDIUM)";
-    }
-  };
-
   // ============================================================================
-  // VIEW 1: FULL-PAGE THREAT INTELLIGENCE & NEWS REPORT VIEW (ZERO POPUPS)
+  // FULL EDITORIAL ARTICLE VIEW (IDENTICAL BEAUTIFUL STRUCTURE TO BLOG)
   // ============================================================================
   if (activeArticle) {
-    const currentIndex = articles.findIndex((a) => a.id === activeArticle.id);
-    const prevArticle = currentIndex > 0 ? articles[currentIndex - 1] : null;
-    const nextArticle =
-      currentIndex >= 0 && currentIndex < articles.length - 1 ? articles[currentIndex + 1] : null;
-    const relatedArticles = articles
-      .filter((a) => a.id !== activeArticle.id)
-      .sort((a, b) => (a.category === activeArticle.category ? -1 : 1))
-      .slice(0, 3);
+    const articleSections =
+      activeArticle.content?.sections ||
+      activeArticle.sections.map((s, idx) => ({
+        id: s.id || `sec-${idx}`,
+        heading: s.heading,
+        paragraphs: s.paragraphs,
+        codeSnippet: s.codeSnippet,
+        codeLanguage: s.codeLanguage,
+        callout: s.callout,
+        calloutType: s.calloutType,
+        imageUrl: s.imageUrl,
+        imageAlt: s.imageAlt,
+        table: s.table,
+      }));
 
-    const mitigations = activeArticle.mitigationSteps || [];
-    const completedMitigationsCount = mitigations.filter(
-      (_, idx) => checkedMitigations[`${activeArticle.id}-${idx}`]
-    ).length;
+    const articleTldr =
+      activeArticle.tldr && activeArticle.tldr.length > 0
+        ? activeArticle.tldr
+        : activeArticle.keyHighlights && activeArticle.keyHighlights.length > 0
+        ? activeArticle.keyHighlights
+        : [];
 
-    const themeClasses: Record<
-      ReaderCanvasTheme,
-      { wrapper: string; surface: string; text: string; subtext: string; border: string }
-    > = {
-      slate: {
-        wrapper: "bg-slate-950 text-slate-100",
-        surface: "bg-slate-900/90 border-slate-800",
-        text: "text-slate-200",
-        subtext: "text-slate-400",
-        border: "border-slate-800",
-      },
-      oled: {
-        wrapper: "bg-black text-zinc-100",
-        surface: "bg-zinc-950 border-zinc-800/90",
-        text: "text-zinc-200",
-        subtext: "text-zinc-400",
-        border: "border-zinc-800",
-      },
-      sepia: {
-        wrapper: "bg-[#f8f1e0] text-[#261f16]",
-        surface: "bg-[#efe5ce] border-[#d8c9a8]",
-        text: "text-[#2c2419]",
-        subtext: "text-[#63533d]",
-        border: "border-[#d8c9a8]",
-      },
-      light: {
-        wrapper: "bg-slate-50 text-slate-900",
-        surface: "bg-white border-slate-200",
-        text: "text-slate-800",
-        subtext: "text-slate-500",
-        border: "border-slate-200",
-      },
-    };
-
-    const currentTheme = themeClasses[canvasTheme];
-    const isLightMode = canvasTheme === "light" || canvasTheme === "sepia";
+    const articleKeywords = activeArticle.keywords || activeArticle.tags || [];
 
     return (
       <article
-        id="radar-full-article-view"
-        className={`min-h-screen pb-20 transition-colors duration-200 ${currentTheme.wrapper}`}
+        id="roham-news-reader-view"
+        className={`min-h-screen transition-colors duration-200 ${tc.bg} pb-24`}
         style={{ direction: "rtl" }}
       >
-        {/* Top Reading Progress Bar */}
-        <div className="fixed top-0 left-0 right-0 z-50 h-1 bg-slate-900/50">
-          <div
-            className="h-full bg-gradient-to-l from-rose-500 via-amber-400 to-emerald-400 transition-all duration-150"
-            style={{ width: `${scrollProgress}%` }}
-          />
-        </div>
-
-        {/* Sticky Newsroom Action Bar */}
+        {/* Sticky Reading Top Bar */}
         <div
-          className={`sticky top-0 z-30 border-b backdrop-blur-md transition-colors ${
-            isLightMode
-              ? "bg-white/90 border-slate-200 text-slate-800"
-              : "bg-slate-950/90 border-slate-800/90 text-slate-200"
+          className={`sticky top-0 z-40 border-b backdrop-blur-md transition-colors ${
+            canvasTheme === "light"
+              ? "bg-white/95 border-slate-200/90 shadow-2xs"
+              : canvasTheme === "sepia"
+              ? "bg-[#FAF4EB]/95 border-[#E3D6C3] shadow-2xs"
+              : "bg-slate-950/95 border-slate-800/90 shadow-lg"
           }`}
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {/* Scroll Progress Bar */}
+          <div
+            className="h-1 bg-gradient-to-l from-emerald-500 to-teal-400 transition-all duration-100"
+            style={{ width: `${scrollProgress}%` }}
+          />
+
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+            {/* Right: Back to News List */}
+            <div className="flex items-center gap-3">
               <button
                 onClick={handleCloseArticle}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer shrink-0 shadow-xs"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500/50 text-xs font-bold transition-colors cursor-pointer group"
+                title="بازگشت به فهرست اخبار امنیت"
               >
-                <ArrowRight className="w-3.5 h-3.5" />
-                <span>بازگشت به رادار اخبار</span>
+                <ArrowRight className="w-4 h-4 text-emerald-600 dark:text-emerald-400 group-hover:translate-x-1 transition-transform" />
+                <span>اخبار امنیت</span>
               </button>
 
-              <span className="text-slate-500 hidden md:inline">/</span>
-              <span className="text-xs font-semibold truncate hidden md:inline opacity-85">
+              <span className={`text-xs font-bold truncate max-w-xs sm:max-w-md hidden md:block ${tc.heading}`}>
                 {activeArticle.title}
               </span>
             </div>
 
-            {/* Right Controls: Reader Theme, Font Size, Save, Share, Print */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              {isAdmin && onOpenAdminCms && (
+            {/* Left: Reading controls (Theme, Font, Share, Print) */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Theme Picker */}
+              <div className="flex items-center p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs gap-1">
+                {(["light", "slate", "sepia", "oled"] as ReaderCanvasTheme[]).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => {
+                      setCanvasTheme(t);
+                      try {
+                        localStorage.setItem("roham_blog_reader_theme", t);
+                      } catch {}
+                    }}
+                    className={`px-2 py-1 rounded-lg font-bold text-[11px] transition-colors cursor-pointer ${
+                      canvasTheme === t
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    {t === "light" ? "روشن" : t === "slate" ? "تاریک" : t === "sepia" ? "سپیا" : "سیاه"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Font Size Buttons */}
+              <div className="hidden sm:flex items-center p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs gap-1 font-mono">
                 <button
-                  onClick={onOpenAdminCms}
-                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-400 text-xs font-bold hover:bg-amber-500/25 cursor-pointer"
+                  onClick={() => setFontSize((s) => Math.max(14, s - 1))}
+                  className="px-2 py-1 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800 font-bold cursor-pointer"
+                  title="کاهش اندازه فونت"
                 >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>ویرایش در CMS</span>
+                  A-
                 </button>
-              )}
+                <span className="text-[11px] px-1 text-slate-500">{fontSize}</span>
+                <button
+                  onClick={() => setFontSize((s) => Math.min(24, s + 1))}
+                  className="px-2 py-1 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800 font-bold cursor-pointer"
+                  title="افزایش اندازه فونت"
+                >
+                  A+
+                </button>
+              </div>
 
+              {/* Bookmark */}
               <button
-                onClick={() => setMobileSettingsOpen(!mobileSettingsOpen)}
-                className={`p-2 rounded-xl border text-xs flex items-center gap-1 cursor-pointer ${
-                  isLightMode
-                    ? "bg-slate-100 border-slate-300 text-slate-700"
-                    : "bg-slate-900 border-slate-800 text-slate-300 hover:text-white"
-                }`}
-                title="تنظیمات نمایش و اندازه قلم"
-              >
-                <Sliders className="w-3.5 h-3.5 text-emerald-500" />
-                <span className="hidden sm:inline">تنظیمات مطالعه</span>
-              </button>
-
-              <button
-                onClick={() => toggleSaveArticle(activeArticle.id)}
+                onClick={() => handleToggleSave(activeArticle.id)}
                 className={`p-2 rounded-xl border transition-colors cursor-pointer ${
                   savedIds.includes(activeArticle.id)
-                    ? "bg-amber-500/20 border-amber-500/50 text-amber-400"
-                    : isLightMode
-                      ? "bg-slate-100 border-slate-300 text-slate-700"
-                      : "bg-slate-900 border-slate-800 text-slate-300 hover:text-white"
+                    ? "bg-emerald-600 border-emerald-600 text-white"
+                    : "border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white"
                 }`}
-                title="ذخیره در لیست گزارش‌های منتخب"
+                title="نشان‌گذاری خبر"
               >
                 <Bookmark className="w-4 h-4" />
               </button>
 
+              {/* Copy Link */}
               <button
-                onClick={(e) => handleShareArticle(activeArticle, e)}
-                className={`px-2.5 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
-                  isLightMode
-                    ? "bg-slate-100 border-slate-300 text-slate-700"
-                    : "bg-slate-900 border-slate-800 text-slate-300 hover:text-white"
-                }`}
-                title="کپی لینک مستقیم گزارش خبری"
+                onClick={handleCopyLink}
+                className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                title="کپی لینک مستقیم خبر"
               >
-                {copiedKey === `share-${activeArticle.id}` ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-500" />
-                    <span className="text-emerald-500 hidden sm:inline">کپی شد</span>
-                  </>
+                {copiedId === activeArticle.id ? (
+                  <Check className="w-4 h-4 text-emerald-500" />
                 ) : (
-                  <>
-                    <Share2 className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">اشتراک‌گذاری</span>
-                  </>
+                  <Copy className="w-4 h-4" />
                 )}
               </button>
 
+              {/* Print */}
               <button
-                onClick={() => typeof window !== "undefined" && window.print()}
-                className={`hidden sm:flex p-2 rounded-xl border cursor-pointer ${
-                  isLightMode
-                    ? "bg-slate-100 border-slate-300 text-slate-700"
-                    : "bg-slate-900 border-slate-800 text-slate-300 hover:text-white"
-                }`}
-                title="چاپ بولتن امنیتی / ذخیره PDF"
+                onClick={handlePrint}
+                className="hidden sm:flex p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                title="چاپ یا ذخیره PDF"
               >
                 <Printer className="w-4 h-4" />
               </button>
+
+              {/* Share */}
+              <button
+                onClick={handleShare}
+                className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                title="اشتراک‌گذاری"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
+
+              {isAdmin && onOpenAdminCms && (
+                <button
+                  onClick={onOpenAdminCms}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-500 dark:text-amber-400 text-xs font-bold cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">ویرایش در CMS</span>
+                </button>
+              )}
             </div>
           </div>
-
-          {/* Collapsible Reader Appearance Settings Drawer */}
-          {mobileSettingsOpen && (
-            <div
-              className={`border-t px-4 py-3 ${
-                isLightMode ? "bg-slate-100 border-slate-200" : "bg-slate-900 border-slate-800"
-              }`}
-            >
-              <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold">تم صفحه مطالعه:</span>
-                  {(
-                    [
-                      { id: "slate", label: "تیره استاندارد" },
-                      { id: "oled", label: "مشکی OLED" },
-                      { id: "sepia", label: "کاغذی گرم" },
-                      { id: "light", label: "روشن" },
-                    ] as const
-                  ).map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => updateTheme(t.id)}
-                      className={`px-2.5 py-1 rounded-lg font-semibold cursor-pointer ${
-                        canvasTheme === t.id
-                          ? "bg-emerald-600 text-white"
-                          : "bg-slate-800/20 hover:bg-slate-800/40"
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="font-bold">اندازه متن ({toPersianDigits(fontSize)}px):</span>
-                  <button
-                    onClick={() => updateFontSize(fontSize - 1)}
-                    className="px-2.5 py-1 rounded-lg bg-slate-800 text-white font-bold cursor-pointer"
-                  >
-                    A-
-                  </button>
-                  <button
-                    onClick={() => updateFontSize(fontSize + 1)}
-                    className="px-2.5 py-1 rounded-lg bg-slate-800 text-white font-bold cursor-pointer"
-                  >
-                    A+
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Main 2-Column News & Threat Intelligence Layout */}
+        {/* Full-Page Editorial Layout (Matching Blog Structure Exactly) */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-            {/* Main Editorial Story Column (8 cols) */}
-            <div className="lg:col-span-8 min-w-0">
-              {/* Unboxed Editorial Metadata Line */}
-              <div className="flex flex-wrap items-center gap-2.5 text-xs mb-4">
-                <span
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold border font-mono ${getSeverityBadgeStyle(
-                    activeArticle.severity
-                  )}`}
-                >
-                  {getSeverityPersianLabel(activeArticle.severity)}
-                </span>
-                <span className="font-bold text-emerald-500">{activeArticle.categoryLabel}</span>
-                <span aria-hidden="true" className="opacity-40">
-                  ·
-                </span>
-                <span className={`flex items-center gap-1 tabular-nums ${currentTheme.subtext}`}>
-                  <Clock className="w-3.5 h-3.5" />
-                  {activeArticle.date}
-                </span>
-                <span aria-hidden="true" className="opacity-40">
-                  ·
-                </span>
-                <span className={currentTheme.subtext}>زمان مطالعه: {activeArticle.readTime}</span>
-                {activeArticle.views && (
-                  <>
-                    <span aria-hidden="true" className="opacity-40">
-                      ·
-                    </span>
-                    <span className={`flex items-center gap-1 ${currentTheme.subtext}`}>
-                      <Eye className="w-3.5 h-3.5" />
-                      {toPersianDigits(activeArticle.views)} بازدید
-                    </span>
-                  </>
-                )}
-              </div>
+          {/* Article Header Block */}
+          <header className={`pb-8 sm:pb-10 border-b ${tc.border} max-w-4xl`}>
+            {/* Metadata Kicker */}
+            <div className={`flex flex-wrap items-center gap-2.5 text-xs font-medium mb-4 ${tc.muted}`}>
+              <span className={`font-bold ${tc.accent}`}>
+                {activeArticle.categoryLabel || activeArticle.category}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span className="tabular-nums">{activeArticle.date}</span>
+              <span aria-hidden="true">·</span>
+              <span>زمان مطالعه: {activeArticle.readTime}</span>
+              <span aria-hidden="true">·</span>
+              <span className="flex items-center gap-1 tabular-nums">
+                <Eye className="w-3.5 h-3.5" />
+                {toPersianDigits(activeArticle.views || 180)} بازدید
+              </span>
+            </div>
 
-              {/* Headline */}
-              <h1
-                className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-[1.35] mb-4"
-                style={{ textWrap: "balance" }}
-              >
-                {activeArticle.title}
-              </h1>
+            <h1
+              className={`text-2xl sm:text-4xl lg:text-[40px] font-black tracking-tight leading-[1.35] mb-4 ${tc.heading}`}
+              style={{ textWrap: "balance" }}
+            >
+              {activeArticle.title}
+            </h1>
 
-              {/* Subtitle / Deck */}
-              {activeArticle.subtitle && (
-                <p
-                  className={`text-base sm:text-lg leading-relaxed mb-6 font-medium ${currentTheme.subtext}`}
-                >
-                  {activeArticle.subtitle}
-                </p>
-              )}
+            {activeArticle.subtitle && (
+              <p className={`text-base sm:text-xl leading-relaxed font-medium mb-6 ${tc.muted}`}>
+                {activeArticle.subtitle}
+              </p>
+            )}
 
-              {/* Author & Source Byline */}
-              <div
-                className={`py-4 px-5 rounded-2xl border mb-8 flex flex-wrap items-center justify-between gap-4 ${currentTheme.surface}`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-sm shrink-0">
-                    <Radio className="w-5 h-5" />
+            {/* Author / Source Byline */}
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold text-sm">
+                  R
+                </div>
+                <div>
+                  <div className={`text-xs sm:text-sm font-bold ${tc.heading}`}>
+                    {activeArticle.author || "تحریریه امنیت رهام"}
                   </div>
-                  <div>
-                    <div className="text-xs sm:text-sm font-bold">{activeArticle.author}</div>
-                    <div className={`text-[11px] font-mono ${currentTheme.subtext}`}>
-                      Source: {activeArticle.source || "Roham Threat Intelligence"}
-                    </div>
+                  <div className={`text-[11px] font-mono ${tc.muted}`}>
+                    {activeArticle.source ? `منبع: ${activeArticle.source}` : "Roham Threat Intel"}
                   </div>
                 </div>
-
-                {activeArticle.cveIds && activeArticle.cveIds.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5" style={{ direction: "ltr" }}>
-                    {activeArticle.cveIds.map((cve) => (
-                      <span
-                        key={cve}
-                        className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-amber-400 font-mono text-xs font-bold"
-                      >
-                        {cve}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
 
-              {/* Mobile-Only Quick Threat Dossier Card (ONLY if threat metrics exist) */}
-              {(activeArticle.cvssScore ||
-                activeArticle.exploitStatus ||
-                (activeArticle.affectedProducts && activeArticle.affectedProducts.length > 0)) && (
-                <div
-                  className={`lg:hidden p-5 rounded-2xl border mb-8 space-y-3 ${currentTheme.surface}`}
-                >
-                  <div className="flex items-center justify-between border-b border-slate-800/60 pb-2.5">
-                    <span className="text-xs font-extrabold text-amber-400 flex items-center gap-1.5">
-                      <ShieldAlert className="w-4 h-4" />
-                      شناسنامه فنی تهدید (Threat Dossier)
-                    </span>
-                    {activeArticle.cvssScore && (
-                      <span className="px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-700/50 text-xs font-mono font-bold">
-                        CVSS {activeArticle.cvssScore}
-                      </span>
-                    )}
-                  </div>
-                  {activeArticle.exploitStatus && (
-                    <div className="text-xs">
-                      <span className={currentTheme.subtext}>وضعیت اکسپلویت: </span>
-                      <span className="font-bold text-rose-400">{activeArticle.exploitStatus}</span>
-                    </div>
-                  )}
-                  {activeArticle.affectedProducts && activeArticle.affectedProducts.length > 0 && (
-                    <div className="space-y-1">
-                      <div className={`text-[11px] ${currentTheme.subtext}`}>
-                        سامانه‌ها و محصولات تحت تاثیر:
-                      </div>
-                      <div className="flex flex-wrap gap-1.5" style={{ direction: "ltr" }}>
-                        {activeArticle.affectedProducts.map((prod) => (
-                          <span
-                            key={prod}
-                            className="px-2 py-0.5 rounded bg-slate-950/90 text-slate-200 border border-slate-800 text-[11px] font-mono"
-                          >
-                            {prod}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+              {/* Tag preview */}
+              {articleKeywords.length > 0 && (
+                <div className={`flex flex-wrap items-center gap-2 text-xs font-mono ${tc.muted}`}>
+                  {articleKeywords.slice(0, 3).map((kw, i) => (
+                    <React.Fragment key={kw}>
+                      {i > 0 && <span aria-hidden="true">·</span>}
+                      <span>#{kw}</span>
+                    </React.Fragment>
+                  ))}
                 </div>
               )}
+            </div>
+          </header>
 
-              {/* Key Highlights Box (The Hacker News style "Key Takeaways / نکات کلیدی خبر") */}
-              {activeArticle.keyHighlights && activeArticle.keyHighlights.length > 0 && (
-                <div
-                  className={`p-6 rounded-2xl border mb-8 space-y-3.5 ${
-                    isLightMode
-                      ? "bg-emerald-50/70 border-emerald-200"
-                      : "bg-emerald-950/20 border-emerald-500/30"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 text-sm font-extrabold text-emerald-400">
-                    <Flame className="w-4 h-4 shrink-0" />
-                    <span>خلاصه مدیریتی و نکات کلیدی این گزارش (Key Highlights)</span>
+          {/* 12-Column Grid: 8 Cols Prose Stream + 4 Cols Sticky TOC */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 pt-8 sm:pt-10 items-start">
+            {/* Main Reading Column (8 Cols) */}
+            <div className="lg:col-span-8 space-y-10 min-w-0">
+              {/* Executive Summary / TL;DR Box (خلاصه خبر و نکات کلیدی) */}
+              {articleTldr.length > 0 && (
+                <div className={`p-6 sm:p-7 rounded-2xl border ${tc.surface} ${tc.border} space-y-3`}>
+                  <div className={`text-xs sm:text-sm font-extrabold flex items-center gap-2 ${tc.accent}`}>
+                    <Sparkles className="w-4 h-4 shrink-0" />
+                    <span>خلاصه خبر و یافته‌های کلیدی (TL;DR)</span>
                   </div>
                   <ul className="space-y-2.5">
-                    {activeArticle.keyHighlights.map((hl, i) => (
+                    {articleTldr.map((item, idx) => (
                       <li
-                        key={i}
-                        className="flex items-start gap-2.5 text-xs sm:text-sm leading-relaxed"
+                        key={idx}
+                        className={`text-xs sm:text-sm leading-relaxed flex items-start gap-2.5 ${tc.body}`}
                       >
-                        <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                          {toPersianDigits(i + 1)}
+                        <span className={`font-mono font-bold shrink-0 mt-0.5 ${tc.accent}`}>
+                          {toPersianDigits(idx + 1)}.
                         </span>
-                        <span className={currentTheme.text}>{hl}</span>
+                        <span>{item}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
 
-              {/* Cover Image if available */}
+              {/* Cover Image */}
               {activeArticle.coverImage && (
-                <figure className={`rounded-2xl overflow-hidden border mb-8 ${currentTheme.surface}`} style={{ maxWidth: "68ch" }}>
+                <figure className={`rounded-2xl overflow-hidden border ${tc.border} ${tc.surface}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={activeArticle.coverImage}
                     alt={activeArticle.title}
                     referrerPolicy="no-referrer"
-                    className="w-full max-h-[380px] object-cover"
+                    className="w-full max-h-[420px] object-cover"
                   />
-                  {activeArticle.downloadedImages?.[0]?.localPath && (
-                    <figcaption className={`px-4 py-2 text-[11px] font-mono border-t border-slate-800/60 ${currentTheme.subtext} flex items-center justify-between`}>
-                      <span>تصویر مستند گزارش خبری</span>
-                      <span dir="ltr">{activeArticle.downloadedImages[0].localPath}</span>
-                    </figcaption>
-                  )}
                 </figure>
               )}
 
-              {/* Lead Summary Paragraph */}
-              {/* Lead Summary Paragraph (only if not an auto-published full-text article where summary is a snippet of first paragraph) */}
-              {!activeArticle.id.startsWith("news-") &&
-                activeArticle.summary &&
-                activeArticle.summary.trim().length > 0 && (
-                  <div
-                    className={`leading-[1.95] mb-8 font-medium ${currentTheme.text}`}
-                    style={{ fontSize: `${fontSize + 1}px`, maxWidth: "68ch" }}
-                  >
-                    {activeArticle.summary}
-                  </div>
-                )}
-
-              {/* Multi-Section Deep Technical News Body */}
-              <div className="space-y-10" style={{ fontSize: `${fontSize}px`, maxWidth: "68ch" }}>
-                {activeArticle.sections.map((sec, idx) => (
-                  <section
-                    key={idx}
-                    id={`news-sec-${idx}`}
-                    className="space-y-4 scroll-mt-24"
-                  >
-                    {sec.heading && sec.heading.trim().length > 0 && (
-                      <h2 className="text-lg sm:text-2xl font-extrabold tracking-tight flex items-center gap-2.5 pt-2">
-                        <span className="w-2 h-6 rounded-full bg-emerald-500 shrink-0" />
-                        <span>{sec.heading}</span>
-                      </h2>
-                    )}
-
-                    <div className="space-y-4">
-                      {sec.paragraphs.map((p, pIdx) => {
-                        const trimmed = p.trim();
-                        if (!trimmed) return null;
-
-                        // 1. Embedded Code Block inside paragraphs (```lang\ncode```)
-                        if (trimmed.startsWith("```")) {
-                          const fenceMatch = /^```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```$/.exec(trimmed);
-                          const lang = fenceMatch?.[1] || "code";
-                          const codeContent = (fenceMatch?.[2] || trimmed.replace(/^```|```$/g, "")).trim();
-                          const inlineCodeKey = `news-sec-${idx}-pcode-${pIdx}`;
-                          return (
-                            <div
-                              key={pIdx}
-                              className="my-5 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 text-slate-100 shadow-lg"
-                              style={{ direction: "ltr", textAlign: "left" }}
-                            >
-                              <div className="px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs font-mono text-slate-400">
-                                <div className="flex items-center gap-2">
-                                  <Terminal className="w-3.5 h-3.5 text-emerald-400" />
-                                  <span className="uppercase font-bold text-emerald-400">
-                                    {lang}
-                                  </span>
-                                </div>
-                                <button
-                                  onClick={() => handleCopyText(inlineCodeKey, codeContent)}
-                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] cursor-pointer transition-colors"
-                                >
-                                  {copiedKey === inlineCodeKey ? (
-                                    <>
-                                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                      <span className="text-emerald-400">Copied</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Copy className="w-3.5 h-3.5" />
-                                      <span>Copy Code</span>
-                                    </>
-                                  )}
-                                </button>
-                              </div>
-                              <pre className="p-4 sm:p-5 text-xs sm:text-sm font-mono overflow-x-auto leading-relaxed text-emerald-100">
-                                <code>{codeContent}</code>
-                              </pre>
-                            </div>
-                          );
-                        }
-
-                        // 2. Embedded Markdown Image inside paragraphs (![alt](url))
-                        const imgMatch = /^!\[([^\]]*)\]\(([^)]+)\)$/.exec(trimmed);
-                        if (imgMatch) {
-                          const imgAlt = imgMatch[1] || sec.heading || activeArticle.title;
-                          const imgSrc = imgMatch[2].trim();
-                          if (imgSrc === sec.imageUrl) return null;
-                          return (
-                            <figure
-                              key={pIdx}
-                              className={`rounded-2xl overflow-hidden border my-5 ${currentTheme.surface}`}
-                            >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={imgSrc}
-                                alt={imgAlt}
-                                referrerPolicy="no-referrer"
-                                className="w-full max-h-[420px] object-contain bg-slate-950/40"
-                              />
-                              {imgAlt && (
-                                <figcaption className={`px-4 py-2.5 text-xs border-t border-slate-800/60 ${currentTheme.subtext}`}>
-                                  {imgAlt}
-                                </figcaption>
-                              )}
-                            </figure>
-                          );
-                        }
-
-                        // 3. Blockquote (> ...)
-                        if (trimmed.startsWith(">")) {
-                          const quoteText = trimmed.replace(/^>\s?/gm, "");
-                          return (
-                            <blockquote
-                              key={pIdx}
-                              className={`p-4 sm:p-5 rounded-2xl border-r-4 border-emerald-500 ${currentTheme.surface} ${currentTheme.text} italic leading-[1.95] whitespace-pre-line`}
-                            >
-                              {quoteText}
-                            </blockquote>
-                          );
-                        }
-
-                        // 4. Standard or Multi-line Paragraph
-                        return (
-                          <p
-                            key={pIdx}
-                            className={`leading-[1.95] whitespace-pre-line ${currentTheme.text}`}
-                          >
-                            {p}
-                          </p>
-                        );
-                      })}
-                    </div>
-
-                    {/* Section Downloaded Image / Technical Figure */}
-                    {sec.imageUrl && (
-                      <figure className={`rounded-2xl overflow-hidden border my-5 ${currentTheme.surface}`}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={sec.imageUrl}
-                          alt={sec.imageAlt || sec.heading}
-                          referrerPolicy="no-referrer"
-                          className="w-full max-h-[420px] object-contain bg-slate-950/40"
-                        />
-                        {sec.imageAlt && (
-                          <figcaption className={`px-4 py-2.5 text-xs border-t border-slate-800/60 ${currentTheme.subtext}`}>
-                            {sec.imageAlt}
-                          </figcaption>
-                        )}
-                      </figure>
-                    )}
-
-                    {/* Technical Code / Payload / Log Block */}
-                    {sec.codeSnippet && (
-                      <div
-                        className="my-5 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 text-slate-100 shadow-lg"
-                        style={{ direction: "ltr", textAlign: "left" }}
-                      >
-                        <div className="px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs font-mono text-slate-400">
-                          <div className="flex items-center gap-2">
-                            <Terminal className="w-3.5 h-3.5 text-emerald-400" />
-                            <span className="uppercase font-bold text-emerald-400">
-                              {sec.codeLanguage || "payload / log"}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() =>
-                              handleCopyText(`code-${idx}`, sec.codeSnippet || "")
-                            }
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] cursor-pointer transition-colors"
-                          >
-                            {copiedKey === `code-${idx}` ? (
-                              <>
-                                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                <span className="text-emerald-400">Copied</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3.5 h-3.5" />
-                                <span>Copy Snippet</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                        <pre className="p-4 sm:p-5 text-xs sm:text-sm font-mono overflow-x-auto leading-relaxed text-emerald-100">
-                          <code>{sec.codeSnippet}</code>
-                        </pre>
-                      </div>
-                    )}
-
-                    {/* Structured Technical Table */}
-                    {sec.table && sec.table.headers.length > 0 && (
-                      <div className={`overflow-x-auto rounded-2xl border my-5 ${currentTheme.surface}`}>
-                        <table className="w-full text-right text-xs sm:text-sm border-collapse">
-                          <thead>
-                            <tr className="border-b border-slate-800/80">
-                              {sec.table.headers.map((h, hIdx) => (
-                                <th
-                                  key={hIdx}
-                                  className="py-3 px-4 font-bold whitespace-nowrap text-emerald-400"
-                                >
-                                  {h}
-                                </th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-800/50">
-                            {sec.table.rows.map((row, rIdx) => (
-                              <tr key={rIdx} className="hover:bg-emerald-500/5 transition-colors">
-                                {row.map((cell, cIdx) => (
-                                  <td
-                                    key={cIdx}
-                                    className={`py-3 px-4 leading-relaxed ${
-                                      cIdx === 0 ? "font-mono font-bold text-emerald-300" : currentTheme.text
-                                    }`}
-                                  >
-                                    {cell}
-                                  </td>
-                                ))}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-
-                    {/* Callout / Advisory Note */}
-                    {sec.callout && (
-                      <div className="p-4 sm:p-5 rounded-2xl bg-amber-950/30 border border-amber-500/40 flex items-start gap-3">
-                        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                        <p className="text-xs sm:text-sm leading-relaxed text-amber-200 font-medium">
-                          {sec.callout}
-                        </p>
-                      </div>
-                    )}
-                  </section>
-                ))}
-              </div>
-
-              {/* Indicators of Compromise (IoCs) & Threat Hunting Table */}
-              {activeArticle.iocs && activeArticle.iocs.length > 0 && (
-                <section
-                  id="news-iocs"
-                  className="mt-12 pt-8 border-t border-slate-800/80 space-y-4 scroll-mt-24"
+              {/* Lead Intro Paragraph */}
+              {activeArticle.content?.intro && activeArticle.content.intro.trim().length > 0 && (
+                <div
+                  className={`leading-[1.95] font-medium border-r-4 border-emerald-500 pr-4 sm:pr-5 whitespace-pre-line ${tc.body}`}
+                  style={{ fontSize: `${fontSize + 1}px` }}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-lg sm:text-xl font-extrabold flex items-center gap-2">
-                      <FileWarning className="w-5 h-5 text-rose-400" />
-                      <span>شاخص‌های آلودگی و شکار تهدید (Indicators of Compromise - IoCs)</span>
-                    </h3>
-                    <span className="text-[11px] font-mono text-slate-400 hidden sm:inline">
-                      SOC / SIEM Ready
-                    </span>
-                  </div>
+                  {activeArticle.content.intro}
+                </div>
+              )}
 
-                  <p className={`text-xs sm:text-sm ${currentTheme.subtext}`}>
-                    تیم‌های مرکز عملیات امنیت (SOC) و شکار تهدید می‌توانند از الگوها و مقادیر زیر برای جستجو در لاگ‌های EDR، Sysmon و فایروال استفاده کنند:
-                  </p>
+              {/* Structured Article Sections */}
+              <div className="space-y-12">
+                {articleSections.map((sec, idx) => {
+                  const sectionAnchor = sec.id || `sec-${idx}`;
+                  const codeKey = `${activeArticle.id}-code-${idx}`;
+                  return (
+                    <section key={sectionAnchor} id={sectionAnchor} className="space-y-5 scroll-mt-32">
+                      {sec.heading && sec.heading.trim().length > 0 && (
+                        <h2 className={`text-xl sm:text-2xl font-extrabold tracking-tight leading-snug pt-2 ${tc.heading}`}>
+                          {sec.heading}
+                        </h2>
+                      )}
 
-                  <div className="space-y-3">
-                    {activeArticle.iocs.map((ioc, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-4 rounded-2xl border transition-all ${currentTheme.surface}`}
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                          <span className="px-2.5 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] font-mono font-bold">
-                            {ioc.type}
-                          </span>
-                          <button
-                            onClick={() => handleCopyText(`ioc-${idx}`, ioc.value)}
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-mono cursor-pointer"
-                          >
-                            {copiedKey === `ioc-${idx}` ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-400" />
-                                <span className="text-emerald-400">کپی شد</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3 h-3" />
-                                <span>کپی شاخص (Copy IoC)</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
+                      <div className="space-y-4">
+                        {sec.paragraphs.map((p, pIdx) => {
+                          if (p.startsWith("> ")) {
+                            return (
+                              <blockquote
+                                key={pIdx}
+                                className={`border-r-4 border-emerald-500 pr-4 py-1.5 my-3 italic ${tc.muted}`}
+                                style={{ fontSize: `${fontSize}px` }}
+                              >
+                                {p.replace(/^>\s*/, "")}
+                              </blockquote>
+                            );
+                          }
+                          return (
+                            <p
+                              key={pIdx}
+                              className={`leading-[2.05] whitespace-pre-line ${tc.body}`}
+                              style={{ fontSize: `${fontSize}px` }}
+                            >
+                              {p}
+                            </p>
+                          );
+                        })}
+                      </div>
 
+                      {/* Section Image */}
+                      {sec.imageUrl && (
+                        <figure className={`rounded-2xl overflow-hidden border my-5 ${tc.border} ${tc.surface}`}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={sec.imageUrl}
+                            alt={sec.imageAlt || sec.heading}
+                            referrerPolicy="no-referrer"
+                            className="w-full max-h-[440px] object-contain bg-slate-950/40"
+                          />
+                          {sec.imageAlt && (
+                            <figcaption className={`px-4 py-2.5 text-xs border-t ${tc.border} ${tc.muted}`}>
+                              {sec.imageAlt}
+                            </figcaption>
+                          )}
+                        </figure>
+                      )}
+
+                      {/* Code Block (LTR) */}
+                      {sec.codeSnippet && (
                         <div
-                          className="p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-emerald-300 overflow-x-auto mb-2"
+                          className="rounded-2xl overflow-hidden border border-slate-800 bg-[#090D16] text-slate-100 font-mono text-xs sm:text-[13px] my-6 shadow-xl"
                           style={{ direction: "ltr", textAlign: "left" }}
                         >
-                          {ioc.value}
+                          <div className="bg-slate-900/95 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-xs text-slate-400">
+                              <Terminal className="w-3.5 h-3.5 text-emerald-400" />
+                              <span className="uppercase font-semibold text-emerald-400">
+                                {sec.codeLanguage || "code"}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => copyCodeBlock(codeKey, sec.codeSnippet!)}
+                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] transition-colors cursor-pointer"
+                            >
+                              {copiedCodeKey === codeKey ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span className="text-emerald-400">Copied</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5" />
+                                  <span>Copy</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                          <pre className="p-4 sm:p-5 text-emerald-300/95 overflow-x-auto leading-relaxed">
+                            <code>{sec.codeSnippet}</code>
+                          </pre>
                         </div>
+                      )}
 
-                        <div className={`text-xs ${currentTheme.subtext}`}>{ioc.description}</div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
+                      {/* Technical Table */}
+                      {sec.table && sec.table.headers.length > 0 && (
+                        <div className={`overflow-x-auto rounded-2xl border my-6 ${tc.border}`}>
+                          <table className="w-full text-right text-xs sm:text-sm border-collapse">
+                            <thead>
+                              <tr className={`${tc.surface} border-b ${tc.border}`}>
+                                {sec.table.headers.map((h, hIdx) => (
+                                  <th key={hIdx} className={`py-3 px-4 font-bold whitespace-nowrap ${tc.heading}`}>
+                                    {h}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-500/15">
+                              {sec.table.rows.map((row, rIdx) => (
+                                <tr key={rIdx} className="hover:bg-emerald-500/5 transition-colors">
+                                  {row.map((cell, cIdx) => (
+                                    <td
+                                      key={cIdx}
+                                      className={`py-3 px-4 leading-relaxed tabular-nums ${
+                                        cIdx === 0 ? `font-mono font-bold ${tc.accent}` : tc.body
+                                      }`}
+                                    >
+                                      {cell}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
 
-              {/* Interactive Mitigation & Defensive Checklist */}
-              {mitigations.length > 0 && (
-                <section
-                  id="news-mitigations"
-                  className="mt-12 p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/30 border border-emerald-500/40 space-y-5 scroll-mt-24 text-slate-100"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-emerald-400 font-extrabold text-base sm:text-lg">
-                        <CheckCircle2 className="w-5 h-5 shrink-0" />
-                        <span>چک‌لیست عملیاتی پیشگیری و ایمن‌سازی (Mitigation Playbook)</span>
-                      </div>
-                      <p className="text-xs text-slate-400">
-                        گام‌های زیر را برای ایمن‌سازی زیرساخت خود بررسی و تیک بزنید:
-                      </p>
-                    </div>
-                    <div className="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono text-emerald-400 shrink-0 self-start">
-                      {toPersianDigits(completedMitigationsCount)} از{" "}
-                      {toPersianDigits(mitigations.length)} اقدام تکمیل شد
-                    </div>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    {mitigations.map((step, idx) => {
-                      const key = `${activeArticle.id}-${idx}`;
-                      const isDone = !!checkedMitigations[key];
-                      return (
-                        <label
-                          key={idx}
-                          onClick={() =>
-                            setCheckedMitigations((prev) => ({ ...prev, [key]: !prev[key] }))
-                          }
-                          className={`p-3.5 rounded-2xl border flex items-start gap-3 cursor-pointer transition-all ${
-                            isDone
-                              ? "bg-emerald-950/40 border-emerald-500/50 text-emerald-200"
-                              : "bg-slate-950/70 border-slate-800 hover:border-slate-700 text-slate-200"
+                      {/* Callout */}
+                      {sec.callout && (
+                        <div
+                          className={`p-4 sm:p-5 rounded-2xl border my-5 leading-relaxed text-xs sm:text-sm ${
+                            sec.calloutType === "warning"
+                              ? "bg-amber-500/10 border-amber-500/40 text-amber-900 dark:text-amber-200"
+                              : tc.callout
                           }`}
                         >
-                          <input
-                            type="checkbox"
-                            checked={isDone}
-                            onChange={() => {}}
-                            className="mt-1 w-4 h-4 rounded accent-emerald-500 shrink-0"
-                          />
-                          <span
-                            className={`text-xs sm:text-sm leading-relaxed ${
-                              isDone ? "line-through opacity-75" : ""
-                            }`}
-                          >
-                            {step}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </section>
-              )}
-
-              {/* Chronological Incident Timeline */}
-              {activeArticle.timeline && activeArticle.timeline.length > 0 && (
-                <section
-                  id="news-timeline"
-                  className="mt-12 pt-8 border-t border-slate-800/80 space-y-5 scroll-mt-24"
-                >
-                  <h3 className="text-lg font-extrabold flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-amber-400" />
-                    <span>تایم‌لاین رخداد و سیر زمانی کشف تهدید</span>
-                  </h3>
-
-                  <div className="relative pr-4 border-r-2 border-emerald-500/40 space-y-4">
-                    {activeArticle.timeline.map((item, idx) => (
-                      <div key={idx} className="relative">
-                        <span className="absolute -right-[21px] top-1.5 w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-slate-950" />
-                        <div className={`p-4 rounded-2xl border ${currentTheme.surface}`}>
-                          <div className="text-xs font-bold text-emerald-400 mb-1">
-                            {item.time}
-                          </div>
-                          <div className={`text-xs sm:text-sm ${currentTheme.text}`}>
-                            {item.event}
-                          </div>
+                          {sec.callout}
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      )}
+                    </section>
+                  );
+                })}
+              </div>
+
+              {/* Conclusion */}
+              {activeArticle.content?.conclusion && (
+                <section className={`p-6 sm:p-8 rounded-2xl border ${tc.surface} ${tc.border} space-y-3`}>
+                  <h3 className={`text-base font-extrabold ${tc.heading}`}>جمع‌بندی و دیدگاه تحلیلی</h3>
+                  <p className={`text-xs sm:text-sm leading-relaxed whitespace-pre-line ${tc.body}`}>
+                    {activeArticle.content.conclusion}
+                  </p>
                 </section>
               )}
 
-              {/* Source Attribution & Original Reference Box at the end of the article */}
+              {/* Source Reference if available */}
               {(activeArticle.sourceUrl || activeArticle.source) && (
-                <section
-                  className={`mt-10 p-5 sm:p-6 rounded-2xl border space-y-3 ${currentTheme.surface}`}
-                  style={{ maxWidth: "68ch" }}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h4 className="text-xs sm:text-sm font-extrabold flex items-center gap-2 text-emerald-400">
-                      <ExternalLink className="w-4 h-4 shrink-0" />
-                      <span>منبع و مرجع اصلی خبر (Source Reference)</span>
+                <section className={`p-5 sm:p-6 rounded-2xl border ${tc.surface} ${tc.border} space-y-3`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className={`text-xs sm:text-sm font-extrabold flex items-center gap-2 ${tc.heading}`}>
+                      <ExternalLink className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span>منبع اصلی خبر (Source Reference)</span>
                     </h4>
                     {activeArticle.source && (
-                      <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] font-mono">
+                      <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[11px] font-mono">
                         {activeArticle.source}
                       </span>
                     )}
                   </div>
-
                   {activeArticle.sourceUrl && (
-                    <div
-                      className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-mono"
-                      style={{ direction: "ltr", textAlign: "left" }}
-                    >
+                    <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-xs font-mono" style={{ direction: "ltr", textAlign: "left" }}>
                       <a
                         href={activeArticle.sourceUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-emerald-400 hover:text-emerald-300 underline underline-offset-4 break-all flex items-center gap-1.5"
+                        className="text-emerald-400 hover:text-emerald-300 underline break-all flex items-center gap-1.5"
                       >
-                        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                         <span>{activeArticle.sourceUrl}</span>
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                       </a>
                     </div>
                   )}
                 </section>
               )}
 
-              {/* Article Tags */}
-              {activeArticle.tags && activeArticle.tags.length > 0 && (
-                <div className="mt-10 pt-6 border-t border-slate-800/80 flex flex-wrap items-center gap-2">
-                  <span className={`text-xs font-bold ${currentTheme.subtext}`}>برچسب‌ها:</span>
-                  {activeArticle.tags.map((tag) => (
-                    <button
-                      key={tag}
-                      onClick={() => {
-                        setSelectedTag(tag);
-                        handleCloseArticle();
-                      }}
-                      className="px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs font-mono cursor-pointer transition-colors"
-                    >
-                      #{tag}
-                    </button>
-                  ))}
-                </div>
+              {/* PROMINENT KEYWORDS SECTION (کلیدواژه‌ها) - Requested specifically by user! */}
+              {articleKeywords.length > 0 && (
+                <section className={`p-6 sm:p-7 rounded-2xl border ${tc.surface} ${tc.border} space-y-3.5`}>
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <h4 className={`text-xs sm:text-sm font-extrabold ${tc.heading}`}>
+                      کلیدواژه‌های این گزارش:
+                    </h4>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {articleKeywords.map((kw) => (
+                      <span
+                        key={kw}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+                          isDark
+                            ? "bg-slate-900 border-slate-800 text-emerald-300 hover:border-emerald-500/50"
+                            : "bg-white border-slate-200 text-emerald-800 shadow-2xs hover:border-emerald-300"
+                        }`}
+                      >
+                        #{kw}
+                      </span>
+                    ))}
+                  </div>
+                </section>
               )}
 
-              {/* Next / Previous News Report Navigation */}
-              <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {prevArticle ? (
-                  <button
-                    onClick={() => handleOpenArticle(prevArticle)}
-                    className={`p-4 rounded-2xl border text-right transition-all cursor-pointer group ${currentTheme.surface} hover:border-emerald-500/50`}
-                  >
-                    <div className="text-[11px] text-slate-400 flex items-center gap-1 mb-1">
-                      <ArrowRight className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>گزارش قبلی</span>
-                    </div>
-                    <div className="text-xs sm:text-sm font-bold group-hover:text-emerald-400 transition-colors line-clamp-2">
-                      {prevArticle.title}
-                    </div>
-                  </button>
-                ) : (
-                  <div />
-                )}
-
-                {nextArticle && (
-                  <button
-                    onClick={() => handleOpenArticle(nextArticle)}
-                    className={`p-4 rounded-2xl border text-right transition-all cursor-pointer group ${currentTheme.surface} hover:border-emerald-500/50`}
-                  >
-                    <div className="text-[11px] text-slate-400 flex items-center justify-end gap-1 mb-1">
-                      <span>گزارش بعدی</span>
-                      <ArrowLeft className="w-3.5 h-3.5 text-emerald-400" />
-                    </div>
-                    <div className="text-xs sm:text-sm font-bold group-hover:text-emerald-400 transition-colors line-clamp-2">
-                      {nextArticle.title}
-                    </div>
-                  </button>
-                )}
+              {/* Next & Previous News Navigator */}
+              <div className={`pt-6 border-t ${tc.border} flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-bold`}>
+                <button
+                  onClick={handleCloseArticle}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer"
+                >
+                  <ArrowRight className="w-4 h-4" />
+                  <span>بازگشت به فهرست اخبار امنیت</span>
+                </button>
               </div>
             </div>
 
-            {/* Sticky Desktop Threat Intelligence Dossier Sidebar (4 cols) */}
-            <aside className="hidden lg:block lg:col-span-4 sticky top-20 space-y-6">
-              {/* Threat Intelligence Dossier / Article TOC Card */}
-              <div className={`p-6 rounded-3xl border space-y-5 ${currentTheme.surface}`}>
-                {(activeArticle.cvssScore ||
-                  activeArticle.exploitStatus ||
-                  (activeArticle.cveIds && activeArticle.cveIds.length > 0) ||
-                  (activeArticle.affectedProducts && activeArticle.affectedProducts.length > 0)) ? (
-                  <>
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-3.5">
-                      <div className="flex items-center gap-2">
-                        <ShieldAlert className="w-5 h-5 text-rose-400" />
-                        <h3 className="text-sm font-extrabold">پرونده فنی تهدید (Threat Dossier)</h3>
-                      </div>
-                      <span
-                        className={`px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold border ${getSeverityBadgeStyle(
-                          activeArticle.severity
-                        )}`}
-                      >
-                        {activeArticle.severity}
-                      </span>
-                    </div>
+            {/* Sidebar Column (4 Cols): TOC & Metadata */}
+            <aside className="hidden lg:block lg:col-span-4 sticky top-24 space-y-6">
+              {/* Table of Contents Box */}
+              {articleSections.length > 0 && (
+                <div className={`p-6 rounded-2xl border ${tc.surface} ${tc.border} space-y-4`}>
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                    <List className="w-4 h-4 text-emerald-500" />
+                    <span>فهرست سرفصل‌های خبر</span>
+                  </div>
+                  <nav className="space-y-1.5 text-xs">
+                    {articleSections.map((sec, idx) => {
+                      const secId = sec.id || `sec-${idx}`;
+                      const isActive = activeSectionId === secId;
+                      return (
+                        <a
+                          key={secId}
+                          href={`#${secId}`}
+                          className={`block py-1.5 px-3 rounded-lg transition-colors leading-relaxed ${
+                            isActive
+                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border-r-2 border-emerald-500"
+                              : `${tc.muted} hover:text-slate-900 dark:hover:text-white`
+                          }`}
+                        >
+                          {sec.heading || `بخش ${idx + 1}`}
+                        </a>
+                      );
+                    })}
+                  </nav>
+                </div>
+              )}
 
-                    <div className="space-y-3.5 text-xs">
-                      {activeArticle.cvssScore && (
-                        <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/90 border border-slate-800">
-                          <span className="text-slate-400">امتیاز شدت آسیب‌پذیری (CVSS):</span>
-                          <span className="text-sm font-black font-mono text-rose-400">
-                            {activeArticle.cvssScore} / 10
-                          </span>
-                        </div>
-                      )}
-
-                      {activeArticle.exploitStatus && (
-                        <div className="p-3 rounded-2xl bg-rose-950/30 border border-rose-500/30 space-y-1">
-                          <div className="text-[11px] text-rose-300 font-bold">وضعیت بهره‌برداری در حیات وحش:</div>
-                          <div className="text-xs text-rose-200 font-semibold">
-                            {activeArticle.exploitStatus}
-                          </div>
-                        </div>
-                      )}
-
-                      {activeArticle.cveIds && activeArticle.cveIds.length > 0 && (
-                        <div className="space-y-1.5">
-                          <div className={currentTheme.subtext}>شناسه‌های CVE / MITRE ATT&CK:</div>
-                          <div className="flex flex-wrap gap-1.5" style={{ direction: "ltr" }}>
-                            {activeArticle.cveIds.map((id) => (
-                              <span
-                                key={id}
-                                className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-amber-400 font-mono text-xs font-bold"
-                              >
-                                {id}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {activeArticle.affectedProducts && activeArticle.affectedProducts.length > 0 && (
-                        <div className="space-y-1.5">
-                          <div className={currentTheme.subtext}>بسترها و محصولات هدف:</div>
-                          <ul className="space-y-1.5" style={{ direction: "ltr", textAlign: "left" }}>
-                            {activeArticle.affectedProducts.map((prod) => (
-                              <li
-                                key={prod}
-                                className="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 font-mono text-[11px] flex items-center gap-2"
-                              >
-                                <Cpu className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                                <span>{prod}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-3.5">
-                    <div className="flex items-center gap-2">
-                      <Layers className="w-5 h-5 text-emerald-400" />
-                      <h3 className="text-sm font-extrabold">ساختار و سرفصل‌های مطلب</h3>
-                    </div>
-                    <span className="text-[11px] font-mono text-slate-400">
-                      {activeArticle.readTime}
+              {/* Quick Info Box */}
+              <div className={`p-6 rounded-2xl border ${tc.surface} ${tc.border} space-y-3 text-xs`}>
+                <div className={`font-bold ${tc.heading}`}>مشخصات انتشار</div>
+                <div className="space-y-2 text-slate-500 dark:text-slate-400">
+                  <div className="flex justify-between">
+                    <span>دسته‌بندی:</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      {activeArticle.categoryLabel || activeArticle.category}
                     </span>
                   </div>
-                )}
-
-                {/* Quick Section Jump in Article */}
-                <div className="pt-2 space-y-2">
-                  <div className="text-xs font-bold text-emerald-400 mb-2">
-                    دسترسی سریع به بخش‌های گزارش:
+                  <div className="flex justify-between">
+                    <span>تاریخ:</span>
+                    <span className="font-mono">{activeArticle.date}</span>
                   </div>
-                  {activeArticle.sections
-                    .filter((sec) => sec.heading && sec.heading.trim().length > 0)
-                    .map((sec, idx) => (
-                      <a
-                        key={idx}
-                        href={`#news-sec-${idx}`}
-                        className="block text-xs text-slate-400 hover:text-emerald-400 transition-colors py-1 truncate"
-                      >
-                        • {sec.heading}
-                      </a>
-                    ))}
-                  {activeArticle.iocs && activeArticle.iocs.length > 0 && (
-                    <a
-                      href="#news-iocs"
-                      className="block text-xs text-rose-400 hover:text-rose-300 font-semibold py-1"
-                    >
-                      • شاخص‌های آلودگی (IoCs)
-                    </a>
-                  )}
-                  {mitigations.length > 0 && (
-                    <a
-                      href="#news-mitigations"
-                      className="block text-xs text-emerald-400 hover:text-emerald-300 font-semibold py-1"
-                    >
-                      • چک‌لیست اقدام و پیشگیری (Mitigation)
-                    </a>
-                  )}
+                  <div className="flex justify-between">
+                    <span>زمان تخمینی:</span>
+                    <span>{activeArticle.readTime}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>بازدید:</span>
+                    <span className="font-mono">{toPersianDigits(activeArticle.views || 180)}</span>
+                  </div>
                 </div>
               </div>
-
-              {/* Emergency Incident Response CTA */}
-              {onOpenConsultation && (
-                <div className="p-6 rounded-3xl bg-gradient-to-br from-rose-950/40 via-slate-900 to-slate-900 border border-rose-500/30 space-y-3">
-                  <div className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
-                    <Radio className="w-4 h-4 animate-pulse" />
-                    <span>نیاز به بررسی فوری یا پاسخ به رخداد دارید؟</span>
-                  </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    تیم پاسخ به رخداد و شکار تهدید رهام آماده بررسی لاگ‌ها، ارزیابی آسیب‌پذیری و استقرار آنتی‌استیلر در سازمان شماست.
-                  </p>
-                  <button
-                    onClick={onOpenConsultation}
-                    className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs cursor-pointer transition-colors"
-                  >
-                    درخواست مشاوره و بررسی امنیتی
-                  </button>
-                </div>
-              )}
-
-              {/* Related News Bulletins */}
-              {relatedArticles.length > 0 && (
-                <div className={`p-5 rounded-3xl border space-y-3.5 ${currentTheme.surface}`}>
-                  <h4 className="text-xs font-extrabold text-slate-300">
-                    سایر بولتن‌های خبری مرتبط
-                  </h4>
-                  <div className="space-y-3">
-                    {relatedArticles.map((rel) => (
-                      <div
-                        key={rel.id}
-                        onClick={() => handleOpenArticle(rel)}
-                        className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800 hover:border-emerald-500/40 cursor-pointer transition-all group"
-                      >
-                        <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 mb-1">
-                          <span className="text-emerald-400">{rel.categoryLabel}</span>
-                          <span>{rel.severity}</span>
-                        </div>
-                        <div className="text-xs font-bold text-slate-200 group-hover:text-emerald-300 line-clamp-2 leading-snug">
-                          {rel.title}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </aside>
           </div>
         </div>
@@ -1373,675 +917,216 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
   }
 
   // ============================================================================
-  // VIEW 2: MAIN CYBERSECURITY NEWSROOM & THREAT RADAR PORTAL (/radar)
+  // NEWS ARTICLES LIST VIEW (اخبار امنیت)
   // ============================================================================
   return (
-    <section
-      id="radar"
-      className={`py-10 sm:py-16 min-h-screen transition-colors ${
-        isDark ? "bg-slate-950 text-slate-100" : "bg-[#fbfbf9] text-slate-900"
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 sm:space-y-10">
-        {/* Top Navigation Breadcrumb + Admin CMS Action */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div
-            className={`flex items-center gap-2 text-xs ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
-          >
-            {onBackToHome && (
-              <>
-                <button
-                  onClick={onBackToHome}
-                  className="text-emerald-700 dark:text-emerald-400 hover:underline font-semibold cursor-pointer flex items-center gap-1.5"
-                >
-                  <span>صفحه اصلی رهام</span>
-                </button>
-                <span>/</span>
-              </>
-            )}
-            <span className={`font-semibold ${isDark ? "text-slate-200" : "text-slate-900"}`}>
-              رادار اخبار امنیت سایبری و هوش تهدیدات (Threat Intelligence Newsroom)
-            </span>
+    <div className="space-y-10 pb-20 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+      {/* Top Header */}
+      <div className="space-y-4 text-right">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-emerald-700 dark:text-emerald-400 font-bold">
+          <Radio className="w-4 h-4 animate-pulse" />
+          <span>مرکز تحقیقات امنیت و دفاع سایبری رهام</span>
+          <span aria-hidden="true">·</span>
+          <span>Security News & Intelligence</span>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+              اخبار امنیت
+            </h1>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
+              پوشش موثق و فنی تازه‌ترین اخبار امنیت سایبری، تحلیل هشدارهای فوری، گزارش‌های رخداد و راهنمای ایمن‌سازی برای جامعه فنی و سازمان‌ها.
+            </p>
           </div>
 
           {isAdmin && onOpenAdminCms && (
             <button
               onClick={onOpenAdminCms}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
-                isDark
-                  ? "bg-amber-500/15 border border-amber-500/40 hover:bg-amber-500/25 text-amber-300"
-                  : "bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-900 shadow-2xs"
-              }`}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-700 dark:text-amber-300 font-bold text-xs cursor-pointer self-start sm:self-auto"
             >
-              <PlusCircle className="w-4 h-4" />
-              <span>انتشار خبر جدید / مدیریت رادار (CMS)</span>
+              <Edit3 className="w-4 h-4 text-amber-500" />
+              <span>مدیریت اخبار در پنل</span>
             </button>
           )}
         </div>
+      </div>
 
-        {/* Live Threat Ticker Banner */}
-        <div
-          className={`p-3 sm:px-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
-            isDark
-              ? "bg-slate-900/90 border-slate-800 text-slate-300"
-              : "bg-white border-slate-200/90 text-slate-700 shadow-2xs"
-          }`}
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="px-2.5 py-1 rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[11px] font-bold flex items-center gap-1.5 shrink-0">
-              <Radio className="w-3.5 h-3.5 animate-pulse text-rose-400" />
-              <span>وضعیت تهدیدات: بالا</span>
-            </span>
-            <p className="text-xs text-slate-300 truncate">
-              جدیدترین بولتن: کمپین‌های فعال ClickFix استیلر LummaC2 و آسیب‌پذیری‌های روز صفر گیت‌وی‌های سازمانی
-            </p>
-          </div>
-          <div className="flex items-center gap-3 text-[11px] font-mono text-slate-400 shrink-0">
-            <span>{toPersianDigits(articles.length)} گزارش تحلیلی کامل</span>
-            <span>·</span>
-            <span className="text-emerald-400">همگام با دیتابیس MySQL</span>
-          </div>
-        </div>
-
-        {/* Newsroom Header & Search Controls */}
-        <div className="space-y-6">
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-            <div className="space-y-3 max-w-3xl">
-              <div className="inline-flex items-center gap-2 text-xs font-mono text-emerald-700 dark:text-emerald-400 font-bold">
-                <Radio className="w-4 h-4" />
-                <span>ROHAM CYBERSECURITY NEWSROOM & THREAT RADAR</span>
-              </div>
-              <h1
-                className={`text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-[1.2] ${
-                  isDark ? "text-white" : "text-slate-900"
-                }`}
-                style={{ textWrap: "balance" }}
-              >
-                اخبار تخصصی امنیت سایبری، کالبدشکافی بدافزارها و هشدارهای روز صفر
-              </h1>
-              <p
-                className={`text-sm sm:text-base leading-relaxed ${
-                  isDark ? "text-slate-300" : "text-slate-600"
-                }`}
-              >
-                هر گزارش شامل تحلیل کامل فنی، کدها و پیلودهای حمله، شاخص‌های آلودگی (IoCs) قابل کپی برای تیم‌های SOC و چک‌لیست گام‌به‌گام ایمن‌سازی در یک صفحه اختصاصی و خوانا است.
-              </p>
-            </div>
-
-            {/* Search Input */}
-            <div className="w-full lg:w-80 shrink-0">
-              <div className="relative">
-                <Search
-                  className={`w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${
-                    isDark ? "text-slate-400" : "text-slate-400"
-                  }`}
-                />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="جستجوی خبر، CVE، نام بدافزار یا محصول..."
-                  className={`w-full pr-10 pl-8 py-2.5 rounded-xl border focus:border-emerald-500 focus:outline-none text-xs transition-colors ${
-                    isDark
-                      ? "bg-slate-900 border-slate-800 text-white placeholder-slate-500"
-                      : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 shadow-2xs"
-                  }`}
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Filter Bar: Categories + Severity + Bookmarks */}
-          <div
-            className={`flex flex-wrap items-center justify-between gap-3 pt-2 border-t ${
-              isDark ? "border-slate-800" : "border-slate-200"
+      {/* Filter and Search Bar */}
+      <div className="space-y-4">
+        {/* Dynamic Category Filter Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+          <button
+            onClick={() => {
+              setSelectedCategory("همه");
+              setSelectedTag(null);
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              selectedCategory === "همه" && !selectedTag
+                ? "bg-emerald-700 text-white shadow-sm"
+                : isDark
+                ? "bg-slate-900 text-slate-300 border border-slate-800 hover:border-slate-700"
+                : "bg-white text-slate-700 border border-slate-200 hover:border-slate-300"
             }`}
           >
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
-              {(
-                [
-                  { id: "all", label: "همه اخبار و گزارش‌ها" },
-                  { id: "urgent", label: "هشدارهای فوری (SOC)" },
-                  { id: "zeroday", label: "آسیب‌پذیری روز صفر (0-Day)" },
-                  { id: "malware", label: "تحلیل بدافزار و استیلر" },
-                  { id: "apt", label: "باج‌افزار و حملات APT" },
-                  { id: "cloud", label: "امنیت ابری و زنجیره تامین" },
-                ] as const
-              ).map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setCategoryFilter(cat.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                    categoryFilter === cat.id
-                      ? "bg-emerald-700 dark:bg-emerald-600 text-white shadow-xs"
-                      : isDark
-                      ? "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
-                      : "bg-white text-slate-700 hover:text-slate-900 border border-slate-200 shadow-2xs"
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
+            همه اخبار ({articles.length})
+          </button>
 
-            <div className="flex items-center gap-2">
-              {/* Severity Filter */}
-              <div
-                className={`flex items-center gap-1 p-1 rounded-xl border text-[11px] ${
-                  isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-2xs"
-                }`}
-              >
-                {(["ALL", "CRITICAL", "HIGH"] as const).map((sev) => (
-                  <button
-                    key={sev}
-                    onClick={() => setSeverityFilter(sev)}
-                    className={`px-2.5 py-1 rounded-lg font-mono font-bold cursor-pointer transition-colors ${
-                      severityFilter === sev
-                        ? sev === "CRITICAL"
-                          ? "bg-rose-600 text-white"
-                          : sev === "HIGH"
-                            ? "bg-amber-600 text-white"
-                            : "bg-slate-700 text-white"
-                        : isDark
-                        ? "text-slate-400 hover:text-white"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    {sev === "ALL" ? "همه سطوح" : sev}
-                  </button>
-                ))}
-              </div>
-
-              {/* Saved Filter */}
+          {categories.map((cat) => {
+            const count = articles.filter(
+              (a) => a.category === cat.name || a.category === cat.slug || a.categoryLabel === cat.name
+            ).length;
+            const isActive = selectedCategory === cat.name || selectedCategory === cat.slug;
+            return (
               <button
-                onClick={() => setOnlySaved(!onlySaved)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 cursor-pointer transition-colors ${
-                  onlySaved
-                    ? isDark
-                      ? "bg-amber-500/20 border-amber-500/50 text-amber-300"
-                      : "bg-amber-50 border-amber-300 text-amber-900"
+                key={cat.id}
+                onClick={() => {
+                  setSelectedCategory(cat.name);
+                  setSelectedTag(null);
+                }}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                  isActive
+                    ? "bg-emerald-700 text-white shadow-sm"
                     : isDark
-                    ? "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
-                    : "bg-white border-slate-200 text-slate-700 hover:text-slate-900 shadow-2xs"
+                    ? "bg-slate-900 text-slate-300 border border-slate-800 hover:border-slate-700"
+                    : "bg-white text-slate-700 border border-slate-200 hover:border-slate-300"
                 }`}
               >
-                <Bookmark className="w-3.5 h-3.5" />
-                <span>ذخیره‌شده‌ها ({toPersianDigits(savedIds.length)})</span>
+                <span>{cat.name}</span>
+                {count > 0 && <span className="opacity-70 mr-1.5 font-mono text-[11px]">({count})</span>}
               </button>
-            </div>
-          </div>
-
-          {selectedTag && (
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-slate-400">فیلتر برچسب فعال:</span>
-              <span className="px-2.5 py-1 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-700/50 font-mono flex items-center gap-1.5">
-                #{selectedTag}
-                <button
-                  onClick={() => setSelectedTag(null)}
-                  className="hover:text-white cursor-pointer"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            </div>
-          )}
+            );
+          })}
         </div>
 
-        {/* Lead Breaking Threat Story (Only shown when default view is active) */}
-        {leadBreakingArticle &&
-          categoryFilter === "all" &&
-          severityFilter === "ALL" &&
-          !selectedTag &&
-          !onlySaved &&
-          !searchQuery.trim() && (
-            <div
-              onClick={() => handleOpenArticle(leadBreakingArticle)}
-              className={`group rounded-3xl border p-6 sm:p-8 lg:p-10 transition-all cursor-pointer ${
+        {/* Search Input & Keyword Chips */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="جستجو در متن یا تیتر اخبار..."
+              className={`w-full pr-10 pl-4 py-2.5 rounded-xl text-xs focus:outline-none transition-colors ${
                 isDark
-                  ? "bg-gradient-to-br from-slate-900 via-slate-900/95 to-rose-950/25 border-slate-800 hover:border-emerald-500/60 shadow-2xl"
-                  : "bg-white border-slate-200 hover:border-emerald-600 shadow-sm hover:shadow-md"
+                  ? "bg-slate-900 border border-slate-800 text-white placeholder-slate-500 focus:border-emerald-500"
+                  : "bg-white border border-slate-200 text-slate-900 placeholder-slate-400 focus:border-emerald-600 shadow-2xs"
               }`}
-            >
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
-                <div className="lg:col-span-8 space-y-4">
-                  <div className="flex flex-wrap items-center gap-2.5 text-xs">
-                    <span
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-bold border ${getSeverityBadgeStyle(
-                        leadBreakingArticle.severity
-                      )}`}
-                    >
-                      {getSeverityPersianLabel(leadBreakingArticle.severity)}
-                    </span>
-                    <span
-                      className={`px-2.5 py-1 rounded-md font-bold border ${
-                        isDark
-                          ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
-                          : "bg-emerald-50 border-emerald-200 text-emerald-800"
-                      }`}
-                    >
-                      {leadBreakingArticle.categoryLabel}
-                    </span>
-                    <span className={isDark ? "text-slate-400 tabular-nums" : "text-slate-500 tabular-nums"}>
-                      {leadBreakingArticle.date}
-                    </span>
-                    <span className={isDark ? "text-slate-500" : "text-slate-400"}>·</span>
-                    <span className={isDark ? "text-slate-400" : "text-slate-500"}>
-                      مطالعه: {leadBreakingArticle.readTime}
-                    </span>
-                  </div>
-
-                  <h2
-                    className={`text-xl sm:text-2xl lg:text-3xl font-black leading-snug transition-colors ${
-                      isDark
-                        ? "text-white group-hover:text-emerald-300"
-                        : "text-slate-900 group-hover:text-emerald-700"
-                    }`}
-                  >
-                    {leadBreakingArticle.title}
-                  </h2>
-
-                  {leadBreakingArticle.subtitle && (
-                    <p
-                      className={`text-xs sm:text-sm leading-relaxed font-medium ${
-                        isDark ? "text-slate-300" : "text-slate-700"
-                      }`}
-                    >
-                      {leadBreakingArticle.subtitle}
-                    </p>
-                  )}
-
-                  <p
-                    className={`text-xs sm:text-sm leading-relaxed line-clamp-3 ${
-                      isDark ? "text-slate-400" : "text-slate-600"
-                    }`}
-                  >
-                    {leadBreakingArticle.summary}
-                  </p>
-
-                  <div className="pt-2 flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex flex-wrap items-center gap-2" style={{ direction: "ltr" }}>
-                      {(leadBreakingArticle.cveIds || []).map((cve) => (
-                        <span
-                          key={cve}
-                          className={`px-2.5 py-1 rounded-lg border font-mono text-xs font-bold ${
-                            isDark
-                              ? "bg-slate-950 border-slate-800 text-amber-400"
-                              : "bg-amber-50 border-amber-200 text-amber-800"
-                          }`}
-                        >
-                          {cve}
-                        </span>
-                      ))}
-                      {leadBreakingArticle.cvssScore && (
-                        <span
-                          className={`px-2.5 py-1 rounded-lg border font-mono text-xs font-bold ${
-                            isDark
-                              ? "bg-rose-950/80 border-rose-800/60 text-rose-300"
-                              : "bg-rose-50 border-rose-200 text-rose-800"
-                          }`}
-                        >
-                          CVSS {leadBreakingArticle.cvssScore}
-                        </span>
-                      )}
-                    </div>
-
-                    <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-bold transition-colors">
-                      <span>مطالعه گزارش کامل، IoCها و چک‌لیست دفاعی</span>
-                      <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-                    </span>
-                  </div>
-                </div>
-
-                {/* Right Highlights Preview Box */}
-                <div
-                  className={`lg:col-span-4 p-5 rounded-2xl border space-y-3 ${
-                    isDark
-                      ? "bg-slate-950/90 border-slate-800/90"
-                      : "bg-slate-50 border-slate-200 text-slate-800"
-                  }`}
-                >
-                  <div
-                    className={`flex items-center justify-between text-xs font-bold border-b pb-2.5 ${
-                      isDark ? "border-slate-800 text-emerald-400" : "border-slate-200 text-emerald-800"
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <Flame className="w-4 h-4" />
-                      نکات کلیدی این بولتن
-                    </span>
-                    <span className="font-mono text-[10px] text-slate-400">THREAT BRIEF</span>
-                  </div>
-                  <ul
-                    className={`space-y-2.5 text-xs leading-relaxed ${
-                      isDark ? "text-slate-300" : "text-slate-600"
-                    }`}
-                  >
-                    {(leadBreakingArticle.keyHighlights || []).slice(0, 3).map((hl, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">•</span>
-                        <span className="line-clamp-2">{hl}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div
-                    className={`pt-2 border-t flex items-center justify-between text-[11px] ${
-                      isDark ? "border-slate-800 text-slate-400" : "border-slate-200 text-slate-500"
-                    }`}
-                  >
-                    <span>شاخص‌های شکار تهدید (IoCs):</span>
-                    <span className="font-mono text-rose-600 dark:text-rose-400 font-bold">
-                      {toPersianDigits((leadBreakingArticle.iocs || []).length)} مورد ثبت‌شده
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-        {/* Main Newsroom Feed + Intelligence Sidebar */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* News Stream Column (8 cols) */}
-          <div className="lg:col-span-8 space-y-4">
-            <div
-              className={`flex items-center justify-between border-b pb-3 ${
-                isDark ? "border-slate-800" : "border-slate-200"
-              }`}
-            >
-              <h3
-                className={`text-base sm:text-lg font-extrabold flex items-center gap-2 ${
-                  isDark ? "text-white" : "text-slate-900"
-                }`}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
-                <Layers className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                <span>فید کامل گزارش‌های خبری و بولتن‌های امنیتی</span>
-              </h3>
-              <span className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                نمایش {toPersianDigits(filteredArticles.length)} گزارش
-              </span>
-            </div>
-
-            {streamArticles.length === 0 ? (
-              <div
-                className={`p-12 rounded-3xl border text-center space-y-3 ${
-                  isDark ? "bg-slate-900/50 border-slate-800" : "bg-white border-slate-200 shadow-sm"
-                }`}
-              >
-                <p className={`text-sm font-bold ${isDark ? "text-slate-300" : "text-slate-700"}`}>
-                  گزارشی منطبق با فیلتر یا عبارت جستجوی شما یافت نشد.
-                </p>
-                <button
-                  onClick={() => {
-                    setCategoryFilter("all");
-                    setSeverityFilter("ALL");
-                    setSelectedTag(null);
-                    setOnlySaved(false);
-                    setSearchQuery("");
-                  }}
-                  className="px-4 py-2 rounded-xl bg-emerald-700 dark:bg-emerald-600 text-white text-xs font-bold cursor-pointer"
-                >
-                  نمایش همه اخبار رادار
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {streamArticles.map((article) => (
-                  <article
-                    key={article.id}
-                    onClick={() => handleOpenArticle(article)}
-                    className={`group p-5 sm:p-6 rounded-2xl border transition-all cursor-pointer space-y-4 ${
-                      isDark
-                        ? "bg-slate-900/70 border-slate-800 hover:border-emerald-500/50 hover:bg-slate-900 text-slate-100"
-                        : "bg-white border-slate-200 hover:border-emerald-600 text-slate-900 shadow-sm hover:shadow-md"
-                    }`}
-                  >
-                    {/* Metadata Row */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${getSeverityBadgeStyle(
-                            article.severity
-                          )}`}
-                        >
-                          {article.severity}
-                        </span>
-                        <span className="text-emerald-700 dark:text-emerald-400 font-bold">
-                          {article.categoryLabel}
-                        </span>
-                        <span className={isDark ? "text-slate-600" : "text-slate-300"}>·</span>
-                        <span className={isDark ? "text-slate-400 tabular-nums" : "text-slate-500 tabular-nums"}>
-                          {article.date}
-                        </span>
-                        <span className={isDark ? "text-slate-600" : "text-slate-300"}>·</span>
-                        <span className={isDark ? "text-slate-400" : "text-slate-500"}>
-                          {article.readTime}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {article.cvssScore && (
-                          <span
-                            className={`px-2 py-0.5 rounded border font-mono text-[11px] font-bold ${
-                              isDark
-                                ? "bg-slate-950 border-slate-800 text-rose-400"
-                                : "bg-rose-50 border-rose-200 text-rose-800"
-                            }`}
-                          >
-                            CVSS {article.cvssScore}
-                          </span>
-                        )}
-                        <button
-                          onClick={(e) => toggleSaveArticle(article.id, e)}
-                          className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                            savedIds.includes(article.id)
-                              ? isDark
-                                ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
-                                : "bg-amber-50 border-amber-300 text-amber-900"
-                              : isDark
-                              ? "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
-                              : "bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900"
-                          }`}
-                          title="ذخیره گزارش"
-                        >
-                          <Bookmark className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Title & Summary */}
-                    <div className="space-y-2">
-                      <h3
-                        className={`text-base sm:text-xl font-extrabold leading-snug transition-colors ${
-                          isDark
-                            ? "text-white group-hover:text-emerald-300"
-                            : "text-slate-900 group-hover:text-emerald-700"
-                        }`}
-                      >
-                        {article.title}
-                      </h3>
-                      <p
-                        className={`text-xs sm:text-sm leading-relaxed line-clamp-2 ${
-                          isDark ? "text-slate-400" : "text-slate-600"
-                        }`}
-                      >
-                        {article.summary}
-                      </p>
-                    </div>
-
-                    {/* Bottom Bar: CVEs, IoC count, and Full-Page Link */}
-                    <div
-                      className={`pt-3 border-t flex flex-wrap items-center justify-between gap-3 text-xs ${
-                        isDark ? "border-slate-800/80" : "border-slate-100"
-                      }`}
-                    >
-                      <div className="flex flex-wrap items-center gap-2">
-                        {(article.cveIds || []).slice(0, 2).map((cve) => (
-                          <span
-                            key={cve}
-                            className={`px-2 py-0.5 rounded border font-mono text-[11px] font-bold ${
-                              isDark
-                                ? "bg-slate-950 border-slate-800 text-amber-400"
-                                : "bg-amber-50 border-amber-200 text-amber-800"
-                            }`}
-                            style={{ direction: "ltr" }}
-                          >
-                            {cve}
-                          </span>
-                        ))}
-                        {article.iocs && article.iocs.length > 0 && (
-                          <span
-                            className={`text-[11px] ${
-                              isDark ? "text-slate-400" : "text-slate-500"
-                            }`}
-                          >
-                            شامل {toPersianDigits(article.iocs.length)} شاخص IoC و{" "}
-                            {toPersianDigits((article.mitigationSteps || []).length)} راهکار دفاعی
-                          </span>
-                        )}
-                      </div>
-
-                      <span className="text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1 group-hover:-translate-x-1 transition-transform">
-                        <span>مطالعه کامل گزارش</span>
-                        <ChevronLeft className="w-3.5 h-3.5" />
-                      </span>
-                    </div>
-                  </article>
-                ))}
-              </div>
+                <X className="w-4 h-4" />
+              </button>
             )}
           </div>
 
-          {/* Right Sidebar: Active CVE Matrix, Popular Bulletins, and Tags (4 cols) */}
-          <aside className="lg:col-span-4 space-y-6">
-            {/* Active Threat & CVE Radar Widget */}
-            <div
-              className={`p-5 sm:p-6 rounded-3xl border space-y-4 ${
-                isDark ? "bg-slate-900/90 border-slate-800" : "bg-white border-slate-200 shadow-sm"
-              }`}
-            >
-              <div
-                className={`flex items-center justify-between border-b pb-3 ${
-                  isDark ? "border-slate-800" : "border-slate-200"
-                }`}
-              >
-                <h4
-                  className={`text-sm font-extrabold flex items-center gap-2 ${
-                    isDark ? "text-white" : "text-slate-900"
+          {/* Quick Keywords Chips */}
+          {allKeywords.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="text-slate-400 text-[11px] font-mono">کلیدواژه‌ها:</span>
+              {allKeywords.slice(0, 6).map((kw) => (
+                <button
+                  key={kw}
+                  onClick={() => setSelectedTag(selectedTag === kw ? null : kw)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-mono transition-colors cursor-pointer ${
+                    selectedTag === kw
+                      ? "bg-emerald-600 text-white"
+                      : isDark
+                      ? "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
-                  <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                  <span>جدول آسیب‌پذیری‌ها و تکنیک‌های فعال</span>
-                </h4>
-                <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 font-bold">
-                  LIVE MATRIX
-                </span>
-              </div>
-
-              <div className="space-y-2.5">
-                {articles.slice(0, 5).map((art) => (
-                  <div
-                    key={art.id}
-                    onClick={() => handleOpenArticle(art)}
-                    className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between gap-2 ${
-                      isDark
-                        ? "bg-slate-950 border-slate-800/90 hover:border-emerald-500/40"
-                        : "bg-slate-50/70 border-slate-200 hover:border-emerald-600 hover:bg-white"
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <div
-                        className="text-xs font-mono font-bold text-amber-700 dark:text-amber-400 truncate"
-                        style={{ direction: "ltr", textAlign: "right" }}
-                      >
-                        {(art.cveIds && art.cveIds[0]) || art.category.toUpperCase()}
-                      </div>
-                      <div
-                        className={`text-[11px] truncate ${
-                          isDark ? "text-slate-300" : "text-slate-700"
-                        }`}
-                      >
-                        {art.title}
-                      </div>
-                    </div>
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 border ${getSeverityBadgeStyle(
-                        art.severity
-                      )}`}
-                    >
-                      {art.cvssScore ? `CVSS ${art.cvssScore}` : art.severity}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Popular Topics & Threat Tags */}
-            <div
-              className={`p-5 sm:p-6 rounded-3xl border space-y-4 ${
-                isDark ? "bg-slate-900/90 border-slate-800" : "bg-white border-slate-200 shadow-sm"
-              }`}
-            >
-              <h4 className={`text-sm font-extrabold ${isDark ? "text-white" : "text-slate-900"}`}>
-                برچسب‌های تخصصی شکار تهدید
-              </h4>
-              <div className="flex flex-wrap gap-1.5">
-                {allTags.map((tag) => (
-                  <button
-                    key={tag}
-                    onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-                    className={`px-2.5 py-1 rounded-xl text-xs font-mono cursor-pointer transition-colors ${
-                      selectedTag === tag
-                        ? "bg-emerald-700 dark:bg-emerald-600 text-white"
-                        : isDark
-                        ? "bg-slate-950 border border-slate-800 text-slate-300 hover:border-emerald-500/40"
-                        : "bg-slate-50 border border-slate-200 text-slate-700 hover:border-emerald-600 hover:bg-white"
-                    }`}
-                  >
-                    #{tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Enterprise Advisory Callout */}
-            <div
-              className={`p-6 rounded-3xl border space-y-3 ${
-                isDark
-                  ? "bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 border-emerald-500/30"
-                  : "bg-gradient-to-br from-emerald-50/70 via-white to-white border-emerald-200 shadow-sm"
-              }`}
-            >
-              <div className="text-xs font-extrabold text-emerald-800 dark:text-emerald-400">
-                دفاع پیشگیرانه در برابر استیلرها و تهدیدات روز
-              </div>
-              <p
-                className={`text-xs leading-relaxed ${
-                  isDark ? "text-slate-300" : "text-slate-600"
-                }`}
-              >
-                بیش از ۷۰٪ حوادث بررسی‌شده در رادار تهدیدات رهام با سرقت کوکی‌های مرورگر و توکن‌های نشست آغاز می‌شوند. آنتی‌استیلر رهام زنجیره حمله را در همان ثانیه اول متوقف می‌کند.
-              </p>
-              {onOpenConsultation && (
-                <button
-                  onClick={onOpenConsultation}
-                  className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer transition-colors shadow-2xs"
-                >
-                  دریافت مشاوره امن‌سازی سازمان
+                  #{kw}
                 </button>
-              )}
+              ))}
             </div>
-          </aside>
+          )}
         </div>
       </div>
-    </section>
+
+      {/* Articles Grid */}
+      {filteredArticles.length === 0 ? (
+        <div className={`p-16 text-center rounded-3xl border ${isDark ? "bg-slate-900/40 border-slate-800" : "bg-white border-slate-200"}`}>
+          <Radio className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">خبری یافت نشد</h3>
+          <p className="text-xs text-slate-500 mt-1">
+            با معیارهای جستجوی فعلی نتیجه‌ای وجود ندارد. فیلترها را پاک کنید.
+          </p>
+          <button
+            onClick={() => {
+              setSelectedCategory("همه");
+              setSelectedTag(null);
+              setSearchQuery("");
+            }}
+            className="mt-4 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold"
+          >
+            نمایش همه اخبار
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredArticles.map((article) => {
+            const kws = article.keywords || article.tags || [];
+            return (
+              <div
+                key={article.id}
+                onClick={() => handleOpenArticle(article.slug)}
+                className={`p-6 rounded-2xl border transition-all duration-200 cursor-pointer flex flex-col justify-between group ${
+                  isDark
+                    ? "bg-slate-900/70 border-slate-800 hover:border-emerald-500/50 hover:bg-slate-900"
+                    : "bg-white border-slate-200 hover:border-slate-300 hover:shadow-md shadow-xs"
+                }`}
+              >
+                <div className="space-y-3.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                      {article.categoryLabel || article.category}
+                    </span>
+                    <span className="text-slate-400 font-mono text-[11px]">{article.date}</span>
+                  </div>
+
+                  <h3 className="font-bold text-slate-900 dark:text-white text-base leading-snug group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors line-clamp-2">
+                    {article.title}
+                  </h3>
+
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-3">
+                    {article.summary}
+                  </p>
+
+                  {/* Keywords Preview */}
+                  {kws.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      {kws.slice(0, 3).map((kw) => (
+                        <span
+                          key={kw}
+                          className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-mono text-slate-600 dark:text-slate-400"
+                        >
+                          #{kw}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{article.readTime}</span>
+                  </span>
+                  <span className="text-emerald-700 dark:text-emerald-400 font-bold group-hover:underline flex items-center gap-1">
+                    <span>مطالعه کامل خبر</span>
+                    <ChevronLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 };
