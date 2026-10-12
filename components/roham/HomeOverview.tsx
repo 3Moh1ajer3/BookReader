@@ -91,26 +91,26 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
             </p>
           </div>
 
-          {/* Clean Action CTAs */}
-          <div className="flex flex-wrap items-center gap-3 pt-2">
+          {/* Symmetrical Responsive Action CTAs (Full width & equal height on mobile, flex on desktop) */}
+          <div className="w-full max-w-lg sm:max-w-none grid grid-cols-1 sm:flex sm:flex-row sm:items-center gap-3 pt-2">
             <button
               onClick={() => onNavigate("radar")}
-              className="px-6 py-3.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold text-sm transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto h-12 px-5 rounded-xl bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold text-sm transition-all shadow-sm flex items-center justify-center gap-2.5 cursor-pointer text-center"
             >
-              <Radio className="w-4 h-4" />
+              <Radio className="w-4 h-4 shrink-0" />
               <span>مشاهده اخبار امنیت</span>
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-4 h-4 shrink-0" />
             </button>
 
             <button
               onClick={onOpenReader}
-              className={`px-6 py-3.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 cursor-pointer border ${
+              className={`w-full sm:w-auto h-12 px-5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2.5 cursor-pointer border text-center ${
                 isDark
                   ? "bg-slate-900 hover:bg-slate-800 text-slate-100 border-slate-800"
                   : "bg-white hover:bg-slate-50 text-slate-800 border-slate-300 shadow-2xs"
               }`}
             >
-              <BookOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <BookOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span>ورود به کتابخوان تخصصی</span>
             </button>
 
@@ -118,13 +118,13 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
               href="https://t.me/RohamSec"
               target="_blank"
               rel="noopener noreferrer"
-              className={`px-5 py-3.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 cursor-pointer border ${
+              className={`w-full sm:w-auto h-12 px-5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2.5 cursor-pointer border text-center ${
                 isDark
                   ? "bg-sky-950/40 text-sky-300 border-sky-800/60 hover:bg-sky-900/40"
                   : "bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100"
               }`}
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-4 h-4 shrink-0" />
               <span>کانال تلگرام (@RohamSec)</span>
             </a>
           </div>

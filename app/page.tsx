@@ -228,22 +228,33 @@ export default function Home() {
         pathname = cleanPath;
       }
 
-      if (pathname === "/reader" || pathname === "/library") {
+      if (
+        pathname === "/reader" ||
+        pathname === "/library" ||
+        pathname.startsWith("/library") ||
+        pathname.startsWith("/reader")
+      ) {
         setActiveView("reader-library");
+      } else if (pathname.startsWith("/from-day-zero-to-zero-day-fa-gemini")) {
+        setActiveBookId("from-day-zero-to-zero-day-fa-gemini");
+        setActiveView("reader");
+      } else if (pathname.startsWith("/from-day-zero-to-zero-day-fa")) {
+        setActiveBookId("from-day-zero-to-zero-day-fa");
+        setActiveView("reader");
       } else if (
-        pathname === "/from-day-zero-to-zero-day" ||
-        pathname === "/book"
+        pathname.startsWith("/from-day-zero-to-zero-day") ||
+        pathname.startsWith("/book")
       ) {
         setActiveView("reader");
-      } else if (pathname === "/admin") {
+      } else if (pathname.startsWith("/admin")) {
         setActiveView("admin");
       } else {
         setActiveView("portal");
-        if (pathname === "/anti-stealer") setActiveTab("anti-stealer");
-        else if (pathname === "/courses") setActiveTab("courses");
-        else if (pathname === "/blog") setActiveTab("blog");
-        else if (pathname === "/radar") setActiveTab("radar");
-        else if (pathname === "/services") setActiveTab("services");
+        if (pathname.startsWith("/anti-stealer")) setActiveTab("anti-stealer");
+        else if (pathname.startsWith("/courses")) setActiveTab("courses");
+        else if (pathname.startsWith("/blog")) setActiveTab("blog");
+        else if (pathname.startsWith("/radar")) setActiveTab("radar");
+        else if (pathname.startsWith("/services")) setActiveTab("services");
         else setActiveTab("home");
       }
     };
@@ -882,6 +893,7 @@ export default function Home() {
           onUpdatePreferences={handleUpdatePreferences}
           onSelectBook={handleEnterBook}
           onBackToPortal={handleBackToPortal}
+          onOpenToc={() => setIsTocOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenHighlights={() => setIsHighlightsOpen(true)}
           onOpenVocabulary={() => setIsVocabularyOpen(true)}
@@ -891,6 +903,23 @@ export default function Home() {
           currentUser={currentUser}
           onOpenAuth={() => setIsAuthModalOpen(true)}
           onOpenAdmin={handleOpenAdmin}
+        />
+
+        <TableOfContentsDrawer
+          isOpen={isTocOpen}
+          onClose={() => setIsTocOpen(false)}
+          books={books}
+          activeBook={activeBook}
+          activeChapter={activeChapter}
+          onSelectBook={(book) => {
+            setActiveBookId(book.id);
+            setActiveChapterId(book.chapters[0].id);
+          }}
+          onSelectChapter={(chapter) => {
+            setActiveChapterId(chapter.id);
+            setIsTocOpen(false);
+            handleEnterBook();
+          }}
         />
 
         <ReaderSettingsModal

@@ -75,26 +75,26 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             </p>
 
             {/* CTAs */}
-            <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="pt-2 grid grid-cols-1 sm:flex sm:flex-row sm:items-center gap-3 w-full max-w-lg sm:max-w-none">
               <button
                 onClick={onOpenEarlyAccess}
-                className="flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all shadow-lg shadow-emerald-950/60 cursor-pointer"
+                className="w-full sm:w-auto h-12 px-6 flex items-center justify-center gap-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-all shadow-lg shadow-emerald-950/60 cursor-pointer text-center"
               >
                 <span>رزرو نسخه پیش‌نمایش آنتی‌استیلر</span>
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="w-4 h-4 shrink-0" />
               </button>
 
               <button
                 onClick={onOpenReader}
-                className="flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-semibold text-slate-200 bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 rounded-xl transition-all cursor-pointer"
+                className="w-full sm:w-auto h-12 px-6 flex items-center justify-center gap-2 text-sm font-semibold text-slate-200 bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 rounded-xl transition-all cursor-pointer text-center"
               >
-                <BookOpen className="w-4 h-4 text-emerald-400" />
+                <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>ورود به کتابخوان تخصصی امنیت</span>
               </button>
 
               <button
                 onClick={onScrollToAntiStealer}
-                className="hidden xl:flex items-center justify-center px-4 py-3.5 text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                className="hidden xl:flex items-center justify-center h-12 px-4 text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
               >
                 معماری فنی محصول ←
               </button>

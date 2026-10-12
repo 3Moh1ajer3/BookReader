@@ -1,0 +1,20 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # 1. Allow existing files and directories to pass through directly (API endpoints, media, images, podcasts)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # 2. Support directory-based clean paths with trailing index.html (e.g. /blog/ -> /blog/index.html)
+  RewriteCond %{DOCUMENT_ROOT}/$1/index.html -f
+  RewriteRule ^(.*)/?$ $1/index.html [L]
+
+  # 3. Support flat .html files if generated (e.g. /blog -> /blog.html)
+  RewriteCond %{DOCUMENT_ROOT}/$1.html -f
+  RewriteRule ^(.*)$ $1.html [L]
+
+  # 4. Fallback to index.html for client-side SPA routing on refresh or direct URL entry
+  RewriteRule ^ index.html [L]
+</IfModule>
