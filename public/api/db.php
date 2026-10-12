@@ -230,6 +230,109 @@ function roham_init_sql_tables(PDO $pdo, string $driver): void {
                 UNIQUE KEY `uniq_roham_categories_slug` (`slug`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         ");
+
+        // جدول یکپارچه و نرمال‌شده محتوا (وبلاگ و اخبار با فرمت Markdown + متادیتا)
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `roham_contents` (
+                `id` VARCHAR(64) NOT NULL,
+                `type` VARCHAR(32) NOT NULL,
+                `slug` VARCHAR(190) NOT NULL,
+                `title` VARCHAR(255) NOT NULL,
+                `subtitle` VARCHAR(255) NULL,
+                `summary` TEXT NOT NULL,
+                `category_id` VARCHAR(64) NOT NULL,
+                `category_name` VARCHAR(190) NOT NULL,
+                `status` VARCHAR(32) NOT NULL DEFAULT 'published',
+                `severity` VARCHAR(32) NULL,
+                `is_featured` TINYINT(1) NOT NULL DEFAULT 0,
+                `is_breaking` TINYINT(1) NOT NULL DEFAULT 0,
+                `difficulty` VARCHAR(64) NULL,
+                `read_time_minutes` INT NOT NULL DEFAULT 5,
+                `views` INT NOT NULL DEFAULT 0,
+                `published_at` VARCHAR(64) NOT NULL,
+                `created_at` VARCHAR(64) NOT NULL,
+                `updated_at` VARCHAR(64) NOT NULL,
+                `author_name` VARCHAR(190) NULL,
+                `author_role` VARCHAR(190) NULL,
+                `source_name` VARCHAR(190) NULL,
+                `source_url` VARCHAR(255) NULL,
+                `tldr_json` TEXT NULL,
+                `takeaways_json` TEXT NULL,
+                `references_json` TEXT NULL,
+                `iocs_json` TEXT NULL,
+                `body_markdown` LONGTEXT NOT NULL,
+                `rendered_html` LONGTEXT NOT NULL,
+                `meta_json` LONGTEXT NULL,
+                `payload_json` LONGTEXT NULL,
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uniq_roham_contents_slug` (`slug`),
+                KEY `idx_roham_contents_type` (`type`),
+                KEY `idx_roham_contents_category` (`category_id`),
+                KEY `idx_roham_contents_status` (`status`),
+                KEY `idx_roham_contents_published` (`published_at`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `roham_tags` (
+                `id` INT AUTO_INCREMENT NOT NULL,
+                `name` VARCHAR(64) NOT NULL,
+                `slug` VARCHAR(64) NOT NULL,
+                `created_at` VARCHAR(64) NOT NULL,
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uniq_roham_tags_name` (`name`),
+                UNIQUE KEY `uniq_roham_tags_slug` (`slug`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `roham_content_tags` (
+                `content_id` VARCHAR(64) NOT NULL,
+                `tag_name` VARCHAR(64) NOT NULL,
+                PRIMARY KEY (`content_id`, `tag_name`),
+                KEY `idx_roham_content_tags_tag` (`tag_name`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `roham_content_audit_logs` (
+                `id` VARCHAR(64) NOT NULL,
+                `content_id` VARCHAR(64) NOT NULL,
+                `action` VARCHAR(32) NOT NULL,
+                `actor_type` VARCHAR(32) NOT NULL,
+                `actor_id` VARCHAR(120) NOT NULL,
+                `ip_address` VARCHAR(64) NULL,
+                `user_agent` VARCHAR(255) NULL,
+                `idempotency_key` VARCHAR(128) NULL,
+                `changes_json` LONGTEXT NULL,
+                `created_at` VARCHAR(64) NOT NULL,
+                PRIMARY KEY (`id`),
+                KEY `idx_roham_audit_content` (`content_id`),
+                KEY `idx_roham_audit_created` (`created_at`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `roham_api_idempotency` (
+                `idempotency_key` VARCHAR(128) NOT NULL,
+                `action` VARCHAR(64) NOT NULL,
+                `response_code` INT NOT NULL,
+                `response_json` LONGTEXT NOT NULL,
+                `created_at` VARCHAR(64) NOT NULL,
+                `expires_at` INT NOT NULL,
+                PRIMARY KEY (`idempotency_key`),
+                KEY `idx_roham_idemp_expires` (`expires_at`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `roham_rate_limits` (
+                `rate_key` VARCHAR(128) NOT NULL,
+                `requests_count` INT NOT NULL,
+                `window_start` INT NOT NULL,
+                PRIMARY KEY (`rate_key`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
     } else {
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS roham_users (
@@ -279,6 +382,92 @@ function roham_init_sql_tables(PDO $pdo, string $driver): void {
                 description TEXT,
                 target_type TEXT NOT NULL DEFAULT 'all',
                 updated_at TEXT NOT NULL
+            );
+        ");
+
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS roham_contents (
+                id TEXT PRIMARY KEY,
+                type TEXT NOT NULL,
+                slug TEXT NOT NULL UNIQUE,
+                title TEXT NOT NULL,
+                subtitle TEXT,
+                summary TEXT NOT NULL,
+                category_id TEXT NOT NULL,
+                category_name TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'published',
+                severity TEXT,
+                is_featured INTEGER NOT NULL DEFAULT 0,
+                is_breaking INTEGER NOT NULL DEFAULT 0,
+                difficulty TEXT,
+                read_time_minutes INTEGER NOT NULL DEFAULT 5,
+                views INTEGER NOT NULL DEFAULT 0,
+                published_at TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                author_name TEXT,
+                author_role TEXT,
+                source_name TEXT,
+                source_url TEXT,
+                tldr_json TEXT,
+                takeaways_json TEXT,
+                references_json TEXT,
+                iocs_json TEXT,
+                body_markdown TEXT NOT NULL,
+                rendered_html TEXT NOT NULL,
+                meta_json TEXT,
+                payload_json TEXT
+            );
+        ");
+
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS roham_tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                slug TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL
+            );
+        ");
+
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS roham_content_tags (
+                content_id TEXT NOT NULL,
+                tag_name TEXT NOT NULL,
+                PRIMARY KEY (content_id, tag_name)
+            );
+        ");
+
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS roham_content_audit_logs (
+                id TEXT PRIMARY KEY,
+                content_id TEXT NOT NULL,
+                action TEXT NOT NULL,
+                actor_type TEXT NOT NULL,
+                actor_id TEXT NOT NULL,
+                ip_address TEXT,
+                user_agent TEXT,
+                idempotency_key TEXT,
+                changes_json TEXT,
+                created_at TEXT NOT NULL
+            );
+        ");
+
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS roham_api_idempotency (
+                idempotency_key TEXT PRIMARY KEY,
+                action TEXT NOT NULL,
+                response_code INTEGER NOT NULL,
+                response_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at INTEGER NOT NULL
+            );
+        ");
+
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS roham_rate_limits (
+                rate_key TEXT PRIMARY KEY,
+                requests_count INTEGER NOT NULL,
+                window_start INTEGER NOT NULL
             );
         ");
     }

@@ -649,9 +649,10 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                   </div>
                 )}
 
-              {/* Technical Article Sections */}
-              <div className="space-y-12">
-                {activeArticle.content.sections.map((sec, idx) => {
+              {/* Technical Article Sections or Rendered HTML */}
+              {activeArticle.content.sections && activeArticle.content.sections.length > 0 ? (
+                <div className="space-y-12">
+                  {activeArticle.content.sections.map((sec, idx) => {
                   const sectionAnchor = sec.id || `sec-${idx}`;
                   const codeKey = `${activeArticle.id}-code-${idx}`;
                   return (
@@ -875,7 +876,13 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                     </section>
                   );
                 })}
-              </div>
+                </div>
+              ) : activeArticle.renderedHtml ? (
+                <div
+                  className={`prose prose-lg max-w-none ${tc.body} leading-relaxed my-6`}
+                  dangerouslySetInnerHTML={{ __html: activeArticle.renderedHtml }}
+                />
+              ) : null}
 
               {/* Analytical Conclusion (ONLY if present) */}
               {activeArticle.content.conclusion && activeArticle.content.conclusion.trim().length > 0 && (

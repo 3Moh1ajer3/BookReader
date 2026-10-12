@@ -109,6 +109,12 @@ export interface BlogPost {
   source?: string;
   sourceUrl?: string;
   downloadedImages?: DownloadedMediaItem[];
+  publishedAt?: string;
+  readTimeMinutes?: number;
+  bodyMarkdown?: string;
+  renderedHtml?: string;
+  takeaways?: string[];
+  references?: { title: string; url: string }[];
   tldr: string[]; // خلاصه مدیریتی و نکات کلیدی
   content: {
     intro: string;
@@ -161,6 +167,11 @@ export interface NewsArticle {
   coverImage?: string;
   downloadedImages?: DownloadedMediaItem[];
   views: number;
+  publishedAt?: string;
+  readTimeMinutes?: number;
+  bodyMarkdown?: string;
+  renderedHtml?: string;
+  references?: { title: string; url: string }[];
   cveIds?: string[];
   cvssScore?: string;
   affectedProducts?: string[];
@@ -1130,16 +1141,35 @@ export async function fetchContentStore(): Promise<{
 
   const res = await callContentApi<{
     ok?: boolean;
+    success?: boolean;
     blogPosts?: BlogPost[];
     newsArticles?: NewsArticle[];
     categories?: ContentCategory[];
+    data?: {
+      blogPosts?: BlogPost[];
+      newsArticles?: NewsArticle[];
+      categories?: ContentCategory[];
+    };
     needsSeed?: boolean;
   }>("list", "GET");
 
   if (res.isPhpAvailable && res.ok && res.data) {
-    const serverBlogs = Array.isArray(res.data.blogPosts) ? res.data.blogPosts : [];
-    const serverNews = Array.isArray(res.data.newsArticles) ? res.data.newsArticles : [];
-    const serverCats = Array.isArray(res.data.categories) ? res.data.categories : [];
+    const rawData = res.data;
+    const serverBlogs = Array.isArray(rawData.blogPosts)
+      ? rawData.blogPosts
+      : Array.isArray(rawData.data?.blogPosts)
+      ? rawData.data.blogPosts
+      : [];
+    const serverNews = Array.isArray(rawData.newsArticles)
+      ? rawData.newsArticles
+      : Array.isArray(rawData.data?.newsArticles)
+      ? rawData.data.newsArticles
+      : [];
+    const serverCats = Array.isArray(rawData.categories)
+      ? rawData.categories
+      : Array.isArray(rawData.data?.categories)
+      ? rawData.data.categories
+      : [];
 
     // نرمال‌سازی فیلد keywords
     const normalizedBlogs = (serverBlogs.length > 0 ? serverBlogs : local.blogPosts).map((b) => ({
@@ -1340,6 +1370,228 @@ export async function adminDeleteNewsArticle(articleId: string): Promise<{
     ok: true,
     message: "گزارش خبری حذف شد.",
     newsArticles: updatedList,
+  };
+}
+
+export interface UpsertContentPayload {
+  action: "upsert_content";
+  type: "blog" | "news";
+  idempotencyKey?: string;
+  content: {
+    slug?: string;
+    title: string;
+    subtitle?: string;
+    summary: string;
+    categoryId?: string;
+    tags?: string[];
+    status?: "published" | "draft" | "archived";
+    publishedAt?: string;
+    author?: string | { name: string; role?: string };
+    difficulty?: string;
+    readTimeMinutes?: number;
+    isFeatured?: boolean;
+    severity?: "critical" | "high" | "medium" | "low" | "info" | string;
+    isBreaking?: boolean;
+    source?: string | { name: string; url?: string };
+    tldr?: string[];
+    takeaways?: string[];
+    references?: { title: string; url: string }[];
+    iocs?: NewsIoC[];
+    bodyMarkdown: string;
+  };
+}
+
+export function reconstructBlogMarkdown(post: BlogPost): string {
+  if (post.bodyMarkdown && post.bodyMarkdown.trim().length > 0) {
+    return post.bodyMarkdown;
+  }
+  const parts: string[] = [];
+  if (post.content?.intro && post.content.intro.trim().length > 0) {
+    parts.push(post.content.intro.trim());
+  }
+  if (post.content?.sections && post.content.sections.length > 0) {
+    for (const sec of post.content.sections) {
+      if (sec.heading && sec.heading.trim().length > 0) {
+        parts.push(`## ${sec.heading.trim()}`);
+      }
+      if (sec.paragraphs && sec.paragraphs.length > 0) {
+        for (const p of sec.paragraphs) {
+          if (p && p.trim().length > 0) {
+            parts.push(p.trim());
+          }
+        }
+      }
+      if (sec.codeSnippet && sec.codeSnippet.trim().length > 0) {
+        const lang = sec.codeLanguage || "bash";
+        parts.push(`\`\`\`${lang}\n${sec.codeSnippet.trim()}\n\`\`\``);
+      }
+      if (sec.callout && sec.callout.trim().length > 0) {
+        parts.push(`> ⚠️ **هشدار امنیتی:** ${sec.callout.trim()}`);
+      }
+    }
+  }
+  if (post.content?.conclusion && post.content.conclusion.trim().length > 0) {
+    parts.push(`## جمع‌بندی و نتیجه‌گیری فنی\n\n${post.content.conclusion.trim()}`);
+  }
+  return parts.join("\n\n");
+}
+
+export function reconstructNewsMarkdown(article: NewsArticle): string {
+  if (article.bodyMarkdown && article.bodyMarkdown.trim().length > 0) {
+    return article.bodyMarkdown;
+  }
+  const parts: string[] = [];
+  if (article.sections && article.sections.length > 0) {
+    for (const sec of article.sections) {
+      if (sec.heading && sec.heading.trim().length > 0) {
+        parts.push(`## ${sec.heading.trim()}`);
+      }
+      if (sec.paragraphs && sec.paragraphs.length > 0) {
+        for (const p of sec.paragraphs) {
+          if (p && p.trim().length > 0) {
+            parts.push(p.trim());
+          }
+        }
+      }
+      if (sec.codeSnippet && sec.codeSnippet.trim().length > 0) {
+        const lang = sec.codeLanguage || "powershell";
+        parts.push(`\`\`\`${lang}\n${sec.codeSnippet.trim()}\n\`\`\``);
+      }
+      if (sec.callout && sec.callout.trim().length > 0) {
+        parts.push(`> ⚠️ **هشدار امنیتی:** ${sec.callout.trim()}`);
+      }
+    }
+  }
+  return parts.join("\n\n");
+}
+
+export async function adminUpsertContent(payload: UpsertContentPayload): Promise<{
+  ok: boolean;
+  message: string;
+  error?: string;
+  data?: any;
+  blogPosts?: BlogPost[];
+  newsArticles?: NewsArticle[];
+}> {
+  const local = getLocalContentStore();
+  let updatedBlogPosts = [...local.blogPosts];
+  let updatedNewsArticles = [...local.newsArticles];
+
+  // Optimistically or locally reflect changes
+  if (payload.type === "blog") {
+    const slug = payload.content.slug || `post-${Date.now()}`;
+    const authorName =
+      typeof payload.content.author === "object"
+        ? payload.content.author?.name
+        : payload.content.author || "تیم پژوهش امنیت سایبری رهام";
+    const authorRole =
+      typeof payload.content.author === "object"
+        ? payload.content.author?.role || "Roham Threat Research Labs"
+        : "Roham Threat Research Labs";
+
+    const blogItem: BlogPost = {
+      id: slug,
+      slug,
+      title: payload.content.title,
+      subtitle: payload.content.subtitle || "",
+      summary: payload.content.summary,
+      category: payload.content.categoryId || "استیلر و بدافزار",
+      categoryId: payload.content.categoryId,
+      readTime: payload.content.readTimeMinutes ? `${payload.content.readTimeMinutes} دقیقه` : "۸ دقیقه",
+      readTimeMinutes: payload.content.readTimeMinutes || 8,
+      date: new Date().toLocaleDateString("fa-IR", { month: "long", year: "numeric" }),
+      publishedAt: payload.content.publishedAt || new Date().toISOString(),
+      author: authorName,
+      authorRole,
+      difficulty: (payload.content.difficulty as any) || "تخصصی (Deep-Dive)",
+      keywords: payload.content.tags || [],
+      tags: payload.content.tags || [],
+      status: (payload.content.status as any) || "published",
+      isFeatured: !!payload.content.isFeatured,
+      views: 1,
+      tldr: payload.content.tldr || [],
+      takeaways: payload.content.takeaways || [],
+      references: payload.content.references || [],
+      bodyMarkdown: payload.content.bodyMarkdown,
+      content: {
+        intro: "",
+        sections: [],
+        conclusion: "",
+        actionableTakeaways: payload.content.takeaways || [],
+      },
+    };
+
+    const exIdx = updatedBlogPosts.findIndex((b) => b.slug === slug || b.id === slug);
+    if (exIdx >= 0) {
+      updatedBlogPosts[exIdx] = { ...updatedBlogPosts[exIdx], ...blogItem };
+    } else {
+      updatedBlogPosts.unshift(blogItem);
+    }
+    saveLocalContentStore(updatedBlogPosts, updatedNewsArticles);
+  } else {
+    const slug = payload.content.slug || `news-${Date.now()}`;
+    const sourceName =
+      typeof payload.content.source === "object"
+        ? payload.content.source?.name
+        : payload.content.source || "Roham Threat Intel";
+    const sourceUrl =
+      typeof payload.content.source === "object" ? payload.content.source?.url : undefined;
+
+    const newsItem: NewsArticle = {
+      id: slug,
+      slug,
+      title: payload.content.title,
+      subtitle: payload.content.subtitle || "",
+      category: (payload.content.categoryId as any) || "urgent",
+      categoryLabel: payload.content.categoryId || "هشدار امنیتی",
+      categoryId: payload.content.categoryId,
+      severity: (payload.content.severity as any) || "CRITICAL",
+      status: (payload.content.status as any) || "published",
+      isBreaking: !!payload.content.isBreaking,
+      date: new Date().toLocaleDateString("fa-IR", { month: "long", year: "numeric" }),
+      publishedAt: payload.content.publishedAt || new Date().toISOString(),
+      readTime: payload.content.readTimeMinutes ? `${payload.content.readTimeMinutes} دقیقه` : "۵ دقیقه",
+      readTimeMinutes: payload.content.readTimeMinutes || 5,
+      author: "تحریریه امنیت سایبری و هوش تهدیدات رهام",
+      source: sourceName,
+      sourceUrl,
+      views: 1,
+      summary: payload.content.summary,
+      keyHighlights: payload.content.tldr || [],
+      keywords: payload.content.tags || [],
+      tags: payload.content.tags || [],
+      iocs: payload.content.iocs || [],
+      sections: [],
+      bodyMarkdown: payload.content.bodyMarkdown,
+    };
+
+    const exIdx = updatedNewsArticles.findIndex((n) => n.slug === slug || n.id === slug);
+    if (exIdx >= 0) {
+      updatedNewsArticles[exIdx] = { ...updatedNewsArticles[exIdx], ...newsItem };
+    } else {
+      updatedNewsArticles.unshift(newsItem);
+    }
+    saveLocalContentStore(updatedBlogPosts, updatedNewsArticles);
+  }
+
+  const res = await callContentApi<{
+    ok?: boolean;
+    success?: boolean;
+    message?: string;
+    error?: string | { message?: string };
+    data?: any;
+  }>("upsert_content", "POST", payload);
+
+  const isOk = (res.data?.ok || res.data?.success || res.ok) ?? false;
+  const errMsg = typeof res.data?.error === "string" ? res.data.error : res.data?.error?.message || "خطا در ثبت محتوا";
+
+  return {
+    ok: isOk,
+    message: res.data?.message || (isOk ? "محتوا با موفقیت ثبت شد." : errMsg),
+    error: isOk ? undefined : errMsg,
+    data: res.data?.data,
+    blogPosts: updatedBlogPosts,
+    newsArticles: updatedNewsArticles,
   };
 }
 

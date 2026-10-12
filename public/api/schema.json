@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RohamUpsertContentPayload",
+  "description": "JSON Schema استاندارد ارسال محتوا به پرتال امنیت سایبری رهام",
+  "type": "object",
+  "required": ["action", "type", "content"],
+  "properties": {
+    "action": {
+      "type": "string",
+      "const": "upsert_content",
+      "description": "نام اکشن الزامی باید upsert_content باشد"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["blog", "news"],
+      "description": "نوع محتوا: blog برای مقالات تخصصی، news برای اخبار و هشدارهای رادار"
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "description": "کلید یکتایی درخواست جهت جلوگیری از دوباره‌کاری در صورت قطعی شبکه"
+    },
+    "content": {
+      "type": "object",
+      "required": ["title", "summary", "bodyMarkdown"],
+      "properties": {
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9\\-_]+$",
+          "description": "اسلاگ انگلیسی URL، در صورت عدم ارسال از عنوان تولید می‌شود"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 5,
+          "description": "عنوان اصلی مقاله یا گزارش خبری"
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "زیرعنوان توضیحی و تحلیلی"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 10,
+          "description": "خلاصه دوخطی جهت نمایش در کارت‌های اصلی"
+        },
+        "categoryId": {
+          "type": "string",
+          "description": "شناسه دسته‌بندی رسمی (مثلاً malware-infostealers یا supply-chain)"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "آرایه برچسب‌ها و تگ‌های کلیدی"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["published", "draft", "archived"],
+          "default": "published"
+        },
+        "publishedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "تاریخ انتشار به فرمت استاندارد ISO 8601 (مانند 2026-04-01T12:30:00Z)"
+        },
+        "author": {
+          "oneOf": [
+            { "type": "string" },
+            {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "role": { "type": "string" }
+              }
+            }
+          ]
+        },
+        "difficulty": {
+          "type": "string",
+          "description": "سطح محتوا (مقدماتی، متوسط، پیشرفته، deep-dive)"
+        },
+        "readTimeMinutes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "زمان تقریبی مطالعه به دقیقه"
+        },
+        "isFeatured": {
+          "type": "boolean",
+          "description": "آیا مقاله ویژه بالای وبلاگ باشد؟"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info", "CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"],
+          "description": "سطح فوریت و خطر برای اخبار امنیت"
+        },
+        "isBreaking": {
+          "type": "boolean",
+          "description": "آیا خبر فوری و قرمز رنگ باشد؟"
+        },
+        "source": {
+          "oneOf": [
+            { "type": "string" },
+            {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "url": { "type": "string", "format": "uri" }
+              }
+            }
+          ]
+        },
+        "tldr": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "نکات کلیدی و خلاصه مدیریتی"
+        },
+        "takeaways": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "چک‌لیست عملیاتی و اقدامات دفاعی پیشنهادی"
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["title", "url"],
+            "properties": {
+              "title": { "type": "string" },
+              "url": { "type": "string", "format": "uri" }
+            }
+          }
+        },
+        "iocs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["type", "value"],
+            "properties": {
+              "type": { "type": "string" },
+              "value": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        },
+        "bodyMarkdown": {
+          "type": "string",
+          "minLength": 10,
+          "description": "بدنه مقاله به صورت کامل در قالب استاندارد Markdown"
+        }
+      }
+    }
+  }
+}

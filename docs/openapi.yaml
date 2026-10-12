@@ -1,0 +1,148 @@
+openapi: 3.1.0
+info:
+  title: Roham Cyber Security Portal — Content Ingestion & AI Posting API
+  version: 2.0.0
+  description: >
+    API یکپارچه و استاندارد جهت انتشار خودکار مقالات وبلاگ تخصصی و هشدارهای رادار امنیت پرتال رهام
+    توسط ایجنت‌های هوش مصنوعی، ربات‌های تلگرام/گیت‌هاب و اسکریپت‌های کرون‌جاب.
+  contact:
+    name: Roham Threat Research Labs
+    url: https://roham.org
+servers:
+  - url: /api/content.php
+    description: سرور اختصاصی سی‌پنل PHP پرتال رهام
+paths:
+  /api/content.php:
+    get:
+      summary: دریافت لیست یا اسکیما یا مشخصات محتوا
+      parameters:
+        - name: action
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [list, get_content, schema, openapi]
+            default: list
+        - name: slug
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: داده‌های درخواستی
+    post:
+      summary: ثبت، به‌روزرسانی و انتشار محتوا (Upsert)
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: شناسه یکتای درخواست جهت تضمین عدم دوباره‌کاری
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertContentPayload'
+      responses:
+        '200':
+          description: محتوا با موفقیت ثبت یا ویرایش شد.
+        '400':
+          description: خطای اعتبارسنجی ورودی.
+        '403':
+          description: کلید API نامعتبر است یا دسترسی مجاز نیست.
+        '429':
+          description: سقف نرخ ارسال درخواست پر شده است.
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+      description: کلید محرمانه اختصاصی انتشار خودکار هوش مصنوعی
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    UpsertContentPayload:
+      type: object
+      required:
+        - action
+        - type
+        - content
+      properties:
+        action:
+          type: string
+          enum: [upsert_content]
+          default: upsert_content
+        type:
+          type: string
+          enum: [blog, news]
+        idempotencyKey:
+          type: string
+        content:
+          type: object
+          required:
+            - title
+            - summary
+            - bodyMarkdown
+          properties:
+            slug:
+              type: string
+            title:
+              type: string
+            subtitle:
+              type: string
+            summary:
+              type: string
+            categoryId:
+              type: string
+            tags:
+              type: array
+              items:
+                type: string
+            status:
+              type: string
+              enum: [published, draft, archived]
+              default: published
+            publishedAt:
+              type: string
+              format: date-time
+            difficulty:
+              type: string
+            readTimeMinutes:
+              type: integer
+            isFeatured:
+              type: boolean
+            severity:
+              type: string
+              enum: [critical, high, medium, low, info, CRITICAL, HIGH, MEDIUM, LOW, INFO]
+            isBreaking:
+              type: boolean
+            tldr:
+              type: array
+              items:
+                type: string
+            takeaways:
+              type: array
+              items:
+                type: string
+            references:
+              type: array
+              items:
+                type: object
+                required: [title, url]
+                properties:
+                  title:
+                    type: string
+                  url:
+                    type: string
+            bodyMarkdown:
+              type: string
+              description: متن کامل مقاله در قالب مارک‌داون

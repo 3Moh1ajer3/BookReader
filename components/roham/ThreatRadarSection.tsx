@@ -360,7 +360,7 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
   if (activeArticle) {
     const articleSections =
       activeArticle.content?.sections ||
-      activeArticle.sections.map((s, idx) => ({
+      (activeArticle.sections || []).map((s, idx) => ({
         id: s.id || `sec-${idx}`,
         heading: s.heading,
         paragraphs: s.paragraphs,
@@ -634,9 +634,10 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                 </div>
               )}
 
-              {/* Structured Article Sections */}
-              <div className="space-y-12">
-                {articleSections.map((sec, idx) => {
+              {/* Structured Article Sections or Rendered HTML */}
+              {articleSections && articleSections.length > 0 ? (
+                <div className="space-y-12">
+                  {articleSections.map((sec, idx) => {
                   const sectionAnchor = sec.id || `sec-${idx}`;
                   const codeKey = `${activeArticle.id}-code-${idx}`;
                   return (
@@ -774,7 +775,13 @@ export const ThreatRadarSection: React.FC<ThreatRadarSectionProps> = ({
                     </section>
                   );
                 })}
-              </div>
+                </div>
+              ) : activeArticle.renderedHtml ? (
+                <div
+                  className={`prose prose-lg max-w-none ${tc.body} leading-relaxed my-6`}
+                  dangerouslySetInnerHTML={{ __html: activeArticle.renderedHtml }}
+                />
+              ) : null}
 
               {/* Conclusion */}
               {activeArticle.content?.conclusion && (
