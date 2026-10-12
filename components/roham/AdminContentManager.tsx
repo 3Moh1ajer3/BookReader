@@ -175,6 +175,7 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
       author: "تیم پژوهش امنیت سایبری رهام",
       authorRole: "Roham Threat Research Labs",
       difficulty: "تخصصی (Deep-Dive)",
+      keywords: ["Infostealer", "Hardening"],
       tags: ["Infostealer", "Hardening"],
       status: "published",
       isFeatured: false,
@@ -219,8 +220,9 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
       slug:
         editingBlog.slug.trim() ||
         `article-${Date.now().toString().slice(-6)}`,
-      tldr: editingBlog.tldr.map((t) => t.trim()).filter(Boolean),
-      tags: editingBlog.tags.map((t) => t.trim()).filter(Boolean),
+      tldr: (editingBlog.tldr || []).map((t) => t.trim()).filter(Boolean),
+      keywords: (editingBlog.keywords || editingBlog.tags || []).map((t) => t.trim()).filter(Boolean),
+      tags: (editingBlog.tags || editingBlog.keywords || []).map((t) => t.trim()).filter(Boolean),
       content: {
         ...editingBlog.content,
         actionableTakeaways: editingBlog.content.actionableTakeaways
@@ -320,6 +322,7 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
         "پایش لاگ‌های SIEM و مسدودسازی شاخص‌های آلودگی (IoCs)",
       ],
       timeline: [{ time: "مهر ۱۴۰۴", event: "ثبت و انتشار بولتن امنیتی در رادار رهام" }],
+      keywords: ["ZeroDay", "SOC Alert"],
       tags: ["ZeroDay", "SOC Alert"],
     });
   };
@@ -347,16 +350,17 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
       slug:
         editingNews.slug.trim() ||
         `news-${Date.now().toString().slice(-6)}`,
-      cveIds: editingNews.cveIds.map((c) => c.trim()).filter(Boolean),
-      affectedProducts: editingNews.affectedProducts.map((p) => p.trim()).filter(Boolean),
-      keyHighlights: editingNews.keyHighlights.map((k) => k.trim()).filter(Boolean),
-      mitigationSteps: editingNews.mitigationSteps.map((m) => m.trim()).filter(Boolean),
-      tags: editingNews.tags.map((t) => t.trim()).filter(Boolean),
-      sections: editingNews.sections.map((s) => ({
+      cveIds: (editingNews.cveIds || []).map((c) => c.trim()).filter(Boolean),
+      affectedProducts: (editingNews.affectedProducts || []).map((p) => p.trim()).filter(Boolean),
+      keyHighlights: (editingNews.keyHighlights || []).map((k) => k.trim()).filter(Boolean),
+      mitigationSteps: (editingNews.mitigationSteps || []).map((m) => m.trim()).filter(Boolean),
+      keywords: (editingNews.keywords || editingNews.tags || []).map((t) => t.trim()).filter(Boolean),
+      tags: (editingNews.tags || editingNews.keywords || []).map((t) => t.trim()).filter(Boolean),
+      sections: (editingNews.sections || []).map((s) => ({
         ...s,
-        paragraphs: s.paragraphs.map((p) => p.trim()).filter(Boolean),
+        paragraphs: (s.paragraphs || []).map((p) => p.trim()).filter(Boolean),
       })),
-      iocs: editingNews.iocs.filter((i) => i.value.trim() !== ""),
+      iocs: (editingNews.iocs || []).filter((i) => i.value.trim() !== ""),
     };
 
     const res = await adminSaveNewsArticle(cleanArticle);
@@ -942,7 +946,7 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
               </label>
               <input
                 type="text"
-                value={editingNews.cveIds.join(", ")}
+                value={(editingNews.cveIds || []).join(", ")}
                 onChange={(e) =>
                   setEditingNews({
                     ...editingNews,
@@ -995,7 +999,7 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
               </label>
               <input
                 type="text"
-                value={editingNews.affectedProducts.join(", ")}
+                value={(editingNews.affectedProducts || []).join(", ")}
                 onChange={(e) =>
                   setEditingNews({
                     ...editingNews,
@@ -1079,7 +1083,7 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
               </label>
               <textarea
                 rows={3}
-                value={editingNews.keyHighlights.join("\n")}
+                value={(editingNews.keyHighlights || []).join("\n")}
                 onChange={(e) =>
                   setEditingNews({
                     ...editingNews,
@@ -1196,7 +1200,7 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
                     setEditingNews({
                       ...editingNews,
                       iocs: [
-                        ...editingNews.iocs,
+                        ...(editingNews.iocs || []),
                         { type: "SHA-256", value: "", description: "" },
                       ],
                     })
@@ -1208,7 +1212,7 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
                 </button>
               </div>
               <div className="space-y-2">
-                {editingNews.iocs.map((ioc, iIdx) => (
+                {(editingNews.iocs || []).map((ioc, iIdx) => (
                   <div
                     key={iIdx}
                     className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2"
@@ -1218,7 +1222,7 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
                         type="text"
                         value={ioc.type}
                         onChange={(e) => {
-                          const next = [...editingNews.iocs];
+                          const next = [...(editingNews.iocs || [])];
                           next[iIdx] = { ...ioc, type: e.target.value };
                           setEditingNews({ ...editingNews, iocs: next });
                         }}
@@ -1230,7 +1234,7 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
                         type="text"
                         value={ioc.value}
                         onChange={(e) => {
-                          const next = [...editingNews.iocs];
+                          const next = [...(editingNews.iocs || [])];
                           next[iIdx] = { ...ioc, value: e.target.value };
                           setEditingNews({ ...editingNews, iocs: next });
                         }}
@@ -1243,7 +1247,7 @@ export const AdminContentManager: React.FC<AdminContentManagerProps> = ({
                       type="text"
                       value={ioc.description}
                       onChange={(e) => {
-                        const next = [...editingNews.iocs];
+                        const next = [...(editingNews.iocs || [])];
                         next[iIdx] = { ...ioc, description: e.target.value };
                         setEditingNews({ ...editingNews, iocs: next });
                       }}

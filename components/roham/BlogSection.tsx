@@ -289,7 +289,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
-    posts.forEach((p) => p.tags.forEach((t) => set.add(t)));
+    posts.forEach((p) => (p.tags || []).forEach((t) => set.add(t)));
     return Array.from(set);
   }, [posts]);
 
@@ -302,7 +302,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
           ? bookmarkedIds.includes(post.id)
           : post.category === selectedCategory;
 
-      const matchesTag = !selectedTag || post.tags.includes(selectedTag);
+      const matchesTag = !selectedTag || (post.tags || []).includes(selectedTag);
 
       const q = searchQuery.trim().toLowerCase();
       const matchesSearch =
@@ -310,7 +310,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
         post.title.toLowerCase().includes(q) ||
         (post.subtitle || "").toLowerCase().includes(q) ||
         post.summary.toLowerCase().includes(q) ||
-        post.tags.some((t) => t.toLowerCase().includes(q)) ||
+        (post.tags || []).some((t) => t.toLowerCase().includes(q)) ||
         post.content.sections.some(
           (s) =>
             s.heading.toLowerCase().includes(q) ||
@@ -578,7 +578,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
 
               {/* Unboxed Tag List */}
               <div className={`flex flex-wrap items-center gap-2 text-xs font-mono ${tc.muted}`}>
-                {activeArticle.tags.map((tag, i) => (
+                {(activeArticle.tags || []).map((tag, i) => (
                   <React.Fragment key={tag}>
                     {i > 0 && <span aria-hidden="true">·</span>}
                     <span>#{tag}</span>
@@ -1563,7 +1563,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                       <span className={`font-semibold ${isDark ? "text-slate-200" : "text-slate-800"}`}>{post.author}</span>
                       <span aria-hidden="true">·</span>
                       <span className="font-mono text-[11px] opacity-75">
-                        {post.tags.slice(0, 3).map((t) => `#${t}`).join("  ")}
+                        {(post.tags || []).slice(0, 3).map((t) => `#${t}`).join("  ")}
                       </span>
                     </div>
 

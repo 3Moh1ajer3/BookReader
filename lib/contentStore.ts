@@ -99,7 +99,7 @@ export interface BlogPost {
   author: string;
   authorRole: string;
   difficulty: "مقدماتی" | "متوسط" | "پیشرفته" | "تخصصی (Deep-Dive)" | string;
-  keywords: string[]; // کلیدواژه‌ها
+  keywords?: string[]; // کلیدواژه‌ها
   tags?: string[]; // پشتیبانی گذشته‌نگر
   status: "published" | "draft";
   isFeatured: boolean;
@@ -166,7 +166,7 @@ export interface NewsArticle {
   affectedProducts?: string[];
   exploitStatus?: string;
   summary: string;
-  keywords: string[]; // کلیدواژه‌ها (جایگزین برچسب‌ها در انتها)
+  keywords?: string[]; // کلیدواژه‌ها (جایگزین برچسب‌ها در انتها)
   tags?: string[]; // پشتیبانی گذشته‌نگر
   tldr?: string[]; // خلاصه خبر و یافته‌های کلیدی (عین ساختار بلاگ)
   keyHighlights?: string[]; // پشتیبانی گذشته‌نگر
