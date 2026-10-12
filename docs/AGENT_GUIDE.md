@@ -44,6 +44,14 @@ In the AI Studio environment, run `compile_applet` at the conclusion of your cod
 5. **Stability of IDs:**
    - `Book.id` and `Chapter.id` keys map directly to user reading progress. Never rename existing IDs without an explicit migration path.
 
+6. **Content Ingestion & Auto-Posting Specification (v2.0):**
+   - For publishing blog posts or threat radar news via AI, bots, or admin forms:
+     - Use the unified action: `action: "upsert_content"` with `type: "blog" | "news"`.
+     - Payload body consists strictly of **clean metadata + `bodyMarkdown`** (see `docs/AI_POSTING_API.md`).
+     - Do NOT send deprecated nested blocks (`intro`, `sections`, `conclusion`, etc.).
+     - Do NOT send client-managed control fields (`id`, `views`, server dates). Always provide `publishedAt` in ISO 8601 string format.
+     - Provide `Idempotency-Key` header on automated POST requests to prevent double-publishing on network retries.
+
 ---
 
 ## 3. Pre-Flight Checklist
@@ -54,3 +62,5 @@ Before completing any task, ensure:
 - [ ] No server-side Node.js assumptions or `app/api` routes are introduced.
 - [ ] RTL and LTR formatting remains intact across reader components.
 - [ ] All API communication goes through `public/api/*.php`.
+- [ ] Content creation uses `upsert_content` with metadata + `bodyMarkdown`.
+

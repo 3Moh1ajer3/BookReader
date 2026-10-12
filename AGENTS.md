@@ -48,18 +48,23 @@ This document serves as the single source of truth for autonomous AI agents (e.g
 │   └── cyberContent.ts         # Base cybersecurity articles & catalog data
 ├── lib/
 │   ├── authSync.ts             # Direct client-side API connector for PHP auth & sync
-│   ├── contentStore.ts         # Direct connector for PHP content & threat radar
+│   ├── contentStore.ts         # Direct connector for PHP content & threat radar (v2 upsert_content)
 │   ├── exportStandaloneHtml.ts # Standalone offline HTML book generator
 │   └── utils.ts                # Classnames merger (clsx + tailwind-merge)
 ├── public/
 │   ├── api/                    # Pure PHP 8.x + MySQL Backend
 │   │   ├── admin.php           # Admin metrics, user CRUD, settings
 │   │   ├── auth.php            # User authentication (register, login, me, profile)
+│   │   ├── auto-publisher.php  # Automated AI threat intel harvester & publisher
 │   │   ├── config.php          # MySQL connection settings & auth secret
-│   │   ├── content.php         # Blog posts and threat radar articles API
+│   │   ├── content.php         # REST gateway for upsert_content, schemas, and articles
+│   │   ├── content-service.php # Core v2.0 engine (Markdown, Sanitization, Idempotency, Audit Log)
 │   │   ├── db.php              # PDO helper & table auto-initialization
 │   │   ├── leads.php           # Consultation, course, and beta lead submission
+│   │   ├── migrate.php         # Migration runner for transitioning legacy content to v2
+│   │   ├── migration.sql       # Normalized SQL migration script (contents, tags, audit logs)
 │   │   ├── public-config.php   # Public site settings (announcements, flags)
+│   │   ├── schema.json         # JSON Schema specification for content payloads
 │   │   ├── schema.sql          # Relational MySQL table schema
 │   │   ├── sync.php            # Cloud sync of reading progress, highlights, vocab
 │   │   └── translate.php       # Technical offline dictionary & translation endpoint
@@ -68,6 +73,8 @@ This document serves as the single source of truth for autonomous AI agents (e.g
 ├── docs/
 │   ├── ARCHITECTURE.md         # File map, dependency graph, system architecture
 │   ├── AGENT_GUIDE.md          # Context loading order, mandatory checklists
+│   ├── AI_POSTING_API.md       # AI & Bot auto-posting guide (Python, Node.js, cURL, OpenAPI)
+│   ├── openapi.yaml            # OpenAPI 3.1 schema specification
 │   └── BOOK_PIPELINE.md        # Step-by-step guide for adding new books
 └── AGENTS.md                   # This instruction file
 ```
@@ -94,3 +101,9 @@ When editing or extending this codebase, agents **MUST** follow these rules:
 - Run `npm run build` to verify the static production export.
 - When adding icons from Lucide, use named imports: `import { ShieldCheck, Users } from "lucide-react";`.
 - For animations, import from `motion/react`, never legacy `framer-motion`.
+
+### 4. Content Ingestion & Storage Architecture (v2.0)
+- All new content generation (AI bots, crawlers, RSS harvesters, Admin CMS) must use the standard action `action: "upsert_content"` with `type: "blog" | "news"`.
+- Never submit legacy nested blocks (`intro`, `sections`, `conclusion`, etc.). Use clean metadata + `bodyMarkdown`.
+- The server (`content-service.php`) handles XSS sanitization, markdown rendering, tag relation mapping, ISO 8601 timestamps, and audit logging.
+- Consult `docs/AI_POSTING_API.md` and `docs/openapi.yaml` for complete schemas and examples.
